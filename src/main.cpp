@@ -7,7 +7,7 @@
 
 
 int main(int argc, char* argv[]) {
-   if (argc != 2) {
+   if (argc < 2) {
       std::cerr << "Incorrect usage." << std::endl;
       std::cerr << "Usage as follows: rxr <name.rx>" << std::endl;
       return EXIT_FAILURE;
@@ -38,7 +38,13 @@ int main(int argc, char* argv[]) {
    }
 
    system("nasm -felf64 out.asm");
-   system("ld -o out out.o");
+   if (argc == 3) {
+      std::string linker= "ld -o ";
+      linker += argv[2];
+      linker += " out.o";
+      system(linker.c_str());
+   }
+   else system("ld -o out out.o");
    // system("rm *.o *.asm");
 
    return EXIT_SUCCESS;

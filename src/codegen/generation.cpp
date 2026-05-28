@@ -76,6 +76,19 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
          gen->m_output << "   call " << call->name.value.value() << "\n";
          gen->push("rax");
       }
+
+      // have x = 'a';
+      void operator()(const NodeExprCharLit* _char) {
+         auto var = gen->get_var(_char->CHAR_LIT.value.value());
+         if (!var.has_value()) {
+            std::cerr << "Undeclared identifier: " << _char->CHAR_LIT.value.value()
+                      << std::endl;
+            exit(EXIT_FAILURE);
+         }
+
+         gen->m_output << "   push QWORD [rbp + " << " bruh " << '\n';
+         gen->push("rax");
+      }
    };
 
    ExprVisitor visitor({ .gen = this });
