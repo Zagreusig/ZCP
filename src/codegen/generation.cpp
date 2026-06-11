@@ -11,6 +11,11 @@
 void ASMGenerator::gen_expr(const NodeExpr* expr) {
    struct ExprVisitor {
       ASMGenerator* gen;
+
+      // void operator()(const NodeUnaryExpr* expr_unary) {
+         
+      // }
+
       void operator()(const NodeExprIntLit* expr_int_lit) {
          gen->m_output << "   mov rax, " 
                        << expr_int_lit->INT_LIT.value.value() << '\n';
@@ -133,8 +138,8 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
 
 
       void operator()(const NodeStmtIf* _if) const {
-         std::string else_label = gen->gen_condition_jump(_if->condition);
-         std::string end_label  = gen->make_label();
+         std::string else_label = gen->make_label();
+         gen->gen_cond(_if->condition, else_label);
 
          gen->begin_scope();
          for (auto stmt : _if->body->stmts)
@@ -142,6 +147,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
          gen->end_scope();
 
          if (_if->else_body != nullptr) {
+            std::string end_label = gen->make_label();
             gen->m_output << "   jmp " << end_label << "\n";
             gen->m_output << else_label << ":\n";
 
@@ -149,7 +155,6 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
             for (auto stmt : _if->else_body->stmts)
                gen->gen_stmt(stmt);
             gen->end_scope();
-
             gen->m_output << end_label << ":\n";
          } else {
             gen->m_output << else_label << ":\n";
@@ -159,10 +164,10 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
 
       void operator()(const NodeStmtWhile* loop) const {
          std::string strt = gen->make_label();
+         std::string ender = gen->make_label();
          gen->m_output << strt << ":\n";
-
-         std::string ender = gen->gen_condition_jump(loop->condition);
-
+         gen->gen_cond(loop->condition, ender);
+         
          gen->begin_scope();
          for (auto stmt : loop->body->stmts)
             gen->gen_stmt(stmt);
@@ -191,10 +196,11 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
 
          gen->gen_stmt(loop->init);
          std::string strt = gen->make_label();
+         std::string ender = gen->make_label();
+         gen->gen_cond(loop->condition, ender);
          gen->m_output << strt << ":\n";
          
-         std::string ender = gen->gen_condition_jump(loop->condition);
-
+         
          gen->begin_scope();
          for (auto stmt : loop->body->stmts)
             gen->gen_stmt(stmt);
@@ -223,33 +229,100 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
    std::visit(visitor, stmt->var);
 }
 
-std::string ASMGenerator::gen_condition_jump(const NodeCondition* cond) {
-   gen_expr(cond->left);
-   gen_expr(cond->right);
-   pop("rbx");
-   pop("rax");
-   m_output << "   cmp rax, rbx\n";
+void ASMGenerator::gen_cond(const NodeCondition* cond, const std::string& false_label) {
+   struct CondVisitor {
+      ASMGenerator* gen;
+      const std::string& false_label;
 
-   std::string ender = make_label();
-   switch (cond->operation) {
-      case CmpExprType::EQUAL:         m_output << "   jne " << ender << "\n"; break;
-      case CmpExprType::NOT_EQUAL:     m_output << "   je "  << ender << "\n"; break;
-      case CmpExprType::LESS_THAN:     m_output << "   jge " << ender << "\n"; break;
-      case CmpExprType::GREATER_THAN:  m_output << "   jle " << ender << "\n"; break;
-      case CmpExprType::LESS_EQUAL:    m_output << "   jg "  << ender << "\n"; break;
-      case CmpExprType::GREATER_EQUAL: m_output << "   jl "  << ender << "\n"; break;
-      default: break;
-   }
+      void operator()(const NodeCmpCondition* cmp) {
+         if (cmp->operation == CmpExprType::NONE) {
+            gen->gen_expr(cmp->left);
+            gen->pop("rax");
+            gen->m_output << "   cmp rax, 0\n";
+            gen->m_output << "   je " << false_label << "\n";
+            return;
+         }
 
-   return ender;
+         gen->gen_expr(cmp->left);
+         gen->gen_expr(cmp->right);
+         gen->pop("rbx");
+         gen->pop("rax");
+         gen->m_output << "   cmp rax, rbx\n";
+      
+         switch (cmp->operation) {
+            case CmpExprType::EQUAL:         gen->m_output << "   jne " << false_label << "\n"; break;
+            case CmpExprType::NOT_EQUAL:     gen->m_output << "   je "  << false_label << "\n"; break;
+            case CmpExprType::LESS_THAN:     gen->m_output << "   jge " << false_label << "\n"; break;
+            case CmpExprType::GREATER_THAN:  gen->m_output << "   jle " << false_label << "\n"; break;
+            case CmpExprType::LESS_EQUAL:    gen->m_output << "   jg "  << false_label << "\n"; break;
+            case CmpExprType::GREATER_EQUAL: gen->m_output << "   jl "  << false_label << "\n"; break;
+            default: break;
+         }
+      }
+
+      void operator()(const NodeLogicCondition* logic) {
+         if (logic->operation == CmpExprType::AND) {
+            gen->gen_cond(logic->left, false_label);
+            gen->gen_cond(logic->right, false_label);
+         }
+         else if (logic->operation == CmpExprType::OR) {
+            std::string true_label = gen->make_label();
+            gen->gen_cond_true(logic->left, true_label);
+            gen->gen_cond(logic->right, false_label);
+            gen->m_output << true_label << ":\n";
+         }
+      }
+   };
+   
+   std::visit(CondVisitor { .gen = this, .false_label = false_label }, cond->var);
 }
 
-void ASMGenerator::gen_cond(const NodeCondition* cond) {
-   gen_expr(cond->left);
-   gen_expr(cond->right);
-   pop("rbx");
-   pop("rax");
-   m_output << "   cmp rax, rbx\n";
+
+void ASMGenerator::gen_cond_true(const NodeCondition* cond, const std::string& true_label) {
+   struct CondVisitor {
+      ASMGenerator* gen;
+      const std::string& true_label;
+
+      void operator()(const NodeCmpCondition* cmp) {
+         if (cmp->operation == CmpExprType::NONE) {
+            gen->gen_expr(cmp->left);
+            gen->pop("rax");
+            gen->m_output << "   cmp rax, 0\n";
+            gen->m_output << "   jne " << true_label << "\n";
+            return;
+         }
+
+         gen->gen_expr(cmp->left);
+         gen->gen_expr(cmp->right);
+         gen->pop("rbx");
+         gen->pop("rax");
+         gen->m_output << "   cmp rax, rbx\n";
+
+         switch (cmp->operation) {
+            case CmpExprType::EQUAL: gen->m_output << "   je " << true_label << "\n"; break;
+            case CmpExprType::NOT_EQUAL: gen->m_output << "   jne " << true_label << "\n"; break;
+            case CmpExprType::LESS_THAN: gen->m_output << "   jl " << true_label << "\n"; break;
+            case CmpExprType::GREATER_THAN: gen->m_output << "   jg " << true_label << "\n"; break;
+            case CmpExprType::LESS_EQUAL: gen->m_output << "   jle " << true_label << "\n"; break;
+            case CmpExprType::GREATER_EQUAL: gen->m_output << "   jge " << true_label << "\n"; break;
+            default: break;
+         }
+      }
+
+      void operator()(const NodeLogicCondition* logic) {
+         if (logic->operation == CmpExprType::OR) {
+            gen->gen_cond_true(logic->left, true_label);
+            gen->gen_cond_true(logic->right, true_label);
+         } else if (logic->operation == CmpExprType::AND) {
+            std::string false_label = gen->make_label();
+            gen->gen_cond(logic->left, false_label);
+            gen->gen_cond(logic->right, false_label);
+            gen->m_output << false_label << ":\n";
+         }
+      }
+   };
+
+   std::visit(CondVisitor { .gen = this, .true_label = true_label }, cond->var);
 }
 
 

@@ -14,9 +14,9 @@ public:
    [[nodiscard]] std::string build();
    void gen_expr(const NodeExpr*);
    void gen_stmt(const NodeStmt*);
-   void gen_cond(const NodeCondition*);
+   void gen_cond(const NodeCondition*, const std::string&);
+   void gen_cond_true(const NodeCondition*, const std::string&);
    void gen_function(const NodeFunction*);
-   std::string gen_condition_jump(const NodeCondition*);
 private:
    struct Var {
       std::string name;

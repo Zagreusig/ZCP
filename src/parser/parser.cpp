@@ -36,8 +36,32 @@ CmpExprType cmp_type_convert(TokenType type) {
 }
 
 
+static CmpExprType logic_op_convert(TokenType t) {
+   switch(t) {
+      case TokenType::OPERATOR_LOGICAL_OR:  return CmpExprType::OR;
+      case TokenType::OPERATOR_LOGICAL_AND: return CmpExprType::AND;
+      default:                              return CmpExprType::NONE;
+   }
+}
+
+
 std::optional<NodeExpr*> Parser::parse_expr(int min_prec = 0) {
    std::optional<NodeExpr*> left;
+   // if (auto val = try_consume(TokenType::OPERATOR_DASH)) {
+   //    auto oper = parse_expr(get_precidence(BinExprType::EXPONENT));
+   //    if (!oper.has_value()) {
+   //       std::cerr << "Expected expression after unary '-'" << std::endl;
+   //       exit(EXIT_FAILURE);
+   //    }
+
+   //    NodeUnaryExpr* un = m_allocator.alloc<NodeUnaryExpr>();
+   //    un->operand = oper.value();
+      
+   //    NodeExpr* expr = m_allocator.alloc<NodeExpr>();
+   //    expr->var = un;
+   //    left = expr;
+
+   // }
    if (auto val = try_consume(TokenType::INT_LIT)) {
       NodeExprIntLit* int_lit = m_allocator.alloc<NodeExprIntLit>();
       int_lit->INT_LIT = val.value();
@@ -89,13 +113,13 @@ std::optional<NodeExpr*> Parser::parse_expr(int min_prec = 0) {
          left = expr;
       }
    }
-   else if (auto val = try_consume(TokenType::CHAR_LIT)) {
-      NodeExprCharLit* char_lit = m_allocator.alloc<NodeExprCharLit>();
-      char_lit->CHAR_LIT = val.value();
-      NodeExpr* expr = m_allocator.alloc<NodeExpr>();
-      expr->var = char_lit;
-      left = expr;
-   }
+   // else if (auto val = try_consume(TokenType::CHAR_LIT)) {
+   //    NodeExprCharLit* char_lit = m_allocator.alloc<NodeExprCharLit>();
+   //    char_lit->CHAR_LIT = val.value();
+   //    NodeExpr* expr = m_allocator.alloc<NodeExpr>();
+   //    expr->var = char_lit;
+   //    left = expr;
+   // }
    else return {};
 
    while (peek().has_value()) {
@@ -326,40 +350,97 @@ std::optional<NodeScopeBlock*> Parser::parse_scope() {
 }
 
 
-std::optional<NodeCondition*> Parser::parse_condition() {
+std::optional<NodeCondition*> Parser::parse_cond_primary() {
+   if (peek().has_value() && peek().value().type == TokenType::OPEN_PAREN) {
+      size_t saved = mark();
+      consume(); // munch (
+      if (auto inner = parse_condition_bp(0)) {
+         if (peek().has_value() && peek().value().type == TokenType::CLOSE_PAREN) {
+            if (peek(1).has_value() &&
+                cmp_type_convert(peek(1).value().type) != CmpExprType::NONE)
+               reset(saved);
+            else {
+               consume();
+               return inner;
+            }
+         }
+      }
+      reset(saved);
+   }
+
    auto left = parse_expr();
    if (!left .has_value()) return {};
 
+   NodeCmpCondition* cmp = m_allocator.alloc<NodeCmpCondition>();
+   cmp->left = left.value();
+
    CmpExprType op = cmp_type_convert(peek().value().type);
-   if (op == CmpExprType::NONE) {
-      std::cerr << "Expected comparison operator." << std::endl;
-      exit(EXIT_FAILURE);
+   if (op != CmpExprType::NONE) {
+      consume();
+      auto right = parse_expr();
+      if (!right.has_value()) {
+         std::cerr << "Expected comparison operator." << std::endl;
+         exit(EXIT_FAILURE);
+      }
+      cmp->operation = op;
+      cmp->right = right.value();
+   } else {
+      cmp->operation = CmpExprType::NONE; // Expr like if (x) or if (!head)
+      cmp->right = nullptr;
    }
-   consume();
 
-   auto right = parse_expr();
-   if (!right.has_value()) {
-      std::cerr << "Expected expression after comparison operator." << std::endl;
-      exit(EXIT_FAILURE);
+   NodeCondition* node = m_allocator.alloc<NodeCondition>();
+   node->var = cmp;
+   return node;
+}
+
+
+std::optional<NodeCondition*> Parser::parse_condition_bp(int min_prec) {
+   auto left = parse_cond_primary();
+   if (!left.has_value()) return {};
+
+   while (peek().has_value()) {
+      CmpExprType op = logic_op_convert(peek().value().type);
+      if (op == CmpExprType::NONE) break;
+
+      int prec = cond_precidence(op);
+      if (prec < min_prec) break;
+      consume();
+
+      auto right = parse_condition_bp(prec + 1);
+      if (!right.has_value()) {
+         std::cerr << "Expected condition after logical operator." << std::endl;
+         exit(EXIT_FAILURE);
+      }
+
+      NodeLogicCondition* logic = m_allocator.alloc<NodeLogicCondition>();
+      logic->operation = op;
+      logic->left = left.value();
+      logic->right = right.value();
+
+      NodeCondition* node = m_allocator.alloc<NodeCondition>();
+      node->var = logic;
+      left = node;
    }
 
-   NodeCondition* cond = m_allocator.alloc<NodeCondition>();
-   cond->operation = op;
-   cond->left  = left.value();
-   cond->right = right.value();
-   return cond;
+   return left;
+}
+
+
+std::optional<NodeCondition*> Parser::parse_condition() {
+   return parse_condition_bp(0);
 }
 
 
 std::optional<NodeFunction*> Parser::parse_func() {
-   if (!peek().has_value() || peek().value().type != TokenType::INT) return {};
+   if (!peek().has_value() || peek().value().type != TokenType::FUNC) return {};
 
    NodeFunction* func = m_allocator.alloc<NodeFunction>();
-   func->ret_type = consume();
+   consume();  // consume 'func' / 'fn' — it's a keyword, not the return type
 
    func->name = try_consume(TokenType::IDENTIFIER, "Expected function name.");
    try_consume(TokenType::OPEN_PAREN, "Expected '(' after function name.");
-   
+
    while (peek().has_value() && peek().value().type != TokenType::CLOSE_PAREN) {
       if (func->params.size() >= 6) {
          std::cerr << "Functions are capped at 6 params for now." << std::endl;
@@ -378,6 +459,14 @@ std::optional<NodeFunction*> Parser::parse_func() {
 
    try_consume(TokenType::CLOSE_PAREN, "Expected ')' after '('.");
 
+   // Optional return type: either ': type' or '-> type'
+   if (try_consume(TokenType::COLON) || try_consume(TokenType::OPERATOR_ARROW)) {
+      func->ret_type = try_consume(TokenType::INT, "Expected return type after ':' or '->'.");
+      func->has_ret_type = true;
+   } else {
+      func->has_ret_type = false;
+   }
+
    if (auto body = parse_scope())
       func->body = body.value();
    else {
@@ -387,6 +476,7 @@ std::optional<NodeFunction*> Parser::parse_func() {
 
    return func;
 }
+
 
 
 
@@ -413,6 +503,15 @@ int Parser::get_precidence(BinExprType op) {
       case BinExprType::MODULUS:        return 2;
       case BinExprType::EXPONENT:       return 3;
       default:                          return -1;
+   }
+}
+
+
+int cond_precidence(CmpExprType op) {
+   switch (op) {
+      case CmpExprType::OR:  return 1;
+      case CmpExprType::AND: return 2;
+      default:               return -1; // not a logical op
    }
 }
 

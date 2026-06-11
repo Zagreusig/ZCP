@@ -24,7 +24,11 @@ std::vector<Token> Lexer::tokenize() {
             tokens.push_back({.type = TokenType::RETURN});
             buf.clear(); continue;
          }
-         else if (buf == "if") {
+         else if (buf == "func" || buf == "fn") {
+            tokens.push_back({.type = TokenType::FUNC});
+            buf.clear(); continue;
+         }
+         else if (buf == "if" || buf == "when") {
             tokens.push_back({.type = TokenType::IF});
             buf.clear(); continue;
          }
@@ -48,6 +52,14 @@ std::vector<Token> Lexer::tokenize() {
             tokens.push_back({.type = TokenType::INT});
             buf.clear(); continue;
          }
+         else if (buf == "and") {
+            tokens.push_back({.type = TokenType::OPERATOR_LOGICAL_AND});
+            buf.clear(); continue;
+         }
+         else if (buf == "or") {
+            tokens.push_back({.type = TokenType::OPERATOR_LOGICAL_OR});
+            buf.clear(); continue;
+         }
          else {
             tokens.push_back({.type = TokenType::IDENTIFIER, .value = buf});
             buf.clear(); continue;
@@ -60,23 +72,23 @@ std::vector<Token> Lexer::tokenize() {
          tokens.push_back({.type = TokenType::INT_LIT, .value = buf});
          buf.clear(); continue;
       }
-      else if (peek().value() == '\'') {
-         consume();
-         if (!peek().has_value()) {
-            std::cerr << "Expected character literal." << std::endl;
-            exit(EXIT_FAILURE);
-         }
+      // else if (peek().value() == '\'') {
+      //    consume();
+      //    if (!peek().has_value()) {
+      //       std::cerr << "Expected character literal." << std::endl;
+      //       exit(EXIT_FAILURE);
+      //    }
 
-         char c = consume();
-         if (!peek().has_value() || peek().value() != '\'') {
-            std::cerr << "Expected closing '." << std::endl;
-            exit(EXIT_FAILURE);
-         }
+      //    char c = consume();
+      //    if (!peek().has_value() || peek().value() != '\'') {
+      //       std::cerr << "Expected closing '." << std::endl;
+      //       exit(EXIT_FAILURE);
+      //    }
 
-         consume();
-         tokens.push_back({ .type = TokenType::CHAR_LIT, .value = std::string(1, c) });
-         continue;
-      }
+      //    consume();
+      //    tokens.push_back({ .type = TokenType::CHAR_LIT, .value = std::string(1, c) });
+      //    continue;
+      // }
       else if (std::isspace(peek().value())) { consume(); continue; }
       else
          tokens.push_back(resolveSymbol(consume()));
@@ -90,10 +102,11 @@ inline Token Lexer::resolveSymbol(char symbol) {
    switch (symbol) {
    case  ';': return Token { .type = TokenType::SEMICOLON         };
    case  ':': return Token { .type = TokenType::COLON             };
-   case  '?': return Token { .type = TokenType::HUH               };
+   case  '?': return Token { .type = TokenType::QUESTION               };
    case  '!': 
       if (peek().has_value() && peek().value() == '=') {
          consume();
+         std::cout << "I see !=\n";
          return Token { .type = TokenType::OPERATOR_NOT_EQUAL     };
       }
       return Token { .type = TokenType::OPERATOR_BANG };
@@ -117,20 +130,37 @@ inline Token Lexer::resolveSymbol(char symbol) {
    case  '*': return Token { .type = TokenType::OPERATOR_ASTERISK };
    case  '/': return Token { .type = TokenType::OPERATOR_SLASH    };
    case  '%': return Token { .type = TokenType::OPERATOR_PERCENT  };
-   case  '-': return Token { .type = TokenType::OPERATOR_DASH     };
+   case  '-': 
+      if (peek().has_value() && peek().value() == '>') {
+         consume();
+         return Token { .type = TokenType::OPERATOR_ARROW         };
+      }
+      return Token { .type = TokenType::OPERATOR_DASH             };
    case  '^': return Token { .type = TokenType::OPERATOR_CARET    };
    case  '>': 
       if (peek().has_value() && peek().value() == '=') {
          consume();
          return Token { .type = TokenType::OPERATOR_GREATER_EQUAL };
       }
-      return Token { .type = TokenType::OPERATOR_GT };
+      return Token { .type = TokenType::OPERATOR_GT               };
    case  '<': 
       if (peek().has_value() && peek().value() == '=' ) {
          consume();
-         return Token { .type = TokenType::OPERATOR_LESS_EQUAL };
+         return Token { .type = TokenType::OPERATOR_LESS_EQUAL    };
       }
-      return Token { .type = TokenType::OPERATOR_LT };
+      return Token { .type = TokenType::OPERATOR_LT               };
+   case  '|':
+      if (peek().has_value() && peek().value() == '|') {
+         consume();
+         return Token { .type = TokenType::OPERATOR_LOGICAL_OR    };
+      }
+      return Token { .type = TokenType::PIPE                      };
+   case '&':
+      if (peek().has_value() && peek().value() == '&') {
+         consume();
+         return Token { .type = TokenType::OPERATOR_LOGICAL_AND   };
+      }
+      return Token { .type = TokenType::AMPERSAND                 };
    default:  return {};
    }
 }

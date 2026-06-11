@@ -19,6 +19,8 @@ enum BinExprType {
 enum class CmpExprType {
    NONE,
    EQUAL,
+   AND,
+   OR,
    NOT_EQUAL,
    LESS_THAN,
    GREATER_THAN,
@@ -26,8 +28,11 @@ enum class CmpExprType {
    GREATER_EQUAL
 };
 
+// enum class UnaryExprType { NEGATIVE };
+
 struct NodeExpr;
 struct NodeStmt;
+struct NodeCondition;
 
 struct NodeExprIntLit {
    Token INT_LIT;
@@ -41,19 +46,27 @@ struct NodeExprIdent {
    Token ident;
 };
 
-struct NodeCondition {
+struct NodeCmpCondition {
    CmpExprType operation;
    NodeExpr* left  = nullptr;
    NodeExpr* right = nullptr;
 };
 
+struct NodeLogicCondition {
+   CmpExprType operation;
+   NodeCondition* left  = nullptr;
+   NodeCondition* right = nullptr;
+};
+
+struct NodeCondition {
+   std::variant<NodeCmpCondition*, NodeLogicCondition*> var;
+};
 
 struct NodeBinExpr {
    BinExprType operation;
    NodeExpr* left  = nullptr;
    NodeExpr* right = nullptr;
 };
-
 
 struct NodeExprCall {
    Token name;
@@ -117,12 +130,11 @@ struct NodeStmtReturn {
 
 struct NodeFunction {
    Token ret_type;
+   bool has_ret_type = false;
    Token name;
    std::vector<NodeParam> params;
    NodeScopeBlock* body = nullptr;
 };
-
-
 
 struct NodeStmt {
    std::variant<NodeStmtExit*, NodeStmtHave*, NodeScopeBlock*, NodeStmtIf*, 
@@ -139,8 +151,12 @@ public:
       : m_tokens(std::move(tokens)),
         m_allocator(1024 * 1024 * 4) {}
 
+   std::vector<Token> regurg_toks() { return m_tokens; }
+
    std::optional<NodeExpr*>       parse_expr(int);
    std::optional<NodeStmt*>       parse_stmt();
+   std::optional<NodeCondition*>  parse_cond_primary();
+   std::optional<NodeCondition*>  parse_condition_bp(int);
    std::optional<NodeCondition*>  parse_condition();
    std::optional<NodeScopeBlock*> parse_scope();
    std::optional<NodeFunction*>   parse_func();
@@ -155,10 +171,14 @@ private:
    int get_precidence(BinExprType op);
    BinExprType bin_type_convert(TokenType);
 
+   size_t mark() const    { return m_index; }
+   void   reset(size_t m) { m_index = m;    }
 
    const std::vector<Token> m_tokens;
    size_t m_index = 0;
    ArenaAllocator m_allocator;
 };
+
+int cond_precidence(CmpExprType);
 
 #endif // PARSER_H

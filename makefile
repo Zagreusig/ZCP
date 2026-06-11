@@ -1,5 +1,5 @@
 # This is a make file I yoinked from the internet and then customized for my own use case.
-TARGET_EXEC := rx
+TARGET_EXEC := zcp
 
 BUILD_DIR := ./build
 SRC_DIRS := ./src
@@ -23,7 +23,7 @@ INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
 # The -MMD and -MP flags together generate Makefiles for us!
 # These files will have .d instead of .o as the output.
-CPPFLAGS := $(INC_FLAGS) -MMD -MP -g -Wall -Wextra -std=c++20
+CPPFLAGS := $(INC_FLAGS) -MMD -MP -g -Wall -Wextra -std=c++23
 
 # The final build step.
 $(TARGET_EXEC): $(OBJS)
@@ -49,7 +49,7 @@ run:
 	@valgrind --leak-check=full $(BUILD_DIR)/$(TARGET_EXEC)
 
 test:
-	@./$(TARGET_EXEC) ./tests/test.rx
+	@./$(TARGET_EXEC) ./tests/test.z
 	@./out
 	@echo $?
 

@@ -1,58 +1,11 @@
 #ifndef LEXER_H
 #define LEXER_H
 
+#include "Tokens.h"
+#include <iostream>
 #include <optional>
 #include <string>
 #include <vector>
-
-enum class TokenType {
-   NONE,
-   _EXIT,
-   RETURN,
-   IF,
-   ELSE,
-   WHEN,
-   FOR,
-   WHILE,
-   INT_LIT,
-   CHAR_LIT,
-   INT,
-   IDENTIFIER,
-   HAVE,
-   COLON,
-   SEMICOLON,
-   DOUBLE_QUOTE,
-   APOSTRAPHE,
-   FULL_STOP,
-   COMMA,
-   HUH,
-   OPERATOR_BANG,
-   OPEN_PAREN,
-   OPEN_BRACE,
-   OPEN_BRACKET,
-   CLOSE_PAREN,
-   CLOSE_BRACE,
-   CLOSE_BRACKET,
-   OPERATOR_EQUALS,
-   OPERATOR_PLUS,
-   OPERATOR_ASTERISK,
-   OPERATOR_SLASH,
-   OPERATOR_DASH,
-   OPERATOR_CARET,
-   OPERATOR_PERCENT,
-   OPERATOR_LT,
-   OPERATOR_GT,
-   OPERATOR_EQUAL_EQUAL,
-   OPERATOR_NOT_EQUAL,
-   OPERATOR_LESS_EQUAL,
-   OPERATOR_GREATER_EQUAL,
-};
-
-struct Token {
-   TokenType type                   = TokenType::NONE;
-   std::optional<std::string> value = "";
-};
-
 
 class Lexer {
 public:
