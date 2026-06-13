@@ -13,7 +13,7 @@ std::vector<Token> Lexer::tokenize() {
    while (peek().has_value()) {
       if (std::isalpha(peek().value())) {         
          buf.push_back(consume());
-         while (peek().has_value() && std::isalnum(peek().value()))
+         while (peek().has_value() && (std::isalnum(peek().value()) || peek().value() == '_'))
             buf.push_back(consume());
          
          if (buf == "exit") {
@@ -72,23 +72,23 @@ std::vector<Token> Lexer::tokenize() {
          tokens.push_back({.type = TokenType::INT_LIT, .value = buf});
          buf.clear(); continue;
       }
-      // else if (peek().value() == '\'') {
-      //    consume();
-      //    if (!peek().has_value()) {
-      //       std::cerr << "Expected character literal." << std::endl;
-      //       exit(EXIT_FAILURE);
-      //    }
+      else if (peek().value() == '\'') {
+         consume();
+         if (!peek().has_value()) {
+            std::cerr << "Expected character literal." << std::endl;
+            exit(EXIT_FAILURE);
+         }
 
-      //    char c = consume();
-      //    if (!peek().has_value() || peek().value() != '\'') {
-      //       std::cerr << "Expected closing '." << std::endl;
-      //       exit(EXIT_FAILURE);
-      //    }
+         char c = consume();
+         if (!peek().has_value() || peek().value() != '\'') {
+            std::cerr << "Expected closing '." << std::endl;
+            exit(EXIT_FAILURE);
+         }
 
-      //    consume();
-      //    tokens.push_back({ .type = TokenType::CHAR_LIT, .value = std::string(1, c) });
-      //    continue;
-      // }
+         consume();
+         tokens.push_back({ .type = TokenType::CHAR_LIT, .value = std::string(1, c) });
+         continue;
+      }
       else if (std::isspace(peek().value())) { consume(); continue; }
       else
          tokens.push_back(resolveSymbol(consume()));
@@ -106,7 +106,6 @@ inline Token Lexer::resolveSymbol(char symbol) {
    case  '!': 
       if (peek().has_value() && peek().value() == '=') {
          consume();
-         std::cout << "I see !=\n";
          return Token { .type = TokenType::OPERATOR_NOT_EQUAL     };
       }
       return Token { .type = TokenType::OPERATOR_BANG };

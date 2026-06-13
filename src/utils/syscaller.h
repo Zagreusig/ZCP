@@ -21,6 +21,8 @@ public:
             prog_name.erase();
             prog_name = name;  
          }
+         asm_file = prog_name + ".asm";
+         obj_file = prog_name + ".o";
          set_bools(); 
       }
 
@@ -59,6 +61,8 @@ private:
    ASTPrinter printer;
 
    std::string prog_name = "out";
+   std::string asm_file {};
+   std::string obj_file {};
    std::vector<Flags> flags {};
    std::vector<Token> tokens {};
    uint32_t all_flags {};

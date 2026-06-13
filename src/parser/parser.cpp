@@ -47,21 +47,7 @@ static CmpExprType logic_op_convert(TokenType t) {
 
 std::optional<NodeExpr*> Parser::parse_expr(int min_prec = 0) {
    std::optional<NodeExpr*> left;
-   // if (auto val = try_consume(TokenType::OPERATOR_DASH)) {
-   //    auto oper = parse_expr(get_precidence(BinExprType::EXPONENT));
-   //    if (!oper.has_value()) {
-   //       std::cerr << "Expected expression after unary '-'" << std::endl;
-   //       exit(EXIT_FAILURE);
-   //    }
 
-   //    NodeUnaryExpr* un = m_allocator.alloc<NodeUnaryExpr>();
-   //    un->operand = oper.value();
-      
-   //    NodeExpr* expr = m_allocator.alloc<NodeExpr>();
-   //    expr->var = un;
-   //    left = expr;
-
-   // }
    if (auto val = try_consume(TokenType::INT_LIT)) {
       NodeExprIntLit* int_lit = m_allocator.alloc<NodeExprIntLit>();
       int_lit->INT_LIT = val.value();
@@ -113,13 +99,14 @@ std::optional<NodeExpr*> Parser::parse_expr(int min_prec = 0) {
          left = expr;
       }
    }
-   // else if (auto val = try_consume(TokenType::CHAR_LIT)) {
-   //    NodeExprCharLit* char_lit = m_allocator.alloc<NodeExprCharLit>();
-   //    char_lit->CHAR_LIT = val.value();
-   //    NodeExpr* expr = m_allocator.alloc<NodeExpr>();
-   //    expr->var = char_lit;
-   //    left = expr;
-   // }
+   else if (auto val = try_consume(TokenType::CHAR_LIT)) {
+      std::cout << "Parsed char lit.\n";
+      NodeExprCharLit* char_lit = m_allocator.alloc<NodeExprCharLit>();
+      char_lit->CHAR_LIT = val.value();
+      NodeExpr* expr = m_allocator.alloc<NodeExpr>();
+      expr->var = char_lit;
+      left = expr;
+   }
    else return {};
 
    while (peek().has_value()) {

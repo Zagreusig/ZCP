@@ -43,6 +43,8 @@ void Syscaller::linker() {
 
 
 void Syscaller::cleanup() {
-   if (!assm) system("rm *.asm");
-   if (!obj)  system("rm *.o");
+   std::string rm_statement = "rm " + asm_file;
+   if (!assm) system(rm_statement.c_str());
+   rm_statement.clear(); rm_statement = "rm " + obj_file;
+   if (!obj)  system(rm_statement.c_str());
 }

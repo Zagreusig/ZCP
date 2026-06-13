@@ -12,10 +12,6 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
    struct ExprVisitor {
       ASMGenerator* gen;
 
-      // void operator()(const NodeUnaryExpr* expr_unary) {
-         
-      // }
-
       void operator()(const NodeExprIntLit* expr_int_lit) {
          gen->m_output << "   mov rax, " 
                        << expr_int_lit->INT_LIT.value.value() << '\n';
@@ -84,11 +80,13 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
 
       // have x = 'a';
       void operator()(const NodeExprCharLit* _char) {
+         std::cout << "Visited char lit nodeexpr\n";
          auto var = gen->get_var(_char->CHAR_LIT.value.value());
          if (!var.has_value()) {
             std::cerr << "Undeclared identifier: " << _char->CHAR_LIT.value.value()
                       << std::endl;
-            exit(EXIT_FAILURE);
+            // exit(EXIT_FAILURE);
+            return;
          }
 
          gen->m_output << "   push QWORD [rbp + " << " bruh " << '\n';

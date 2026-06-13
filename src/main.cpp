@@ -52,6 +52,11 @@ int main(int argc, char* argv[]) {
 
    Parser parser(std::move(tokens));
 
+   for (auto& tok : parser.regurg_toks()) {
+      std::cout << to_string(tok.type) << " ";
+   }
+   std::cout << std::endl;
+
    std::optional<NodeProg> prog = parser.parse_prog();
    if (!prog.has_value())  {
       std::cerr << "No exit statement found." << std::endl;

@@ -1,40 +1,4 @@
-fn shortCircuit(int apple, int banana, int cunt, int dick): int {
-   if (apple < banana && cunt < dick) {
-      return 1;
-   } else {
-      return 0;
-   }
-}
-
-
-fn andOr(int ah, int bah, int cah, int dah): int {
-   if ((ah || bah) && (cah || dah)) {
-      return 1;
-   } else {
-      return 0;
-   }
-}
-
-
 fn main(): int {
-   have a = 1;
-   have b = 2;
-   have c = 3;
-   have d = 4;
-   have x = 0;
-   have y = x;
-   have z = 1;
-   have j = z;
-
-   have shortCircuitFalse = shortCircuit(d, a, b, c);
-   have shortCircuitTrue = shortCircuit(a, b, c, d);
-   have andOrFalse = andOr(x, y, z, j);
-   have andOrTrue = andOr(z, x, j, y);
-
-   if (shortCircuitFalse == 0 && shortCircuitTrue == 1 && andOrFalse == 0 && andOrTrue == 1) {
-      return 0;
-   }
-   else {
-      return 1;
-   }
+   have balla = 'r';
+   return 0;
 }
