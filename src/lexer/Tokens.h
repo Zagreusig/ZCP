@@ -17,6 +17,7 @@
    X(INT_LIT)                     \
    X(CHAR_LIT)                    \
    X(INT)                         \
+   X(CHAR)                        \
    X(IDENTIFIER)                  \
    X(HAVE)                        \
    X(COLON)                       \

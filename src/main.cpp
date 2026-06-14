@@ -16,6 +16,12 @@ int main(int argc, char* argv[]) {
       std::cerr << "Usage as follows: zcp <name.z>" << std::endl;
       return EXIT_FAILURE;
    }
+   std::string input_file = argv[argc - 1];
+   if (!input_file.contains(".z")) {
+      std::cerr << "Unrecognized file." << std::endl;
+      std::cerr << "Must end in '.z'" << std::endl;
+      return EXIT_FAILURE;
+   }
 
    std::vector<Flags> flags {};
    std::string user_name = "out";
@@ -51,11 +57,6 @@ int main(int argc, char* argv[]) {
    std::vector<Token> tokens = Lexer.tokenize();
 
    Parser parser(std::move(tokens));
-
-   for (auto& tok : parser.regurg_toks()) {
-      std::cout << to_string(tok.type) << " ";
-   }
-   std::cout << std::endl;
 
    std::optional<NodeProg> prog = parser.parse_prog();
    if (!prog.has_value())  {

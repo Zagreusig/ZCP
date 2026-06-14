@@ -1,4 +1,4 @@
 fn main(): int {
-   have balla = 'r';
+   have balla = 'W';
    return 0;
 }

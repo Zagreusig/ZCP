@@ -19,10 +19,17 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
       }
 
 
+      // have x = 'a';
+      void operator()(const NodeExprCharLit* _char) {
+         gen->m_output << "   mov rax, '" << _char->CHAR_LIT.value.value() << "'\n";
+         gen->push("rax");         
+      }
+
+
       void operator()(const NodeExprIdent* expr_ident) {
          auto var = gen->get_var(expr_ident->ident.value.value());
          if (!var.has_value()) {
-            std::cerr << "Undeclared identifier: " << expr_ident->ident.value.value() << std::endl;
+            std::cerr << "Undeclared identifier visiting during gen_expr: " << expr_ident->ident.value.value() << std::endl;
             exit(EXIT_FAILURE);
          }
 
@@ -78,20 +85,6 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
          gen->push("rax");
       }
 
-      // have x = 'a';
-      void operator()(const NodeExprCharLit* _char) {
-         std::cout << "Visited char lit nodeexpr\n";
-         auto var = gen->get_var(_char->CHAR_LIT.value.value());
-         if (!var.has_value()) {
-            std::cerr << "Undeclared identifier: " << _char->CHAR_LIT.value.value()
-                      << std::endl;
-            // exit(EXIT_FAILURE);
-            return;
-         }
-
-         gen->m_output << "   push QWORD [rbp + " << " bruh " << '\n';
-         gen->push("rax");
-      }
    };
 
    ExprVisitor visitor({ .gen = this });

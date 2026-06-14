@@ -52,6 +52,10 @@ std::vector<Token> Lexer::tokenize() {
             tokens.push_back({.type = TokenType::INT});
             buf.clear(); continue;
          }
+         else if (buf == "char") {
+            tokens.push_back({.type = TokenType::CHAR});
+            buf.clear(); continue;
+         }
          else if (buf == "and") {
             tokens.push_back({.type = TokenType::OPERATOR_LOGICAL_AND});
             buf.clear(); continue;

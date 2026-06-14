@@ -11,7 +11,7 @@ main:
    push rbp
    mov rbp, rsp
    sub rsp, 16
-   mov rax, 'W'
+   mov rax, 'r'
    push rax
    pop rax
    mov QWORD [rbp + -8], rax

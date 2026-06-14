@@ -103,6 +103,7 @@ std::optional<NodeExpr*> Parser::parse_expr(int min_prec = 0) {
       std::cout << "Parsed char lit.\n";
       NodeExprCharLit* char_lit = m_allocator.alloc<NodeExprCharLit>();
       char_lit->CHAR_LIT = val.value();
+      std::cout << "char_lit val: " << char_lit->CHAR_LIT.value.value() << std::endl;
       NodeExpr* expr = m_allocator.alloc<NodeExpr>();
       expr->var = char_lit;
       left = expr;
