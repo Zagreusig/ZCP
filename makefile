@@ -38,12 +38,20 @@ $(BUILD_DIR)/%.cpp.o: %.cpp
 .PHONY: clean
 clean:
 	@$(MAKE) deldir -i -s
+	@$(MAKE) rmExecs -i -s
+	@$(MAKE) rmFiles -i -s
 	clear
 
 deldir:
 	@rm -r $(BUILD_DIR)
 	@rm $(TARGET_EXEC)
 	@rm ./out
+
+rmExecs:
+	@find . -maxdepth 1 -type f -executable -exec rm -i {} +
+
+rmFiles:
+	@rm *.o *.asm
 
 run:	
 	@valgrind --leak-check=full $(BUILD_DIR)/$(TARGET_EXEC)

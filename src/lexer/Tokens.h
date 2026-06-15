@@ -8,6 +8,8 @@
    X(NONE)                        \
    X(_EXIT)                       \
    X(RETURN)                      \
+   X(PRINT)                       \
+   X(PRINTLN)                     \
    X(IF)                          \
    X(ELSE)                        \
    X(WHEN)                        \
@@ -16,8 +18,11 @@
    X(FUNC)                        \
    X(INT_LIT)                     \
    X(CHAR_LIT)                    \
+   X(STR_LIT)                     \
    X(INT)                         \
    X(CHAR)                        \
+   X(STR)                         \
+   X(BOOL)                        \
    X(IDENTIFIER)                  \
    X(HAVE)                        \
    X(COLON)                       \
@@ -53,7 +58,8 @@
    X(OPERATOR_GREATER_EQUAL)      \
    X(OPERATOR_LOGICAL_AND)        \
    X(OPERATOR_LOGICAL_OR)         \
-   X(OPERATOR_ARROW)
+   X(OPERATOR_ARROW)              \
+   X(ESCAPE_CHAR)                 \
 
 
 enum class TokenType {

@@ -1,15 +1,19 @@
 #ifndef GENERATION_H
 #define GENERATION_H
 
+#include "ast/Nodes.h"
+#include "lexer/Tokens.h"
 #include "lexer/lexer.h"
 #include "parser/parser.h"
+#include "type_checker.h"
 #include <sstream>
 #include <map>
+
 
 class ASMGenerator {
 public:
    inline explicit ASMGenerator(NodeProg prog) 
-      : m_prog(std::move(prog)) {}
+      : m_prog(std::move(prog)), m_types(m_prog) {}
 
    [[nodiscard]] std::string build();
    void gen_expr(const NodeExpr*);
@@ -21,7 +25,6 @@ private:
    struct Var {
       std::string name;
       int rbp_offset;
-      // Type eventually
    };
 
    std::optional<Var> get_var(const std::string&);
@@ -31,11 +34,12 @@ private:
       m_output << "   push " << reg << "\n";
       m_stack_size++;
    }
-
    void pop(const std::string& reg) {
       m_output << "   pop " << reg << "\n";
       m_stack_size--;
    }
+
+   void emit_print_int();
 
    void begin_scope();
    void end_scope();
@@ -45,15 +49,26 @@ private:
    int compute_frame_size(const NodeScopeBlock*);
    int compute_frame_size(const std::vector<NodeStmt*>&);
 
+   std::string add_string(const std::string&);
+
+   int console_write(const std::string&);   
+
    const NodeProg m_prog;
    std::stringstream m_output;
    size_t m_stack_size = 0;
    std::vector<Var> m_vars           {};
+
+   std::vector<std::pair<std::string, std::string>> m_strings {};
+   int m_str_count = 0;
+
+   TypeChecker m_types;
 
    int m_current_offset = 0;
    int m_label_count    = 0;
    std::vector<size_t> m_scope_stack {};
 
 };
+
+
 
 #endif // GENERATION_H

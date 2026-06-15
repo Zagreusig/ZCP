@@ -2,8 +2,9 @@
 #include <optional>
 #include <vector>
 #include "ast/arena.h"
+#include "ast/Nodes.h"
 #include "parser.h"
-#include "lexer/lexer.h"
+#include "lexer/Tokens.h"
 
 [[nodiscard]] inline std::optional<Token> Parser::peek(int offset = 0) const {
    if (m_index + offset >= m_tokens.size()) return {};
@@ -100,12 +101,17 @@ std::optional<NodeExpr*> Parser::parse_expr(int min_prec = 0) {
       }
    }
    else if (auto val = try_consume(TokenType::CHAR_LIT)) {
-      std::cout << "Parsed char lit.\n";
       NodeExprCharLit* char_lit = m_allocator.alloc<NodeExprCharLit>();
       char_lit->CHAR_LIT = val.value();
-      std::cout << "char_lit val: " << char_lit->CHAR_LIT.value.value() << std::endl;
       NodeExpr* expr = m_allocator.alloc<NodeExpr>();
       expr->var = char_lit;
+      left = expr;
+   }
+   else if (auto val = try_consume(TokenType::STR_LIT)) {
+      NodeExprStrLit* str_lit = m_allocator.alloc<NodeExprStrLit>();
+      str_lit->STR_LIT = val.value();
+      NodeExpr* expr = m_allocator.alloc<NodeExpr>();
+      expr->var = str_lit;
       left = expr;
    }
    else return {};
@@ -300,6 +306,28 @@ std::optional<NodeStmt*> Parser::parse_stmt() {
 
       NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
       stmt->var = assign;
+      return stmt;
+   }
+   else if (peek().has_value() && 
+            (peek().value().type == TokenType::PRINT || peek().value().type == TokenType::PRINTLN) &&
+            peek(1).has_value() && peek(1).value().type == TokenType::OPEN_PAREN) {
+      bool with_nl = (peek().value().type == TokenType::PRINTLN);
+      consume(2);
+      NodeStmtPrint* stmt_print = m_allocator.alloc<NodeStmtPrint>();
+      stmt_print->nwln = with_nl;
+
+      if (auto expr = parse_expr()) 
+         stmt_print->expr = expr.value();
+      else {
+         std::cerr << "Expected expression inside of print(...)." << std::endl;
+         exit(EXIT_FAILURE);
+      }
+
+      try_consume(TokenType::CLOSE_PAREN, "Expected ')' after print expression.");
+      try_consume(TokenType::SEMICOLON, "Expected ';' after print statement.");
+
+      NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
+      stmt->var = stmt_print;
       return stmt;
    }
    else if (auto val = try_consume(TokenType::RETURN)) {

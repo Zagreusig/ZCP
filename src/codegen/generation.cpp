@@ -4,9 +4,10 @@
 #include <string>
 #include <sstream>
 #include <utility>
+#include "ast/Nodes.h"
+#include "type_checker.h"
 #include "generation.h"
-#include "parser/parser.h"
-#include "lexer/lexer.h"
+#include "lexer/Tokens.h"
 
 void ASMGenerator::gen_expr(const NodeExpr* expr) {
    struct ExprVisitor {
@@ -23,6 +24,17 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
       void operator()(const NodeExprCharLit* _char) {
          gen->m_output << "   mov rax, '" << _char->CHAR_LIT.value.value() << "'\n";
          gen->push("rax");         
+      }
+
+      /**
+       * 1. Calc len (bytes)
+       * 2. Emit .data tag :]
+       * 3. move first byte into rsi.
+       * 
+       */
+      void operator()(const NodeExprStrLit* _str) {
+         std::cerr << "String values currently only work as args." << std::endl;
+         exit(EXIT_FAILURE);
       }
 
 
@@ -114,6 +126,8 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
             .name = stmt_have->ident.value.value(), 
             .rbp_offset = gen->m_current_offset 
          });
+         gen->m_types.declare_var(stmt_have->ident.value.value(),
+                                  gen->m_types.type_of(stmt_have->expr));
          gen->gen_expr(stmt_have->expr);
          gen->pop("rax");
          gen->m_output << "   mov QWORD [rbp + " << gen->m_current_offset << "], rax\n";
@@ -214,6 +228,75 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
                        << "   pop rbp\n"
                        << "   ret\n";
       }
+
+
+      /**
+       * 64-bit write registers:
+       * rax = 1      <- syscall code for write
+       * rdi = 1      <- fd (stdout)
+       * rsi = buffer <- pointer to the bytes
+       * rdx = length <- how many bytes
+       */
+      void operator()(const NodeStmtPrint* p) const {
+         DataType t = gen->m_types.type_of(p->expr);
+         switch (t) {
+            case DataType::INT:
+               gen->gen_expr(p->expr);
+               gen->pop("rax");
+               gen->m_output << "   mov rdi, " << (p->nwln ? 1 : 0) << '\n';
+               gen->m_output << "   call print_int\n";
+               break;
+            case DataType::STR: {
+               auto* str_node = std::get_if<NodeExprStrLit*>(&p->expr->var);
+               if (!str_node) {
+                  std::cerr << "Print works with string literals currently." << std::endl;
+                  exit(EXIT_FAILURE);
+               }
+
+               const std::string& bytes = (*str_node)->STR_LIT.value.value();
+               std::string label = gen->add_string(bytes);
+
+               gen->m_output << "   mov rax, 1\n"
+                             << "   mov rdi, 1\n"
+                             << "   mov rsi, " << label << '\n'
+                             << "   mov rdx, " << label << "_len\n"
+                             << "   syscall\n";
+
+               if (p->nwln) {
+                  gen->m_output << "   mov byte [print_buf], 10\n"
+                                << "   mov rax, 1\n"
+                                << "   mov rdi, 1\n"
+                                << "   mov rsi, print_buf\n"
+                                << "   mov rdx, 1\n"
+                                << "   syscall\n";
+               }
+               break;
+            }
+            case DataType::CHAR:
+               gen->gen_expr(p->expr);
+               gen->pop("rax");  // char sits in al (low byte of rax)
+
+               if (!p->nwln) {
+                  gen->m_output << "   mov byte [print_buf], al\n";
+                  gen->m_output << "   mov rsi, print_buf\n"
+                                << "   mov rdx, 1\n"
+                                << "   mov rax, 1\n"
+                                << "   mov rdi, 1\n"
+                                << "   syscall\n";
+               } else {
+                  gen->m_output << "   mov byte [print_buf + 1], 10\n"
+                                << "   mov rsi, print_buf\n"
+                                << "   mov rdx, 2\n"
+                                << "   mov rdi, 1\n"
+                                << "   mov rax, 1\n"
+                                << "   syscall\n";
+               }
+               break;
+            default: 
+               std::cerr << "Cannot print value of unknown type." << std::endl;
+               exit(EXIT_FAILURE);
+         }
+      }
    };
 
    StmtVisitor visitor { .gen = this };
@@ -290,11 +373,11 @@ void ASMGenerator::gen_cond_true(const NodeCondition* cond, const std::string& t
          gen->m_output << "   cmp rax, rbx\n";
 
          switch (cmp->operation) {
-            case CmpExprType::EQUAL: gen->m_output << "   je " << true_label << "\n"; break;
-            case CmpExprType::NOT_EQUAL: gen->m_output << "   jne " << true_label << "\n"; break;
-            case CmpExprType::LESS_THAN: gen->m_output << "   jl " << true_label << "\n"; break;
-            case CmpExprType::GREATER_THAN: gen->m_output << "   jg " << true_label << "\n"; break;
-            case CmpExprType::LESS_EQUAL: gen->m_output << "   jle " << true_label << "\n"; break;
+            case CmpExprType::EQUAL: gen->m_output         << "   je "  << true_label << "\n"; break;
+            case CmpExprType::NOT_EQUAL: gen->m_output     << "   jne " << true_label << "\n"; break;
+            case CmpExprType::LESS_THAN: gen->m_output     << "   jl "  << true_label << "\n"; break;
+            case CmpExprType::GREATER_THAN: gen->m_output  << "   jg "  << true_label << "\n"; break;
+            case CmpExprType::LESS_EQUAL: gen->m_output    << "   jle " << true_label << "\n"; break;
             case CmpExprType::GREATER_EQUAL: gen->m_output << "   jge " << true_label << "\n"; break;
             default: break;
          }
@@ -322,12 +405,13 @@ void ASMGenerator::gen_function(const NodeFunction* func) {
    int frame_size = compute_frame_size(func->body->stmts);
    frame_size += func->params.size() * 8;
    frame_size = (frame_size + 15) & ~15;
+
    m_output << "\n\n" << func->name.value.value() << ":\n"
          << "   push rbp\n"
          << "   mov rbp, rsp\n"
          << "   sub rsp, " << frame_size << "\n";
 
-
+   begin_scope();
    static const std::string param_regs[] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
    for (size_t i = 0; i < func->params.size(); i++) {
       const std::string& name = func->params[i].name.value.value();
@@ -336,10 +420,11 @@ void ASMGenerator::gen_function(const NodeFunction* func) {
          .name = name,
          .rbp_offset = m_current_offset
       });
+      m_types.declare_var(name, map_token_type(func->params[i].type.type));
       m_output << "   mov QWORD [rbp + " << m_current_offset << "], " << param_regs[i] << "\n";
    }
    
-   begin_scope();
+
    for (auto stmt : func->body->stmts)
       gen_stmt(stmt);
    end_scope();
@@ -352,12 +437,32 @@ void ASMGenerator::gen_function(const NodeFunction* func) {
 
 
 [[nodiscard]] std::string ASMGenerator::build() {
-   m_output << "global _start\n_start:\n"
+   m_output << "section .bss\n"
+            << "   print_buf: resb 32\n\n"
+            << "section .text\n"
+            << "global _start\n_start:\n"
             << "   call main\n   mov rdi, rax\n"
             << "   mov rax, 60\n   syscall\n\n";
+
+   emit_print_int();
    
    for (const NodeFunction* func : m_prog.funcs)
       gen_function(func);
+
+   if (m_strings.empty()) return m_output.str();
+
+   m_output << "\n\nsection .data\n";
+   for (const auto& [label, bytes]: m_strings) {
+      m_output << "   " << label << ": db ";
+      for (size_t i = 0; i < bytes.size(); i++) {
+         if (i) m_output << ", ";
+         m_output << (int)(unsigned char)bytes[i];
+      }
+
+      if (bytes.empty()) m_output << "0";
+      m_output << "\n"
+               << "   " << label << "_len: equ $ - " << label << "\n";
+   }
 
    return m_output.str();
 }
@@ -365,6 +470,7 @@ void ASMGenerator::gen_function(const NodeFunction* func) {
 
 void ASMGenerator::begin_scope() {
    m_scope_stack.push_back(m_vars.size());
+   m_types.push_scope();
 }
 
 
@@ -372,6 +478,7 @@ void ASMGenerator::end_scope() {
    size_t var_before = m_scope_stack.back();
    m_scope_stack.pop_back();
    m_vars.resize(var_before);
+   m_types.pop_scope();
 }
 
 
@@ -444,4 +551,66 @@ int ASMGenerator::compute_frame_size(const std::vector<NodeStmt*>& stmts) {
    int locals = count_locals(stmts);
    int bytes = locals * 8;
    return (bytes + 15) & ~15;
+}
+
+
+// 10 = '\n'
+int ASMGenerator::console_write(const std::string& msg) {
+   if (msg.empty()) return -1;
+   int len = msg.length();
+   m_output << "   mov eax, 1\n"
+            << "   mov ebx, 1\n"
+            << "   mov ecx, \"" << msg << "\"\n"
+            << "   mov edx, " << len << '\n'
+            << "   syscall\n";
+   return 0;
+}
+
+
+void ASMGenerator::emit_print_int() {
+   m_output << 
+"print_int:                 ; Positive ints for now\n\
+   ; rax = num, rdi = newline flag (0/1)\n\
+   mov byte [print_buf + 31], 10   ; park '\\n' at the end\n\
+   lea rsi, [print_buf + 30]       ; digits fill from here back\n\
+   mov rcx, 10\n\
+   mov r8, 0\n\
+   test rax, rax\n\
+   jnz .pi_sign\n\
+   mov byte [rsi], '0'\n\
+   dec rsi\n\
+   jmp .pi_write\n\
+.pi_sign:\n\
+   jns .pi_convert\n\
+   mov r8, 1\n\
+   neg rax\n\
+.pi_convert:\n\
+   xor rdx, rdx\n\
+   div rcx\n\
+   add dl, '0'\n\
+   mov [rsi], dl\n\
+   dec rsi\n\
+   test rax, rax\n\
+   jnz .pi_convert\n\
+   cmp r8, 1\n\
+   jne .pi_write\n\
+   mov byte [rsi], '-'\n\
+   dec rsi\n\
+.pi_write:\n\
+   inc rsi\n\
+   ; base length: up to the byte BEFORE newline slot\n\
+   lea rdx, [print_buf + 31]\n\
+   sub rdx, rsi    ; length WITHOUT newline\n\
+   add rdx, rdi    ; + flag (if using newline, adds the byte back)\n\
+   mov rax, 1\n\
+   mov rdi, 1      ; NOTE: this overwrites flag.\n\
+   syscall\n\
+   ret\n";
+}
+
+
+std::string ASMGenerator::add_string(const std::string& str) {
+   std::string label = "str_" + std::to_string(m_str_count++);
+   m_strings.push_back({ label, str });
+   return label;
 }

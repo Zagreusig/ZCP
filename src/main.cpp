@@ -22,25 +22,44 @@ int main(int argc, char* argv[]) {
       std::cerr << "Must end in '.z'" << std::endl;
       return EXIT_FAILURE;
    }
-
+   {
+      std::fstream file(input_file);
+      if (!file.is_open()) {
+         std::cerr << "Could not find file \"" << input_file << "\".\n";
+         return EXIT_FAILURE;
+      }
+   }
    std::vector<Flags> flags {};
    std::string user_name = "out";
    if (argc > 2) {
-      for (int i = 1; i < argc - 1; i++) {
-         if (argv[i][strlen(argv[i])] == '.' && 
-             argv[i][strlen(argv[i]) + 1] == 'z') { break; }
-         switch (argv[i][1]) {
-            case 'a': flags.push_back(Flags::LEAVE_ASM);    break;
-            case 'j': flags.push_back(Flags::LEAVE_OBJ);    break;
-            case 's': flags.push_back(Flags::PRINT_AST);    break;
-            case 'f': flags.push_back(Flags::PRINT_FLAGS);  break;
-            case 't': flags.push_back(Flags::PRINT_TOKENS); break;
-            case 'o': flags.push_back(Flags::USER_NAME); 
-                      user_name = argv[i + 1]; break;
-            default:
-               if (flags.back() == Flags::USER_NAME) continue;
-               std::cerr << "Unknown flag: " << argv[i] << std::endl;
-               return EXIT_FAILURE;
+      for (int i = 1; i < argc; i++) {
+         std::string flag = argv[i];
+         if (flag.contains(".z")) { break; }
+
+         for (size_t j = 1; j < flag.length(); j++) {
+            switch (flag.at(j)) {
+               case 'a': flags.push_back(Flags::LEAVE_ASM);    continue;
+               case 'j': flags.push_back(Flags::LEAVE_OBJ);    continue;
+               case 's': flags.push_back(Flags::PRINT_AST);    continue;
+               case 'f': flags.push_back(Flags::PRINT_FLAGS);  continue;
+               case 't': flags.push_back(Flags::PRINT_TOKENS); continue;
+               case 'o': flags.push_back(Flags::USER_NAME); 
+                        user_name = argv[i++ + 1]; continue;
+               case 'h':
+                  std::cout << "Help!!\n"
+                           << "-a        Leaves assembly file\n"
+                           << "-j        Leaves object file\n"
+                           << "-s        Prints Asymmetric Syntax Tree\n"
+                           << "-f        Prints flags passed in \n"
+                           << "-t        Prints the Lexer's tokens\n"
+                           << "-o {name} Determines the name of the program\n"
+                           << "-h        Prints this list." << std::endl;
+                  break;
+               default:
+                  if (flags.back() == Flags::USER_NAME) continue;
+                  std::cerr << "Unknown flag: " << flag.at(j) << std::endl;
+                  return EXIT_FAILURE;
+            }
          }
       }
    }

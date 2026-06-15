@@ -13,6 +13,7 @@ enum class Flags {
    PRINT_AST    = BIT(4),   // -s
    LEAVE_ASM    = BIT(5),   // -a
    LEAVE_OBJ    = BIT(6),   // -j
+   HALLLLLPUH   = BIT(7)    // -h
 };
 
 inline Flags operator|(Flags a, Flags b) {

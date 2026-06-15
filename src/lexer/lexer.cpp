@@ -15,7 +15,6 @@ std::vector<Token> Lexer::tokenize() {
          buf.push_back(consume());
          while (peek().has_value() && (std::isalnum(peek().value()) || peek().value() == '_'))
             buf.push_back(consume());
-         
          if (buf == "exit") {
             tokens.push_back({.type = TokenType::_EXIT});
             buf.clear(); continue;
@@ -64,6 +63,14 @@ std::vector<Token> Lexer::tokenize() {
             tokens.push_back({.type = TokenType::OPERATOR_LOGICAL_OR});
             buf.clear(); continue;
          }
+         else if (buf == "print") {
+            tokens.push_back({.type = TokenType::PRINT});
+            buf.clear(); continue;
+         }
+         else if (buf == "println") {
+            tokens.push_back({.type = TokenType::PRINTLN});
+            buf.clear(); continue;
+         }
          else {
             tokens.push_back({.type = TokenType::IDENTIFIER, .value = buf});
             buf.clear(); continue;
@@ -92,6 +99,24 @@ std::vector<Token> Lexer::tokenize() {
          consume();
          tokens.push_back({ .type = TokenType::CHAR_LIT, .value = std::string(1, c) });
          continue;
+      }
+      else if (peek().value() == '\"') {
+         consume();
+         while ((!peek().has_value() || peek().value() != '\"') &&
+                peek().value() != EOF) {
+            buf.push_back(consume());
+            /** TODO: Escape char logic */
+         }
+         
+         if (!peek().has_value() || peek().value() != '\"') {
+            std::cerr << "Expected closing \"." << std::endl;
+            exit(EXIT_FAILURE);
+         }
+         
+         consume();
+         tokens.push_back({ .type = TokenType::STR_LIT, .value = buf });
+         std::cout << "Str Lit parsed: " << tokens.back().value.value() << std::endl;
+         buf.clear(); continue;
       }
       else if (std::isspace(peek().value())) { consume(); continue; }
       else

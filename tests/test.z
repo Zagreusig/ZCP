@@ -1,4 +1,4 @@
 fn main(): int {
-   have balla = 'W';
-   return 0;
+   println("joe mama");
+   return 0;   
 }

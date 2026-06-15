@@ -101,6 +101,10 @@ void ASTPrinter::print_stmt(const NodeStmt* stmt, int depth) {
          std::cout << pad(depth + 1) << "Body:\n";
          p->print_scope(s->body, depth + 2);
       }
+      void operator()(const NodeStmtPrint* s) {
+         std::cout << pad(depth) << (s->nwln ? "Println:\n" : "Print:\n");
+         p->print_expr(s->expr, depth + 1);
+      }
       void operator()(const NodeStmtAssign* s) {
          std::cout << pad(depth) << "Assign: " << s->ident.value.value() << "\n";
          p->print_expr(s->expr, depth + 1);
@@ -138,6 +142,10 @@ void ASTPrinter::print_expr(const NodeExpr* expr, int depth) {
       }
       void operator()(const NodeExprCharLit* e) {
          std::cout << pad(depth) << "CharLit: " << e->CHAR_LIT.value.value() << "\n";
+      }
+
+      void operator()(const NodeExprStrLit* str) {
+         std::cout << pad(depth) << "StrLit: " << str->STR_LIT.value.value() << "\n";
       }
    };
    std::visit(Visitor{ this, depth }, expr->var);
