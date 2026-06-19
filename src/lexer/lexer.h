@@ -15,6 +15,7 @@ public:
 
 private:
    [[nodiscard]] std::optional<char> peek(int) const;
+   bool peek_eval(char, int);
    inline char consume() { return m_src.at(m_currIndex++); }
    inline Token resolveSymbol(char);
 

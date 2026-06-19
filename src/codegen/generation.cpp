@@ -20,18 +20,12 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
       }
 
 
-      // have x = 'a';
       void operator()(const NodeExprCharLit* _char) {
          gen->m_output << "   mov rax, '" << _char->CHAR_LIT.value.value() << "'\n";
          gen->push("rax");         
       }
 
-      /**
-       * 1. Calc len (bytes)
-       * 2. Emit .data tag :]
-       * 3. move first byte into rsi.
-       * 
-       */
+
       void operator()(const NodeExprStrLit* _str) {
          std::cerr << "String values currently only work as args." << std::endl;
          exit(EXIT_FAILURE);
@@ -47,6 +41,27 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
 
          gen->m_output << "   mov rax, QWORD [rbp + " << var.value().rbp_offset << "]\n";
          gen->push("rax");
+      }
+
+
+      void operator()(const NodeExprIncDec* node) {
+         auto var = gen->get_var(node->ident.value.value());
+         if (!var.has_value()) {
+            std::cerr << "Undeclared Identifier IncDec: " << node->ident.value.value() << std::endl;
+            exit(EXIT_FAILURE);
+         }
+         std::string slot = "QWORD [rbp + " + std::to_string(var.value().rbp_offset) + "]";
+         const char* op = node->is_increment ? "add" : "sub";
+
+         if (node->is_prefix) {
+            gen->m_output << "   " << op << " " << slot << ", 1\n"; // Mod first
+            gen->m_output << "   mov rax, " << slot << "\n";        // use new val
+            gen->push("rax");
+         } else {
+            gen->m_output << "   mov rax, " << slot << "\n";       // Save to rax
+            gen->push("rax");
+            gen->m_output << "   " << op << " " << slot << ", 1\n"; // Now mod
+         }
       }
 
 
@@ -113,11 +128,17 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
          gen->pop("rdi");
          gen->m_output << "   syscall\n";
       }
+
+      
+      void operator()(const NodeStmtExpr* s) {
+         gen->gen_expr(s->expr);
+         gen->pop("rax");
+      }
       
       
       void operator()(const NodeStmtHave* stmt_have) {
          if (gen->get_var(stmt_have->ident.value.value()).has_value()) {
-            std::cerr << "Identifier aleady used: " 
+            std::cerr << "Identifier aleady used (have): " 
                       << stmt_have->ident.value.value() << std::endl;
             exit(EXIT_FAILURE);
          }
@@ -186,7 +207,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
       void operator()(const NodeStmtAssign* assign) const {
          auto var = gen->get_var(assign->ident.value.value());
          if (!var.has_value()) {
-            std::cerr << "Undeclared identifier: " << assign->ident.value.value() << std::endl;
+            std::cerr << "Undeclared identifier Assign: " << assign->ident.value.value() << std::endl;
             exit(EXIT_FAILURE);
          }
 

@@ -15,6 +15,8 @@
    X(WHEN)                        \
    X(FOR)                         \
    X(WHILE)                       \
+   X(BREAK)                       \
+   X(CONTINUE)                    \
    X(FUNC)                        \
    X(INT_LIT)                     \
    X(CHAR_LIT)                    \
@@ -50,6 +52,12 @@
    X(OPERATOR_DASH)               \
    X(OPERATOR_CARET)              \
    X(OPERATOR_PERCENT)            \
+   X(OPERATOR_INCR)               \
+   X(OPERATOR_DECR)               \
+   X(OPERATOR_ADD_EQ)             \
+   X(OPERATOR_SUB_EQ)             \
+   X(OPERATOR_MUL_EQ)             \
+   X(OPERATOR_DIV_EQ)             \
    X(OPERATOR_LT)                 \
    X(OPERATOR_GT)                 \
    X(OPERATOR_EQUAL_EQUAL)        \
@@ -60,6 +68,9 @@
    X(OPERATOR_LOGICAL_OR)         \
    X(OPERATOR_ARROW)              \
    X(ESCAPE_CHAR)                 \
+   X(COMMENT)                     \
+   X(START_COMMENT_BLOCK)         \
+   X(END_COMMENT_BLOCK)
 
 
 enum class TokenType {
@@ -79,7 +90,7 @@ inline const char* to_string(const TokenType t) {
 
 struct Token {
    TokenType type                   = TokenType::NONE;
-   std::optional<std::string> value = "";
+   std::optional<std::string> value = "[null]";
 };
 
 #endif // TOKENS_H

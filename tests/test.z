@@ -1,4 +1,9 @@
 fn main(): int {
-   println("joe mama");
-   return 0;   
+   have x = 3;
+   for (have i = 0; i < 10; i++) {
+      if (i == 1) {
+         return 3;
+      }
+   }
+   return x;
 }

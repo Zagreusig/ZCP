@@ -70,6 +70,12 @@ struct NodeBinExpr {
    NodeExpr* right = nullptr;
 };
 
+struct NodeExprIncDec {
+   Token ident;
+   bool is_increment = false;
+   bool is_prefix    = false;
+};
+
 struct NodeExprCall {
    Token name;
    std::vector<NodeExpr*> args;
@@ -77,7 +83,7 @@ struct NodeExprCall {
 
 struct NodeExpr {
    std::variant<NodeExprIntLit*, NodeExprIdent*, NodeBinExpr*, NodeExprCall*, 
-                NodeExprCharLit*, NodeExprStrLit*> var;
+                NodeExprCharLit*, NodeExprStrLit*, NodeExprIncDec*> var;
 };
 
 struct NodeStmtExit {
@@ -140,11 +146,14 @@ struct NodeStmtPrint {
    bool nwln      = false;
 };
 
+struct NodeStmtExpr {
+   NodeExpr* expr = nullptr; 
+};
 
 struct NodeStmt {
    std::variant<NodeStmtExit*, NodeStmtHave*, NodeScopeBlock*, NodeStmtIf*, 
                 NodeStmtWhile*, NodeStmtFor*, NodeStmtAssign*, NodeStmtReturn*,  
-                NodeStmtPrint*> var;
+                NodeStmtPrint*, NodeStmtExpr*> var;
 };
 
 struct NodeProg {

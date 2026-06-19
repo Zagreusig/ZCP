@@ -82,8 +82,6 @@ int main(int argc, char* argv[]) {
       std::cerr << "No exit statement found." << std::endl;
       exit(EXIT_FAILURE);
    } 
-   
-
 
    ASMGenerator ASMGenerator(prog.value());
    Syscaller calls(user_name, parser.regurg_toks(), flags, prog.value());

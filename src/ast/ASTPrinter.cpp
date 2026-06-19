@@ -113,6 +113,10 @@ void ASTPrinter::print_stmt(const NodeStmt* stmt, int depth) {
          std::cout << pad(depth) << "Return\n";
          p->print_expr(s->expr, depth + 1);
       }
+      void operator()(const NodeStmtExpr* s) {
+         std::cout << pad(depth) << "StmtExpr:\n";
+         p->print_expr(s->expr, depth + 1);
+      }
    };
    std::visit(Visitor{ this, depth }, stmt->var);
 }
@@ -134,6 +138,12 @@ void ASTPrinter::print_expr(const NodeExpr* expr, int depth) {
          std::cout << pad(depth) << "BinExpr: " << bin_name(e->operation) << "\n";
          p->print_expr(e->left,  depth + 1);
          p->print_expr(e->right, depth + 1);
+      }
+      void operator()(const NodeExprIncDec* e) {
+         std::cout << pad(depth) << "IncDec:\n" 
+                   << pad(depth + 1) << "Ident:  " << to_string(e->ident.type) << "\n"
+                   << pad(depth + 1) << "Mode:   " << (e->is_increment ? "ADD\n" : "SUB\n")
+                   << pad(depth + 1) << "Prefix: " << (e->is_prefix ? "True\n" : "False\n");
       }
       void operator()(const NodeExprCall* e) {
          std::cout << pad(depth) << "Call: " << e->name.value.value() << "\n";

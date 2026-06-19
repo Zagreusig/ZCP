@@ -19,10 +19,27 @@ public:
 
    std::optional<NodeExpr*>       parse_expr(int);
    std::optional<NodeStmt*>       parse_stmt();
+   std::optional<NodeStmt*>       parse_simple_stmt();
    std::optional<NodeCondition*>  parse_cond_primary();
    std::optional<NodeCondition*>  parse_condition_bp(int);
    std::optional<NodeCondition*>  parse_condition();
    std::optional<NodeScopeBlock*> parse_scope();
+
+   std::optional<NodeStmt*>       parse_for();
+   std::optional<NodeStmt*>       parse_while();
+   std::optional<NodeStmt*>       parse_if();
+   std::optional<NodeStmt*>       parse_exit();
+   std::optional<NodeStmt*>       parse_return();
+   std::optional<NodeStmt*>       parse_have();
+   std::optional<NodeStmt*>       parse_print();
+   std::optional<NodeStmt*>       parse_assign();
+   std::optional<NodeStmt*>       parse_cmpd_assign();
+
+   std::optional<NodeExpr*>       parse_primary();
+   std::optional<NodeExpr*>       parse_ident_expr();
+   std::optional<NodeExpr*>       parse_prefix_incdec();
+   std::optional<NodeExpr*>       parse_call(Token);
+
    std::optional<NodeFunction*>   parse_func();
    std::optional<NodeProg>        parse_prog();
 private:
@@ -32,9 +49,17 @@ private:
    inline Token try_consume(TokenType, const std::string&);
    inline std::optional<Token> try_consume(TokenType);
    inline void consume(int n) { for (int i = 0; i < n; i++) consume(); }
+   bool is_next(TokenType, int);
    int get_precidence(BinExprType op);
    BinExprType bin_type_convert(TokenType);
 
+   BinExprType comp_to_binop(const TokenType&);
+   bool is_compound_assign(const TokenType&);
+
+   static bool valid_for_increment(const NodeStmt*);
+   static bool is_init_stmt(const NodeStmt*);
+
+   NodeExpr* wrap(auto*);
    size_t mark() const    { return m_index; }
    void   reset(size_t m) { m_index = m;    }
 

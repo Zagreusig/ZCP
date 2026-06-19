@@ -5,8 +5,10 @@
    #define DEBUG_BREAK() __debugbreak()
 #elif __linux__
    #define DEBUG_BREAK() __builtin_debugtrap()
-#elif __APPLE_
+#elif __APPLE__
    #define DEBUG_BREAK() __builtin_trap()
+#else
+   #define DEBUG_BREAK()
 #endif
 
 #include <stdio.h>
@@ -21,9 +23,9 @@ enum TextColor
 };
 
 template <typename ...Args>
-void _log(char* prefix, char* msg, TextColor textColor, Args... args) 
+void _log(const char* prefix, const char* msg, TextColor textColor, Args... args) 
 {
-   static char* TextColorTable[TEXT_COLOR_COUNT] =
+   static const char* TextColorTable[TEXT_COLOR_COUNT] =
    {
       "\x1b[31m", // RED
       "\x1b[32m", // GREEN
@@ -32,24 +34,41 @@ void _log(char* prefix, char* msg, TextColor textColor, Args... args)
    };
 
    char formatBuffer[8192] = {};
-   sprintf(formatBuffer, "%s %s %s \033[0m", TextColorTable[textColor], prefix, msg);
+   snprintf(formatBuffer, sizeof(formatBuffer), "%s %s %s \033[0m", 
+            TextColorTable[textColor], prefix, msg);
 
    char textBuffer[8192] = {};
-   sprintf(textBuffer, formatBuffer, args...);
+   snprintf(textBuffer, sizeof(textBuffer), formatBuffer, args...);
 
    puts(textBuffer);
 }
 
-#define ZL_TRACE(msg, ...) _log("TRACE: ", msg, TEXT_COLOR_GREEN, ##__VA_ARGS__);
-#define ZL_WARN(msg, ...) _log("WARN: ", msg, TEXT_COLOR_YELLOW, ##__VA_ARGS__);
-#define ZL_ERROR(msg, ...) _log("ERROR: ", msg, TEXT_COLOR_RED, ##__VA_ARGS__);
+#define ZL_TRACE(msg, ...)                                \
+do                                                        \
+{                                                         \
+   _log("TRACE: ", msg, TEXT_COLOR_GREEN, ##__VA_ARGS__); \
+} while(0)
+
+#define ZL_WARN(msg, ...)                                 \
+do                                                        \
+{                                                         \
+   _log("WARN: ", msg, TEXT_COLOR_YELLOW, ##__VA_ARGS__); \
+} while(0)
+
+#define ZL_ERROR(msg, ...)                              \
+do                                                      \
+{                                                       \
+   _log("ERROR: ", msg, TEXT_COLOR_RED, ##__VA_ARGS__); \
+} while(0)
 
 #define ZL_ASSERT(x, msg, ...)      \
+do                                  \
 {                                   \
-   if (!(x)) {                      \
+   if (!(x))                        \
+   {                                \
       ZL_ERROR(msg, ##__VA_ARGS__); \
       DEBUG_BREAK();                \
    }                                \
-}                                   \
+} while(0)
 
 #endif // LOGGER_H
