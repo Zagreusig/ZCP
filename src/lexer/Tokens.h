@@ -70,7 +70,8 @@
    X(ESCAPE_CHAR)                 \
    X(COMMENT)                     \
    X(START_COMMENT_BLOCK)         \
-   X(END_COMMENT_BLOCK)
+   X(END_COMMENT_BLOCK)           \
+   X(INVALID)
 
 
 enum class TokenType {
@@ -90,7 +91,9 @@ inline const char* to_string(const TokenType t) {
 
 struct Token {
    TokenType type                   = TokenType::NONE;
-   std::optional<std::string> value = "[null]";
+   std::optional<std::string> value = "";
+   int line                         = 0;
+   int col                          = 0;
 };
 
 #endif // TOKENS_H

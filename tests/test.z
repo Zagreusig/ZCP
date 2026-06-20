@@ -1,9 +1,9 @@
+func test(int a, int b) -> int {
+   return a + b;
+}
+
 fn main(): int {
-   have x = 3;
-   for (have i = 0; i < 10; i++) {
-      if (i == 1) {
-         return 3;
-      }
-   }
+   have x = test(4, 5);
+   println("Hello world");
    return x;
 }

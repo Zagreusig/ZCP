@@ -1,6 +1,7 @@
 #include "flags.h"
 #include "syscaller.h"
 #include <fstream>
+#include <iostream>
 
 void Syscaller::set_bools() {
    for (auto& flag : flags) {
@@ -16,27 +17,36 @@ void Syscaller::set_bools() {
    }
 }
 
-void Syscaller::make_calls() {
+void Syscaller::make_calls(bool errors) {
    if (flagz) print_flags();
    if (toks)  print_toks();
-   if (ast)   print_ast();
+   if (ast && !errors)   print_ast();
 
-   nasm();
-   linker();
-   cleanup();
+   if (!errors){
+      std::cout << asm_file << std::endl;
+      std::cout << obj_file << std::endl;
+
+      nasm();
+      linker();
+      cleanup();
+   }
 }
 
 void Syscaller::nasm() {
    std::string call = "nasm -felf64 ";
-   call.append(prog_name + ".asm");
+   call.append(asm_file);
+
+   std::cout << "NASM: " << call << std::endl;
 
    system(call.c_str());
 }
 
 
 void Syscaller::linker() {
-   std::string call = "ld -o ";
-   call.append(prog_name + " " + prog_name + ".o");
+   std::string call = "ld ";
+   call.append(obj_file + " -o " + prog_name);
+
+   std::cout << "LD: " << call << std::endl;
 
    system(call.c_str());
 }

@@ -3,6 +3,7 @@
 #include "lexer/lexer.h"
 #include "codegen/generation.h"  
 #include "parser/parser.h"
+#include "ErrAndRep/ErrorHandler.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -72,25 +73,28 @@ int main(int argc, char* argv[]) {
       contents = in_stream.str();
    }
 
-   Lexer Lexer(std::move(contents));
-   std::vector<Token> tokens = Lexer.tokenize();
+   Diagnostics diag;
 
-   Parser parser(std::move(tokens));
-
+   Lexer Lexer(contents);
+   std::vector<Token> tokens = Lexer.tokenize(&diag);
+   Parser parser(tokens, &diag);
    std::optional<NodeProg> prog = parser.parse_prog();
-   if (!prog.has_value())  {
-      std::cerr << "No exit statement found." << std::endl;
-      exit(EXIT_FAILURE);
-   } 
+   if (diag.has_errors()) {
+      diag.report_all(contents, input_file);
+      Syscaller err;
+      err.give_toks(tokens); err.set_flags(flags);
 
+      err.make_calls(true);
+      return EXIT_FAILURE;
+   }
+   
+   Syscaller calls(user_name, tokens, flags, prog.value());
    ASMGenerator ASMGenerator(prog.value());
-   Syscaller calls(user_name, parser.regurg_toks(), flags, prog.value());
    {
       std::fstream file(calls.get_name() + ".asm", std::ios::out);
       file << ASMGenerator.build();
    }
-
-   calls.make_calls();
+   calls.make_calls(diag.has_errors());
 
    return EXIT_SUCCESS;
 }

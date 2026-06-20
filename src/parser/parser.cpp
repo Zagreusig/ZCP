@@ -7,6 +7,7 @@
 #include "parser.h"
 #include "lexer/Tokens.h"
 
+
 [[nodiscard]] inline std::optional<Token> Parser::peek(int offset = 0) const {
    if (m_index + offset >= m_tokens.size()) return {};
    else return m_tokens.at(m_index + offset);
@@ -103,7 +104,7 @@ std::optional<NodeExpr*> Parser::parse_expr(int min_prec = 0) {
 
       int next_prec = (op == BinExprType::EXPONENT ? prec : prec + 1);
       auto right = parse_expr(next_prec);
-      if (!right.has_value()) { std::cerr << "Expected expression after operator.\n"; exit(EXIT_FAILURE); }
+      if (!right.has_value()) { return {}; }
 
       NodeBinExpr* bin = m_allocator.alloc<NodeBinExpr>();
       bin->operation = op; bin->left = left.value(); bin->right = right.value();
@@ -140,7 +141,7 @@ std::optional<NodeExpr*> Parser::parse_primary() {
 
    if (try_consume(TokenType::OPEN_PAREN)) {
       auto inner = parse_expr(0);
-      try_consume(TokenType::CLOSE_PAREN, "Expected matching ')'.");
+      if (!try_consume(TokenType::CLOSE_PAREN)) { fail("Expected a matching ')'."); return {}; }
       return inner;
    }
    if (is_next(TokenType::IDENTIFIER))
@@ -174,11 +175,14 @@ std::optional<NodeExpr*> Parser::parse_ident_expr() {
 std::optional<NodeExpr*> Parser::parse_prefix_incdec() {
    bool inc = is_next(TokenType::OPERATOR_INCR);
    consume(); // ++ / --
-   Token id = try_consume(TokenType::IDENTIFIER,
-      inc ? "'++' must be with a variable." : "'--' must be with a variable.");
+   auto id = try_consume(TokenType::IDENTIFIER);
+   if (!id.has_value()) { 
+      fail(inc ? "Expected variable with '++'." : "Expected variable with '--'."); 
+      return {};
+   }
    
    NodeExprIncDec* node = m_allocator.alloc<NodeExprIncDec>();
-   node->ident = id; node->is_increment = inc; node->is_prefix = true;
+   node->ident = id.value(); node->is_increment = inc; node->is_prefix = true;
    return wrap(node);
 }
 
@@ -189,17 +193,17 @@ std::optional<NodeExpr*> Parser::parse_call(Token name) {
    call->name = name;
    while (peek().has_value() && peek().value().type != TokenType::CLOSE_PAREN) {
       if (call->args.size() >= 6) {
-         std::cerr << "Functions currently limited to 6 args.\n";
-         exit(EXIT_FAILURE);
+         fail("Functions currently limited to 6 args.\n");
+         return {};
       }
 
       if (auto arg = parse_expr()) call->args.push_back(arg.value());
-      else { std::cerr << "Expected expression in args list.\n"; exit(EXIT_FAILURE); }
+      else { return {}; }
 
       if (is_next(TokenType::COMMA)) consume();
       else break;
    }
-   try_consume(TokenType::CLOSE_PAREN, "Expected closing ')' for function.");
+   if (!try_consume(TokenType::CLOSE_PAREN)) { fail("Expected closing ')'."); return {}; }
    return wrap(call);
 }
 
@@ -218,8 +222,8 @@ std::optional<NodeStmt*> Parser::parse_stmt() {
    // eventually blank scope
 
    if (auto stmt = parse_simple_stmt()) {
-      try_consume(TokenType::SEMICOLON, "Expected ';' after statement.");
-      return stmt;
+      if (!try_consume(TokenType::SEMICOLON)) fail("Expected ';'.");
+      else return stmt;
    }
    return {};
 }
@@ -255,20 +259,20 @@ std::optional<NodeStmt*> Parser::parse_simple_stmt() {
 
 std::optional<NodeStmt*> Parser::parse_if() {
    consume(); // if
-   try_consume(TokenType::OPEN_PAREN, "Expected a '(' after 'if'.");
+   if (!try_consume(TokenType::OPEN_PAREN)) { fail("Expected '('."); return {}; }
 
    NodeStmtIf* stmt_if = m_allocator.alloc<NodeStmtIf>();
    if (auto cond = parse_condition()) stmt_if->condition = cond.value();
-   else { std::cerr << "Expected if condition.\n"; exit(EXIT_FAILURE); }
+   else { fail("Expected if condition.\n"); return {}; }
 
-   try_consume(TokenType::CLOSE_PAREN, "Expected ')' after condition.");
+   if (!try_consume(TokenType::CLOSE_PAREN)) { fail("Expected ')'."); return {}; }
 
    if (auto body = parse_scope()) stmt_if->body = body.value();
-   else { std::cerr << "Expected if body.\n"; exit(EXIT_FAILURE); }
+   else { fail("Expected if body.\n"); return{}; }
 
    if (auto val = try_consume(TokenType::ELSE)) {
       if (auto else_body = parse_scope()) stmt_if->else_body = else_body.value();
-      else { std::cerr << "Expected body in else path.\n"; exit(EXIT_FAILURE); }
+      else { fail("Expected body in else path.\n"); return {}; }
    }
 
    NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
@@ -279,16 +283,16 @@ std::optional<NodeStmt*> Parser::parse_if() {
 
 std::optional<NodeStmt*> Parser::parse_while() {
    consume(); // while
-   try_consume(TokenType::OPEN_PAREN, "Expected '(' after while.");
+   if (!try_consume(TokenType::OPEN_PAREN)) { fail("Expected '('."); return {}; }
 
    NodeStmtWhile* _while = m_allocator.alloc<NodeStmtWhile>();
    if (auto cond = parse_condition()) _while->condition = cond.value();
-   else { std::cerr << "Expected while condition.\n"; exit(EXIT_FAILURE); }
+   else { fail("Expected while condition.\n"); return {}; }
 
-   try_consume(TokenType::CLOSE_PAREN, "Expected ')' after condition.");
+   if (!try_consume(TokenType::CLOSE_PAREN)) { fail("Expected ')'"); return {}; }
 
    if (auto body = parse_scope()) _while->body = body.value();
-   else { std::cerr << "Expected while body.\n"; exit(EXIT_FAILURE); }
+   else { fail("Expected while body.\n"); return {}; }
 
    NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
    stmt->var = _while;
@@ -298,29 +302,29 @@ std::optional<NodeStmt*> Parser::parse_while() {
 
 std::optional<NodeStmt*> Parser::parse_for() {
    consume(); // for
-   try_consume(TokenType::OPEN_PAREN, "Expected '(' after for.");
+   if (!try_consume(TokenType::OPEN_PAREN)) { fail("Expected '('."); return {};}
    NodeStmtFor* _for = m_allocator.alloc<NodeStmtFor>();
 
    if (auto init = parse_simple_stmt()) {
-      if (!is_init_stmt(init.value())) { std::cerr << "Invalid for loop initializer.\n"; exit(EXIT_FAILURE); }
+      if (!is_init_stmt(init.value())) { fail("Invalid for loop initializer.\n"); return {}; }
       _for->init = init.value();
    }
-   else { std::cerr << "Expected initializer in for loop.\n"; exit(EXIT_FAILURE); }
-   try_consume(TokenType::SEMICOLON, "Expected ';' after for-init.");
+   else { fail("Expected initializer in for loop.\n"); return {}; }
+   if (!try_consume(TokenType::SEMICOLON)) { fail("Expected ';'."); return {}; }
 
    if (auto cond = parse_condition()) _for->condition = cond.value();
-   else { std::cerr << "Expected condition in for loop.\n"; exit(EXIT_FAILURE); }
-   try_consume(TokenType::SEMICOLON, "Expected ';' after for loop condition.");
+   else { fail("Expected condition in for loop.\n"); return {}; }
+   if (!try_consume(TokenType::SEMICOLON)) { fail("Expected ';'."); return {};}
 
    if (auto inc = parse_simple_stmt()) {
-      if (!valid_for_increment(inc.value())) { std::cerr << "Invalid for loop incrementer.\n"; exit(EXIT_FAILURE); }
+      if (!valid_for_increment(inc.value())) { fail("Invalid for loop incrementer.\n"); return {}; }
       _for->increment = inc.value();
    }
-   else { std::cerr << "Expected increment in for loop.\n"; exit(EXIT_FAILURE); }
-   try_consume(TokenType::CLOSE_PAREN, "Expected ')' at end of for loop.");
+   else { fail("Expected increment in for loop.\n"); return {}; }
+   if (!try_consume(TokenType::CLOSE_PAREN)) { fail("Expected ')'."); return {};}
 
    if (auto body = parse_scope()) _for->body = body.value();
-   else { std::cerr << "Expected for body.\n"; exit(EXIT_FAILURE); }
+   else { fail("Expected for body.\n"); return {}; }
 
    NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
    stmt->var = _for;
@@ -334,10 +338,10 @@ std::optional<NodeStmt*> Parser::parse_exit() {
    NodeStmtExit* stmt_exit = m_allocator.alloc<NodeStmtExit>();
    if (auto node_expr = parse_expr()) stmt_exit->expr = node_expr.value();
    else {
-      std::cerr << "Invalid exit expression." << std::endl;
-      exit(EXIT_FAILURE);
+      fail("Invalid exit expression.");
+      return {};
    }
-   try_consume(TokenType::CLOSE_PAREN, "Expected ')' for exit statement.");
+   if (!try_consume(TokenType::CLOSE_PAREN)) { fail("Expected ')'."); return {};}
 
    NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
    stmt->var = stmt_exit;
@@ -348,10 +352,13 @@ std::optional<NodeStmt*> Parser::parse_exit() {
 std::optional<NodeStmt*> Parser::parse_have() {
    consume(); // have
    NodeStmtHave* stmt_have = m_allocator.alloc<NodeStmtHave>();
-   stmt_have->ident = try_consume(TokenType::IDENTIFIER, "Expected identifier for declaration.");
-   try_consume(TokenType::OPERATOR_EQUALS, "Expected '=' in declaration.");
+   auto id = try_consume(TokenType::IDENTIFIER);
+   if (!id.has_value()) { fail("Invalid identifier."); return {}; }
+   stmt_have->ident = id.value();
+
+   if (!try_consume(TokenType::OPERATOR_EQUALS)) { fail("Expected '='."); return {}; }
    if (auto expr = parse_expr()) stmt_have->expr = expr.value();
-   else { std::cerr << "Invalid 'have' declaration.\n"; exit(EXIT_FAILURE); }
+   else { fail("Invalid 'have' declaration.\n"); return {}; }
 
    NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
    stmt->var = stmt_have;
@@ -362,10 +369,10 @@ std::optional<NodeStmt*> Parser::parse_have() {
 std::optional<NodeStmt*> Parser::parse_assign() {
    NodeStmtAssign* assign = m_allocator.alloc<NodeStmtAssign>();
    assign->ident = consume();
-   try_consume(TokenType::OPERATOR_EQUALS, "Expected '=' in assignment.");
+   if (!try_consume(TokenType::OPERATOR_EQUALS)) { fail("Expected '='."); return {};}
 
    if (auto expr = parse_expr()) assign->expr = expr.value();
-   else { std::cerr << "Invalid assignment expression.\n"; exit(EXIT_FAILURE); }
+   else { fail("Invalid assignment expression.\n"); return {}; }
 
    NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
    stmt->var = assign;
@@ -395,7 +402,7 @@ std::optional<NodeStmt*> Parser::parse_cmpd_assign() {
    BinExprType binop = comp_to_binop(optok); // BinExprType translation
 
    auto rhs = parse_expr();
-   if (!rhs.has_value()) { std::cerr << "Expected expression.\n"; exit(EXIT_FAILURE); }
+   if (!rhs.has_value()) { return {}; }
 
    NodeExprIdent* id_expr = m_allocator.alloc<NodeExprIdent>();
    id_expr->ident = ident;
@@ -413,7 +420,7 @@ std::optional<NodeStmt*> Parser::parse_cmpd_assign() {
    assign->ident = ident;
    assign->expr = bin_wrap;
 
-   try_consume(TokenType::SEMICOLON, "Expected ';' after compound statement.");
+   if (!try_consume(TokenType::SEMICOLON)) { fail("Expected ';'"); return {}; }
    NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
    stmt->var = assign;
    return stmt;
@@ -427,10 +434,10 @@ std::optional<NodeStmt*> Parser::parse_print() {
    stmt_print->nwln = with_nl;
 
    if (auto expr = parse_expr()) stmt_print->expr = expr.value();
-   else { std::cerr << "Expected expression inside of print(...).\n"; exit(EXIT_FAILURE); }
+   else { return {}; }
 
-   try_consume(TokenType::CLOSE_PAREN, "Expected ')' after print expression.");
-   
+   if (!try_consume(TokenType::CLOSE_PAREN)) { fail("Expected ')'."); return {}; }
+
    NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
    stmt->var = stmt_print;
    return stmt;
@@ -441,7 +448,7 @@ std::optional<NodeStmt*> Parser::parse_return() {
    consume(); // return
    NodeStmtReturn* _return = m_allocator.alloc<NodeStmtReturn>();
    if (auto expr = parse_expr()) _return->expr = expr.value();
-   else { std::cerr << "Expected expression after return.\n"; exit(EXIT_FAILURE); }
+   else { return {}; }
 
    NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
    stmt->var = _return;
@@ -451,25 +458,23 @@ std::optional<NodeStmt*> Parser::parse_return() {
 
 
 std::optional<NodeScopeBlock*> Parser::parse_scope() {
-   try_consume(TokenType::OPEN_BRACE, "Expected '{'.");
+   if (!try_consume(TokenType::OPEN_BRACE)) { fail("Expected '{'."); return {}; }
    NodeScopeBlock* block = m_allocator.alloc<NodeScopeBlock>();
    // if (is_next(TokenType::OPEN_BRACE)){
    //    consume();
       while (peek().has_value() && peek().value().type != TokenType::CLOSE_BRACE) {
          if (auto stmt = parse_stmt())
             block->stmts.push_back(stmt.value());
-         else {
-            std::cerr << "Invalid statement in block." << std::endl;
-            exit(EXIT_FAILURE);
-         }
+         else 
+            synchronize(); // Errored and now get back to a spot that's ok.  
       }
-      try_consume(TokenType::CLOSE_BRACE, "Expected '}'");
+      if (!try_consume(TokenType::CLOSE_BRACE)) { fail("Expected '}'."); return {}; }
    // } else {
       // if (auto stmt = parse_stmt())
       //    block->stmts.push_back(stmt.value());
       // else {
-      //    std::cerr << "Invalid statement." << std::endl;
-      //    exit(EXIT_FAILURE);
+      //    fail("Invalid statement." << std::endl;
+      //    return {};
       // }
    // }
    
@@ -505,10 +510,7 @@ std::optional<NodeCondition*> Parser::parse_cond_primary() {
    if (op != CmpExprType::NONE) {
       consume();
       auto right = parse_expr();
-      if (!right.has_value()) {
-         std::cerr << "Expected comparison operator." << std::endl;
-         exit(EXIT_FAILURE);
-      }
+      if (!right.has_value()) { fail("Expected comparison operator."); return {}; }
       cmp->operation = op;
       cmp->right = right.value();
    } else {
@@ -536,8 +538,8 @@ std::optional<NodeCondition*> Parser::parse_condition_bp(int min_prec) {
 
       auto right = parse_condition_bp(prec + 1);
       if (!right.has_value()) {
-         std::cerr << "Expected condition after logical operator." << std::endl;
-         exit(EXIT_FAILURE);
+         fail("Expected condition after logical operator.");
+         return {};
       }
 
       NodeLogicCondition* logic = m_allocator.alloc<NodeLogicCondition>();
@@ -563,32 +565,38 @@ std::optional<NodeFunction*> Parser::parse_func() {
    if (!peek().has_value() || peek().value().type != TokenType::FUNC) return {};
 
    NodeFunction* func = m_allocator.alloc<NodeFunction>();
-   consume();  // consume 'func' / 'fn' — it's a keyword, not the return type
+   consume();  // consume 'func' / 'fn'
 
-   func->name = try_consume(TokenType::IDENTIFIER, "Expected function name.");
-   try_consume(TokenType::OPEN_PAREN, "Expected '(' after function name.");
+   auto name = try_consume(TokenType::IDENTIFIER);
+   if (!name.has_value()) { fail("Expected function name."); return {}; }
+   if (!try_consume(TokenType::OPEN_PAREN)) { fail("Expected '('."); return {}; }
+   func->name = name.value();
 
-   while (peek().has_value() && peek().value().type != TokenType::CLOSE_PAREN) {
-      if (func->params.size() >= 6) {
-         std::cerr << "Functions are capped at 6 params for now." << std::endl;
-         exit(EXIT_FAILURE);
+   if (!is_next(TokenType::CLOSE_PAREN)) {
+      while (is_next(TokenType::INT)) {
+         if (func->params.size() >= 6) {
+            fail("Functions are capped at 6 params for now.");
+            return {};
+         }
+
+         NodeParam param;
+         if (auto t = try_consume(TokenType::INT)) param.type = t.value();
+         else { fail("Expected parameter type."); return {}; }
+         if (auto n = try_consume(TokenType::IDENTIFIER)) param.name = n.value();
+         else { fail("Expected parameter name."); return {};}
+         func->params.push_back(param);
+
+         if (!try_consume(TokenType::COMMA)) break; 
       }
-
-      NodeParam param;
-      param.type = try_consume(TokenType::INT, "Expected parameter type.");
-      param.name = try_consume(TokenType::IDENTIFIER, "Expected parameter name.");
-      func->params.push_back(param);
-
-      if (peek().has_value() && peek().value().type == TokenType::COMMA)
-         consume();
-      else break;
    }
 
-   try_consume(TokenType::CLOSE_PAREN, "Expected ')' after '('.");
+   if (!try_consume(TokenType::CLOSE_PAREN)) { fail("Expected ')'."); return {}; }
 
    // Optional return type: either ': type' or '-> type'
    if (try_consume(TokenType::COLON) || try_consume(TokenType::OPERATOR_ARROW)) {
-      func->ret_type = try_consume(TokenType::INT, "Expected return type after ':' or '->'.");
+      auto type = try_consume(TokenType::INT);
+      if (!type.has_value()) { fail("Expected return type."); return {}; }
+      func->ret_type = type.value();
       func->has_ret_type = true;
    } else {
       func->has_ret_type = false;
@@ -597,8 +605,8 @@ std::optional<NodeFunction*> Parser::parse_func() {
    if (auto body = parse_scope())
       func->body = body.value();
    else {
-      std::cerr << "Expected function body." << std::endl;
-      exit(EXIT_FAILURE);
+      fail("Expected function body.");
+      return {};
    }
 
    return func;
@@ -609,11 +617,18 @@ std::optional<NodeFunction*> Parser::parse_func() {
 std::optional<NodeProg> Parser::parse_prog() {
    NodeProg prog;
    while (peek().has_value()) {
-      if (auto func = parse_func())
-         prog.funcs.push_back(func.value());
+      if (is_next(TokenType::FUNC)){
+         if (auto func = parse_func())
+            prog.funcs.push_back(func.value());
+         else
+            sync_next_func();
+      }
       else {
-         std::cerr << "Invalid top-level declaration." << std::endl;
-         exit(EXIT_FAILURE);
+         int line = 0, col = 0;
+         if (peek().has_value()) { line = peek().value().line; col = peek().value().col; }
+         m_diag->error(CompPhase::Parsing, line, col,
+                       "Expected function declaration at top level.");
+         sync_next_func();
       }
    }
    return prog;
@@ -648,10 +663,28 @@ inline std::optional<Token> Parser::try_consume(TokenType type) {
 }
 
 
-inline Token Parser::try_consume(TokenType type, const std::string& errMsg) {
-   if (peek().has_value() && peek().value().type == type) return consume();
-   else {
-      std::cerr << errMsg << std::endl;
-      exit(EXIT_FAILURE);
+void Parser::synchronize() {
+   while (peek().has_value()) {
+      if (peek().value().type == TokenType::SEMICOLON) { consume(); return; }
+      TokenType t = peek().value().type;
+      if (t == TokenType::CLOSE_BRACE || t == TokenType::IF || t == TokenType::WHILE ||
+          t == TokenType::FOR || t == TokenType::HAVE || t == TokenType::RETURN ||
+          t == TokenType::PRINT || t == TokenType::PRINTLN)
+         return;
+      consume();
    }
+}
+
+
+void Parser::fail(const std::string& msg) {
+   int line = 0, col = 0;
+   if (peek().has_value()) { line = peek().value().line; col = peek().value().col; }
+   m_diag->error(CompPhase::Parsing, line, col, msg);
+   synchronize();
+}
+
+
+void Parser::sync_next_func() {
+   while (peek().has_value() && peek().value().type != TokenType::FUNC)
+      consume();
 }

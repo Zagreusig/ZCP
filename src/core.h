@@ -2,7 +2,7 @@
 #define CORE_H
 
 #include "ast/Nodes.h"
-#include "ErrorHandler/ErrorHandler.h"
+#include "ErrAndRep/ErrorHandler.h"
 #include "lexer/Tokens.h"
 #include "utils/Logger.h"
 

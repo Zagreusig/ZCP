@@ -7,6 +7,7 @@
 
 class ASTPrinter {
 public:
+   ASTPrinter() {}
    explicit ASTPrinter(const NodeProg prog) : m_prog(std::move(prog)) {}
 
    void print() {

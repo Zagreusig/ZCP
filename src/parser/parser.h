@@ -3,6 +3,7 @@
 
 #include "ast/arena.h"
 #include "ast/Nodes.h"
+#include "ErrAndRep/ErrorHandler.h"
 #include "lexer/Tokens.h"
 #include <variant>
 
@@ -11,11 +12,27 @@
 
 class Parser {
 public:
-   inline explicit Parser(std::vector<Token> tokens)
-      : m_tokens(std::move(tokens)),
-        m_allocator(1024 * 1024 * 4) {}
+   inline explicit Parser(std::vector<Token> tokens, Diagnostics* diag)
+      : m_tokens(tokens),
+        m_allocator(1024 * 1024 * 4), m_diag(diag) {}
 
    std::vector<Token> regurg_toks() { return m_tokens; }
+
+   std::optional<NodeProg> parse_prog();
+private:
+   [[nodiscard]] inline std::optional<Token> peek(int) const;
+   inline Token consume() { return m_tokens.at(m_index++); }
+   inline std::optional<Token> try_consume(TokenType);
+   inline void consume(int n) { for (int i = 0; i < n; i++) consume(); }
+   bool is_next(TokenType, int);
+   int get_precidence(BinExprType op);
+   BinExprType bin_type_convert(TokenType);
+
+   BinExprType comp_to_binop(const TokenType&);
+   bool is_compound_assign(const TokenType&);
+
+   static bool valid_for_increment(const NodeStmt*);
+   static bool is_init_stmt(const NodeStmt*);
 
    std::optional<NodeExpr*>       parse_expr(int);
    std::optional<NodeStmt*>       parse_stmt();
@@ -41,31 +58,18 @@ public:
    std::optional<NodeExpr*>       parse_call(Token);
 
    std::optional<NodeFunction*>   parse_func();
-   std::optional<NodeProg>        parse_prog();
-private:
-   [[nodiscard]] inline std::optional<Token> peek(int) const;
-   inline Token consume() { return m_tokens.at(m_index++); }
-   
-   inline Token try_consume(TokenType, const std::string&);
-   inline std::optional<Token> try_consume(TokenType);
-   inline void consume(int n) { for (int i = 0; i < n; i++) consume(); }
-   bool is_next(TokenType, int);
-   int get_precidence(BinExprType op);
-   BinExprType bin_type_convert(TokenType);
-
-   BinExprType comp_to_binop(const TokenType&);
-   bool is_compound_assign(const TokenType&);
-
-   static bool valid_for_increment(const NodeStmt*);
-   static bool is_init_stmt(const NodeStmt*);
-
    NodeExpr* wrap(auto*);
    size_t mark() const    { return m_index; }
    void   reset(size_t m) { m_index = m;    }
+   
+   void sync_next_func();
+   void synchronize();
+   void fail(const std::string&);
 
    const std::vector<Token> m_tokens;
    size_t m_index = 0;
    ArenaAllocator m_allocator;
+   Diagnostics* m_diag;
 };
 
 int cond_precidence(CmpExprType);

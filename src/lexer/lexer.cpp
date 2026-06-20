@@ -24,50 +24,55 @@ bool Lexer::peek_eval(char ch, int offset = 0) {
 }
 
 
-std::vector<Token> Lexer::tokenize() {
+std::vector<Token> Lexer::tokenize(Diagnostics* diag) {
    std::string buf {};
    std::vector<Token> tokens {};
 
    while (peek().has_value()) {
-      if (std::isalpha(peek().value())) {         
+      if (std::isalpha(peek().value())) { 
+         int tok_line = m_line, tok_col = m_col;        
          buf.push_back(consume());
          while (peek().has_value() && (std::isalnum(peek().value()) || peek().value() == '_'))
             buf.push_back(consume());
          
          auto it = KEYWORDS.find(buf);
          if (it != KEYWORDS.end())
-            tokens.push_back({ .type = it->second });
+            tokens.push_back({ .type = it->second, .line = tok_line, .col = tok_col });
          else
-            tokens.push_back({ .type = TokenType::IDENTIFIER, .value = buf });
+            tokens.push_back({ .type = TokenType::IDENTIFIER, .value = buf,
+                               .line = tok_line, .col = tok_col });
          
          buf.clear(); continue;
       }
       else if (std::isspace(peek().value())) { consume(); continue; }
       else if (std::isdigit(peek().value())) {
+         int tok_line = m_line, tok_col = m_col;
          buf.push_back(consume());
          while (peek().has_value() && std::isdigit(peek().value()))
             buf.push_back(consume());
-         tokens.push_back({.type = TokenType::INT_LIT, .value = buf});
+         tokens.push_back({.type = TokenType::INT_LIT, .value = buf,
+                           .line = tok_line, .col = tok_col });
          buf.clear(); continue;
       }
       else if (peek().value() == '\'') {
+         int tok_line = m_line, tok_col = m_col;
          consume();
          if (!peek().has_value()) {
-            std::cerr << "Expected character literal." << std::endl;
+            std::cerr << "Expected char literal.\n";
             exit(EXIT_FAILURE);
          }
-
          char c = consume();
          if (!peek().has_value() || peek().value() != '\'') {
-            std::cerr << "Expected closing '." << std::endl;
+            std::cerr << "Expected closing '.\n";
             exit(EXIT_FAILURE);
          }
-
          consume();
-         tokens.push_back({ .type = TokenType::CHAR_LIT, .value = std::string(1, c) });
+         tokens.push_back({ .type = TokenType::CHAR_LIT, .value = std::string(1, c),
+                            .line = tok_line, .col = tok_col });
          continue;
       }
       else if (peek().value() == '\"') {
+         int tok_line = m_line, tok_col = m_col;
          consume();
          while (peek().has_value() && peek().value() != '\"') {
             buf.push_back(consume());
@@ -80,11 +85,16 @@ std::vector<Token> Lexer::tokenize() {
          }
          
          consume();
-         tokens.push_back({ .type = TokenType::STR_LIT, .value = buf });
+         tokens.push_back({ .type = TokenType::STR_LIT, .value = buf,
+                            .line = tok_line, .col = tok_col });
          buf.clear(); continue;
       }
-      else
-         tokens.push_back(resolveSymbol(consume()));
+      else {
+         int tok_line = m_line, tok_col = m_col;
+         Token t = resolveSymbol(consume());
+         t.line = tok_line; t.col = tok_col;
+         tokens.push_back(t);
+      }
    }
    m_currIndex = 0;
    return tokens;
