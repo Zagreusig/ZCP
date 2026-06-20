@@ -140,6 +140,10 @@ struct NodeFunction {
    NodeScopeBlock* body = nullptr;
 };
 
+struct NodeStmtRead {
+   NodeExpr* expr = nullptr;
+   bool nwln      = false;
+};
 
 struct NodeStmtPrint {
    NodeExpr* expr = nullptr;
@@ -153,7 +157,7 @@ struct NodeStmtExpr {
 struct NodeStmt {
    std::variant<NodeStmtExit*, NodeStmtHave*, NodeScopeBlock*, NodeStmtIf*, 
                 NodeStmtWhile*, NodeStmtFor*, NodeStmtAssign*, NodeStmtReturn*,  
-                NodeStmtPrint*, NodeStmtExpr*> var;
+                NodeStmtPrint*, NodeStmtRead*, NodeStmtExpr*> var;
 };
 
 struct NodeProg {

@@ -10,6 +10,8 @@
    X(RETURN)                      \
    X(PRINT)                       \
    X(PRINTLN)                     \
+   X(READ)                        \
+   X(READLN)                      \
    X(IF)                          \
    X(ELSE)                        \
    X(WHEN)                        \
@@ -25,6 +27,10 @@
    X(CHAR)                        \
    X(STR)                         \
    X(BOOL)                        \
+   X(UDEF_STRUCT)                 \
+   X(UDEF_CLASS)                  \
+   X(PUBLIC)                      \
+   X(PRIVATE)                     \
    X(IDENTIFIER)                  \
    X(HAVE)                        \
    X(COLON)                       \

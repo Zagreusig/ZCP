@@ -49,6 +49,7 @@ private:
    std::optional<NodeStmt*>       parse_return();
    std::optional<NodeStmt*>       parse_have();
    std::optional<NodeStmt*>       parse_print();
+   std::optional<NodeStmt*>       parse_read();
    std::optional<NodeStmt*>       parse_assign();
    std::optional<NodeStmt*>       parse_cmpd_assign();
 

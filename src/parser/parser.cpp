@@ -444,6 +444,21 @@ std::optional<NodeStmt*> Parser::parse_print() {
 }
 
 
+std::optional<NodeStmt*> Parser::parse_read() {
+   bool with_nl = (peek().value().type == TokenType::READLN);
+   consume(2);
+   NodeStmtRead* stmt_read = m_allocator.alloc<NodeStmtRead>();
+   stmt_read->nwln = with_nl;
+
+   if (auto expr = parse_expr()) stmt_read->expr = expr.value();
+   else return {};
+
+   NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
+   stmt->var = stmt_read;
+   return stmt;
+}
+
+
 std::optional<NodeStmt*> Parser::parse_return() {
    consume(); // return
    NodeStmtReturn* _return = m_allocator.alloc<NodeStmtReturn>();

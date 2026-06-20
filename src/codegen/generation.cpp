@@ -9,6 +9,14 @@
 #include "generation.h"
 #include "lexer/Tokens.h"
 
+/**
+ *  rax: 0 read
+ *       1 write
+ * 
+ *  rdi: 0 stdin
+ *       1 stdout 
+ */
+
 void ASMGenerator::gen_expr(const NodeExpr* expr) {
    struct ExprVisitor {
       ASMGenerator* gen;
