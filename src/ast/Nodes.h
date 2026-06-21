@@ -28,6 +28,8 @@ enum class CmpExprType {
    GREATER_EQUAL
 };
 
+enum class ReadKind { None, Char, Int, Float, Line }; // Line = String
+
 struct NodeExpr;
 struct NodeStmt;
 struct NodeCondition;
@@ -81,9 +83,13 @@ struct NodeExprCall {
    std::vector<NodeExpr*> args;
 };
 
+struct NodeExprRead {
+   ReadKind kind = ReadKind::Char; // Defaulting to char (1 byte read)
+};
+
 struct NodeExpr {
    std::variant<NodeExprIntLit*, NodeExprIdent*, NodeBinExpr*, NodeExprCall*, 
-                NodeExprCharLit*, NodeExprStrLit*, NodeExprIncDec*> var;
+                NodeExprCharLit*, NodeExprStrLit*, NodeExprIncDec*, NodeExprRead*> var;
 };
 
 struct NodeStmtExit {
@@ -102,6 +108,10 @@ struct NodeStmtAssign {
 
 struct NodeScopeBlock {
    std::vector<NodeStmt*> stmts;
+};
+
+struct NodeStmtScope {
+   NodeScopeBlock* scope = nullptr;
 };
 
 struct NodeStmtIf {
@@ -140,11 +150,6 @@ struct NodeFunction {
    NodeScopeBlock* body = nullptr;
 };
 
-struct NodeStmtRead {
-   NodeExpr* expr = nullptr;
-   bool nwln      = false;
-};
-
 struct NodeStmtPrint {
    NodeExpr* expr = nullptr;
    bool nwln      = false;
@@ -157,7 +162,7 @@ struct NodeStmtExpr {
 struct NodeStmt {
    std::variant<NodeStmtExit*, NodeStmtHave*, NodeScopeBlock*, NodeStmtIf*, 
                 NodeStmtWhile*, NodeStmtFor*, NodeStmtAssign*, NodeStmtReturn*,  
-                NodeStmtPrint*, NodeStmtRead*, NodeStmtExpr*> var;
+                NodeStmtPrint*, NodeStmtExpr*, NodeStmtScope*> var;
 };
 
 struct NodeProg {

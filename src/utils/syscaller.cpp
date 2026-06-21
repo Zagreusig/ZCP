@@ -23,9 +23,6 @@ void Syscaller::make_calls(bool errors) {
    if (ast && !errors)   print_ast();
 
    if (!errors){
-      std::cout << asm_file << std::endl;
-      std::cout << obj_file << std::endl;
-
       nasm();
       linker();
       cleanup();
@@ -36,8 +33,6 @@ void Syscaller::nasm() {
    std::string call = "nasm -felf64 ";
    call.append(asm_file);
 
-   std::cout << "NASM: " << call << std::endl;
-
    system(call.c_str());
 }
 
@@ -45,8 +40,6 @@ void Syscaller::nasm() {
 void Syscaller::linker() {
    std::string call = "ld ";
    call.append(obj_file + " -o " + prog_name);
-
-   std::cout << "LD: " << call << std::endl;
 
    system(call.c_str());
 }

@@ -40,6 +40,16 @@ DataType TypeChecker::type_of(const NodeExpr* expr) const {
          return type_of(node->left);
       else if constexpr (std::is_same_v<T, NodeExprIncDec>)
          return var_type(node->ident.value.value());
+      else if constexpr (std::is_same_v<T, NodeExprRead>) {
+         switch (node->kind) {
+            case ReadKind::Char:  return DataType::CHAR;
+            case ReadKind::Int:   return DataType::INT;
+            case ReadKind::Line:  return DataType::STR;
+            case ReadKind::Float: // WIP
+            case ReadKind::None:
+            default:              return DataType::NONE;
+         }
+      }
       else if constexpr (std::is_same_v<T, NodeExprCall>) {
          auto it = m_func_ret.find(node->name.value.value());
          return it != m_func_ret.end() ? it->second : DataType::NONE;

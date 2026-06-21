@@ -117,6 +117,10 @@ void ASTPrinter::print_stmt(const NodeStmt* stmt, int depth) {
          std::cout << pad(depth) << "StmtExpr:\n";
          p->print_expr(s->expr, depth + 1);
       }
+      void operator()(const NodeStmtScope* s) {
+         std::cout << pad(depth) << "Scope:\n";
+         p->print_scope(s->scope, depth + 1);
+      }
    };
    std::visit(Visitor{ this, depth }, stmt->var);
 }
@@ -156,6 +160,17 @@ void ASTPrinter::print_expr(const NodeExpr* expr, int depth) {
 
       void operator()(const NodeExprStrLit* str) {
          std::cout << pad(depth) << "StrLit: " << str->STR_LIT.value.value() << "\n";
+      }
+
+      void operator()(const NodeExprRead* r) {
+         std::cout << pad(depth);
+         switch (r->kind) {
+            case ReadKind::Char:  std::cout << "Readc\n"; break;
+            case ReadKind::Int:   std::cout << "Readi\n"; break;
+            case ReadKind::Float: std::cout << "Readf\n"; break;
+            case ReadKind::Line:  std::cout << "Reads\n"; break;
+            default:              std::cout << "Read<NULL>\n"; break;
+         }
       }
    };
    std::visit(Visitor{ this, depth }, expr->var);

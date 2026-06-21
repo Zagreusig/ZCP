@@ -10,8 +10,10 @@
    X(RETURN)                      \
    X(PRINT)                       \
    X(PRINTLN)                     \
-   X(READ)                        \
-   X(READLN)                      \
+   X(READC)                       \
+   X(READS)                       \
+   X(READI)                       \
+   X(READF)                       \
    X(IF)                          \
    X(ELSE)                        \
    X(WHEN)                        \

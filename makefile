@@ -23,11 +23,14 @@ INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
 # The -MMD and -MP flags together generate Makefiles for us!
 # These files will have .d instead of .o as the output.
-CPPFLAGS := $(INC_FLAGS) -MMD -MP -g -Wall -Wextra -std=c++23
+CPPFLAGS := $(INC_FLAGS) -MMD -MP -g -std=c++23
 
 # The final build step.
 $(TARGET_EXEC): $(OBJS)
 	@$(CXX) $(OBJS) -o $@ $(LDFLAGS)
+	@$(MAKE) deldir -i -s
+	@echo "Usage like: ./zcp <flags> <file.z>"
+	@echo "Help flag (currently needs some file): ./zcp -h <file.z>"
 
 # Build step for C++ source
 $(BUILD_DIR)/%.cpp.o: %.cpp
@@ -44,10 +47,9 @@ clean:
 
 deldir:
 	@rm -r $(BUILD_DIR)
-	@rm $(TARGET_EXEC)
-	@rm ./out
 
 rmExecs:
+	@rm ./out
 	@find . -maxdepth 1 -type f -executable -exec rm -i {} +
 
 rmFiles:

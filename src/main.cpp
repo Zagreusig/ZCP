@@ -14,13 +14,13 @@
 int main(int argc, char* argv[]) {
    if (argc < 2) {
       std::cerr << "Incorrect usage." << std::endl;
-      std::cerr << "Usage as follows: zcp <name.z>" << std::endl;
+      std::cerr << "Usage as follows: ./zcp <name.z>" << std::endl;
       return EXIT_FAILURE;
    }
    std::string input_file = argv[argc - 1];
    if (!input_file.contains(".z")) {
       std::cerr << "Unrecognized file." << std::endl;
-      std::cerr << "Must end in '.z'" << std::endl;
+      std::cerr << "Call format: ./zcp <name.z>" << std::endl;
       return EXIT_FAILURE;
    }
    {

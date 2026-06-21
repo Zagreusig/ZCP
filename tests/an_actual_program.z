@@ -1,0 +1,30 @@
+fn main() -> int {
+   have x = 0;
+   have y = 0;
+   have z = 'y';
+   have nwln = 'n';
+
+   while (z == 'y' || z == 'Y') {
+      println("Enter a number: ");
+      x = readi();
+      println("Enter a letter: ");
+      y = readc();
+      nwln = readc();
+
+      println();
+      println("Your number: ");
+      println(x);
+      println("Your letter: ");
+      println(y);
+
+      println(" ");
+      println("Would you like to go again?: ");
+      z = readc();
+      nwln = readc();
+   }
+
+   {
+      println("This is in a blank scope!");
+   }
+   return 0;
+}

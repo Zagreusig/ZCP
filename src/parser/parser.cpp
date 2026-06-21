@@ -30,6 +30,28 @@ bool Parser::is_compound_assign(const TokenType& t) {
 }
 
 
+bool is_print_stmt(const TokenType& t) {
+   switch (t) {
+      case TokenType::READC:
+      case TokenType::READF:
+      case TokenType::READI:
+      case TokenType::READS: return true;
+      default:               return false;
+   }
+}
+
+
+ReadKind tok_to_rk(const TokenType& t) {
+   switch (t) {
+      case TokenType::READC: return ReadKind::Char;
+      case TokenType::READI: return ReadKind::Int;
+      case TokenType::READF: return ReadKind::None;
+      case TokenType::READS: return ReadKind::Line;
+      default:               return ReadKind::None;
+   }
+}
+
+
 BinExprType Parser::comp_to_binop(const TokenType& t) {
    switch(t) {
       case TokenType::OPERATOR_ADD_EQ: return BinExprType::ADDITION;
@@ -139,6 +161,17 @@ std::optional<NodeExpr*> Parser::parse_primary() {
       return wrap(str);
    }
 
+   if (peek().has_value() && is_print_stmt(peek().value().type)) {
+      NodeExprRead* read = m_allocator.alloc<NodeExprRead>();
+      read->kind = tok_to_rk(peek().value().type);
+      consume();
+      if (!try_consume(TokenType::OPEN_PAREN)) { fail("Expected '('."); return {}; }
+      if (read->kind == ReadKind::None) { fail("Invalid read type"); return {}; }
+      if (!try_consume(TokenType::CLOSE_PAREN)) { fail("Expected ')'."); return {}; }
+
+      return wrap(read);
+   }
+
    if (try_consume(TokenType::OPEN_PAREN)) {
       auto inner = parse_expr(0);
       if (!try_consume(TokenType::CLOSE_PAREN)) { fail("Expected a matching ')'."); return {}; }
@@ -219,8 +252,17 @@ std::optional<NodeStmt*> Parser::parse_stmt() {
    if (is_next(TokenType::IF)) return parse_if();
    if (is_next(TokenType::WHILE)) return parse_while();
    if (is_next(TokenType::FOR)) return parse_for();
-   // eventually blank scope
-
+   if (is_next(TokenType::OPEN_BRACE)) {
+      auto scope = parse_scope();
+      if (!scope) { fail("Error reading scope."); return {}; }
+      
+      NodeStmtScope* sc = m_allocator.alloc<NodeStmtScope>();
+      sc->scope = scope.value();
+      
+      NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
+      stmt->var = sc;
+      return stmt;
+   }
    if (auto stmt = parse_simple_stmt()) {
       if (!try_consume(TokenType::SEMICOLON)) fail("Expected ';'.");
       else return stmt;
@@ -245,6 +287,7 @@ std::optional<NodeStmt*> Parser::parse_simple_stmt() {
       else if (peek(1).has_value() && is_compound_assign(peek(1).value().type))
          return parse_cmpd_assign();   
    }
+
 
    if (auto expr = parse_expr()) {
       NodeStmtExpr* stex = m_allocator.alloc<NodeStmtExpr>();
@@ -434,27 +477,12 @@ std::optional<NodeStmt*> Parser::parse_print() {
    stmt_print->nwln = with_nl;
 
    if (auto expr = parse_expr()) stmt_print->expr = expr.value();
-   else { return {}; }
+   else return {};
 
    if (!try_consume(TokenType::CLOSE_PAREN)) { fail("Expected ')'."); return {}; }
 
    NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
    stmt->var = stmt_print;
-   return stmt;
-}
-
-
-std::optional<NodeStmt*> Parser::parse_read() {
-   bool with_nl = (peek().value().type == TokenType::READLN);
-   consume(2);
-   NodeStmtRead* stmt_read = m_allocator.alloc<NodeStmtRead>();
-   stmt_read->nwln = with_nl;
-
-   if (auto expr = parse_expr()) stmt_read->expr = expr.value();
-   else return {};
-
-   NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
-   stmt->var = stmt_read;
    return stmt;
 }
 

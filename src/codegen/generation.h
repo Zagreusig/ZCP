@@ -38,8 +38,14 @@ private:
       m_output << "   pop " << reg << "\n";
       m_stack_size--;
    }
+   void clear(const std::string& reg) { m_output << "   xor " << reg << ", " << reg << "\n"; }
 
+   void emit_consts();
    void emit_print_int();
+
+   void emit_read_chars();
+   void emit_read_char();
+   void emit_read_int();
 
    void begin_scope();
    void end_scope();

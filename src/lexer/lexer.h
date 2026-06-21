@@ -24,6 +24,7 @@ private:
       return c;
    }
    inline Token resolveSymbol(char);
+   void synchronize();
 
    const std::string m_src;
    size_t m_currIndex = 0;

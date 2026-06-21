@@ -52,6 +52,18 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
       }
 
 
+      void operator()(const NodeExprRead* read) {
+         switch (read->kind) {
+            case ReadKind::Char:  gen->m_output << "   call read_char\n"; break;
+            case ReadKind::Int:   gen->m_output << "   call read_int\n";  break;
+            case ReadKind::Float: 
+            case ReadKind::Line:
+            default:              std::cerr << "Invalid print statement.\n"; exit(EXIT_FAILURE);
+         }
+         gen->push("rax");
+      }
+
+
       void operator()(const NodeExprIncDec* node) {
          auto var = gen->get_var(node->ident.value.value());
          if (!var.has_value()) {
@@ -132,7 +144,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
       ASMGenerator* gen;
       void operator()(const NodeStmtExit* stmt_exit) {
          gen->gen_expr(stmt_exit->expr);
-         gen->m_output << "   mov rax, 60\n";
+         gen->m_output << "   mov rax, SYS_exit\n";
          gen->pop("rdi");
          gen->m_output << "   syscall\n";
       }
@@ -259,6 +271,14 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
       }
 
 
+      void operator()(const NodeStmtScope* block) const {
+         gen->begin_scope();
+         for (auto stmt : block->scope->stmts)
+            gen->gen_stmt(stmt);
+         gen->end_scope();
+      }
+
+
       /**
        * 64-bit write registers:
        * rax = 1      <- syscall code for write
@@ -285,16 +305,16 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
                const std::string& bytes = (*str_node)->STR_LIT.value.value();
                std::string label = gen->add_string(bytes);
 
-               gen->m_output << "   mov rax, 1\n"
-                             << "   mov rdi, 1\n"
+               gen->m_output << "   mov rax, SYS_write\n"
+                             << "   mov rdi, STDOUT\n"
                              << "   mov rsi, " << label << '\n'
                              << "   mov rdx, " << label << "_len\n"
                              << "   syscall\n";
 
                if (p->nwln) {
-                  gen->m_output << "   mov byte [print_buf], 10\n"
-                                << "   mov rax, 1\n"
-                                << "   mov rdi, 1\n"
+                  gen->m_output << "   mov byte [print_buf], LF\n"
+                                << "   mov rax, SYS_write\n"
+                                << "   mov rdi, STDOUT\n"
                                 << "   mov rsi, print_buf\n"
                                 << "   mov rdx, 1\n"
                                 << "   syscall\n";
@@ -309,15 +329,16 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
                   gen->m_output << "   mov byte [print_buf], al\n";
                   gen->m_output << "   mov rsi, print_buf\n"
                                 << "   mov rdx, 1\n"
-                                << "   mov rax, 1\n"
-                                << "   mov rdi, 1\n"
+                                << "   mov rax, SYS_write\n"
+                                << "   mov rdi, STDOUT\n"
                                 << "   syscall\n";
                } else {
-                  gen->m_output << "   mov byte [print_buf + 1], 10\n"
+                  gen->m_output << "   mov byte [print_buf], al\n"
+                                << "   mov byte [print_buf + 1], LF\n"
                                 << "   mov rsi, print_buf\n"
                                 << "   mov rdx, 2\n"
-                                << "   mov rdi, 1\n"
-                                << "   mov rax, 1\n"
+                                << "   mov rdi, STDOUT\n"
+                                << "   mov rax, SYS_write\n"
                                 << "   syscall\n";
                }
                break;
@@ -341,7 +362,7 @@ void ASMGenerator::gen_cond(const NodeCondition* cond, const std::string& false_
          if (cmp->operation == CmpExprType::NONE) {
             gen->gen_expr(cmp->left);
             gen->pop("rax");
-            gen->m_output << "   cmp rax, 0\n";
+            gen->m_output << "   cmp rax, FALSE\n";
             gen->m_output << "   je " << false_label << "\n";
             return;
          }
@@ -390,7 +411,7 @@ void ASMGenerator::gen_cond_true(const NodeCondition* cond, const std::string& t
          if (cmp->operation == CmpExprType::NONE) {
             gen->gen_expr(cmp->left);
             gen->pop("rax");
-            gen->m_output << "   cmp rax, 0\n";
+            gen->m_output << "   cmp rax, FALSE\n";
             gen->m_output << "   jne " << true_label << "\n";
             return;
          }
@@ -466,14 +487,19 @@ void ASMGenerator::gen_function(const NodeFunction* func) {
 
 
 [[nodiscard]] std::string ASMGenerator::build() {
+   emit_consts();
    m_output << "section .bss\n"
-            << "   print_buf: resb 32\n\n"
+            << "   print_buf resb 32\n"
+            << "   read_buf  resb 64\n"
+            << "   chr       resb 1\n\n"
             << "section .text\n"
             << "global _start\n_start:\n"
             << "   call main\n   mov rdi, rax\n"
-            << "   mov rax, 60\n   syscall\n\n";
+            << "   mov rax, SYS_exit\n   syscall\n\n";
 
    emit_print_int();
+   emit_read_int();
+   emit_read_char();
    
    for (const NodeFunction* func : m_prog.funcs)
       gen_function(func);
@@ -488,7 +514,7 @@ void ASMGenerator::gen_function(const NodeFunction* func) {
          m_output << (int)(unsigned char)bytes[i];
       }
 
-      if (bytes.empty()) m_output << "0";
+      if (bytes.empty()) m_output << "NULL";
       m_output << "\n"
                << "   " << label << "_len: equ $ - " << label << "\n";
    }
@@ -583,7 +609,7 @@ int ASMGenerator::compute_frame_size(const std::vector<NodeStmt*>& stmts) {
 }
 
 
-// 10 = '\n'
+/** TODO: Remove this lol */
 int ASMGenerator::console_write(const std::string& msg) {
    if (msg.empty()) return -1;
    int len = msg.length();
@@ -596,13 +622,36 @@ int ASMGenerator::console_write(const std::string& msg) {
 }
 
 
+void ASMGenerator::emit_consts() {
+   m_output << "LF           equ 10     ; newline\n"
+            << "NULL         equ 0      ; null term\n"
+            << "TRUE         equ 1\n"
+            << "FALSE        equ 0\n\n"
+            << "EXIT_SUCCESS equ 0\n\n"
+            << "STDIN        equ 0\n"
+            << "STDOUT       equ 1\n"
+            << "STDERR       equ 2\n\n"
+            << "SYS_read     equ 0\n"
+            << "SYS_write    equ 1\n"
+            << "SYS_open     equ 2     ; file open\n"
+            << "SYS_close    equ 3     ; file close\n"
+            << "SYS_fork     equ 57    ; fork\n"
+            << "SYS_exit     equ 60    ; terminate\n"
+            << "SYS_creat    equ 85    ; file open/create\n"
+            << "SYS_time     equ 201   ; get time\n\n"
+            << "STDIN_LEN    equ 64    ; max len to read\n"
+            << "newLine      db  LF, NULL\n";
+}
+
+
+
 void ASMGenerator::emit_print_int() {
    m_output << 
 "print_int:                 ; Positive ints for now\n\
    ; rax = num, rdi = newline flag (0/1)\n\
-   mov byte [print_buf + 31], 10   ; park '\\n' at the end\n\
+   mov byte [print_buf + 31], LF   ; park '\\n' at the end\n\
    lea rsi, [print_buf + 30]       ; digits fill from here back\n\
-   mov rcx, 10\n\
+   mov rcx, LF\n\
    mov r8, 0\n\
    test rax, rax\n\
    jnz .pi_sign\n\
@@ -631,10 +680,67 @@ void ASMGenerator::emit_print_int() {
    lea rdx, [print_buf + 31]\n\
    sub rdx, rsi    ; length WITHOUT newline\n\
    add rdx, rdi    ; + flag (if using newline, adds the byte back)\n\
-   mov rax, 1\n\
-   mov rdi, 1      ; NOTE: this overwrites flag.\n\
+   mov rax, SYS_write\n\
+   mov rdi, STDOUT ; NOTE: this overwrites flag.\n\
    syscall\n\
    ret\n";
+}
+
+
+void ASMGenerator::emit_read_chars() {
+}
+
+
+void ASMGenerator::emit_read_char() {
+   m_output << "read_char:\n"
+            << "   mov rax, SYS_read\n"
+            << "   mov rdi, STDIN\n"
+            << "   lea rsi, [chr]\n"
+            << "   mov rdx, 1\n"
+            << "   syscall\n"
+            << "   movzx rax, byte [chr]\n"
+            << "   ret\n\n";
+}
+
+
+void ASMGenerator::emit_read_int() {
+   m_output << "read_int:\n"
+            << "   push rbx\n"
+            << "   push r12\n"
+            << "   push r13\n\n"
+            << "   xor rax, rax          ; accumulator = 0\n"
+            << "   xor r13, r13          ; sign = 0 (pos)\n"
+            << "   mov r12, 0            ; dig count guard\n\n"
+            << ".ri_loop:\n"
+            << "   push rax\n"
+            << "   mov rax, SYS_read\n"
+            << "   mov rdi, STDIN\n"
+            << "   lea rsi, [chr]\n"
+            << "   mov rdx, 1\n"
+            << "   syscall\n"
+            << "   cmp rax, FALSE\n"
+            << "   pop rax\n"
+            << "   je .ri_done           ; EOF -> stop\n\n"
+            << "   movzx rcx, byte [chr] ; the char, zero-extended (ONE byte)\n"
+            << "   cmp rcx, LF\n"
+            << "   je .ri_done\n"
+            << "   cmp rcx, '0'\n"
+            << "   jb .ri_done\n"
+            << "   cmp rcx, '9'\n"
+            << "   ja .ri_done\n\n"
+            << "   sub rcx, '0'          ; ASCII -> digit value\n"
+            << "   mov rdx, rax\n"
+            << "   shl rax, 3            ; rax * 8\n"
+            << "   shl rdx, 1            ; rdx * 2\n"
+            << "   add rax, rdx          ; rax * 10\n"
+            << "   add rax, rcx          ; + digit\n"
+            << "   jmp .ri_loop\n\n"
+            << ".ri_done:\n"
+            << "   pop r13\n"
+            << "   pop r12\n"
+            << "   pop rbx\n"
+            << "   ret\n\n";
+
 }
 
 

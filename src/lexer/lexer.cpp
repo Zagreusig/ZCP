@@ -11,7 +11,8 @@ static const std::unordered_map<std::string, TokenType> KEYWORDS = {
    { "int", TokenType::INT }, { "char", TokenType::CHAR },
    { "and", TokenType::OPERATOR_LOGICAL_AND }, { "or", TokenType::OPERATOR_LOGICAL_OR },
    { "print", TokenType::PRINT }, { "println", TokenType::PRINTLN },
-   { "read", TokenType::READ }, { "readln", TokenType::READLN }
+   { "readc", TokenType::READC }, { "readln", TokenType::READS }, { "reads", TokenType::READS},
+   { "readi", TokenType::READI }, { "readf", TokenType::READF }
 };
 
 [[nodiscard]] std::optional<char> Lexer::peek(int offset = 0) const {

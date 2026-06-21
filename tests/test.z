@@ -1,9 +1,6 @@
-func test(int a, int b) -> int {
-   return a + b;
-}
-
 fn main(): int {
-   have x = test(4, 5);
-   println("Hello world");
-   return x;
+   for (have i = 0; i < 10; i++) {
+      println(i);
+   }
+   return 0;
 }
