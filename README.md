@@ -67,6 +67,7 @@ println(readi());
 3. #define
 4. #include & headers
 5. structs -> later classes
+6. Ternary operators
 
 
 # Compiler Flags:  
