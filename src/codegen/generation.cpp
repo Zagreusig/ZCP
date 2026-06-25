@@ -162,16 +162,36 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
                       << stmt_have->ident.value.value() << std::endl;
             exit(EXIT_FAILURE);
          }
-         gen->m_current_offset -= 8;
+         
+         TypeInfo type;
+         if (stmt_have->has_type) {
+            type = stmt_have->decl_type;
+            if (stmt_have->expr) {
+               DataType init_t = gen->m_types.type_of(stmt_have->expr);
+               if (init_t != type.base) {
+                  std::cerr << "Type mismatch in declaration of '" << stmt_have->ident.value.value()
+                            << "'." << std::endl;
+                  exit(EXIT_FAILURE);
+               }
+            }
+         } else {
+            type.base = gen->m_types.type_of(stmt_have->expr);
+         }
+         
+         gen->m_current_offset -= 8; // still 8 bytes for now. (will update later)
          gen->m_vars.push_back(Var { 
             .name = stmt_have->ident.value.value(), 
             .rbp_offset = gen->m_current_offset 
          });
-         gen->m_types.declare_var(stmt_have->ident.value.value(),
-                                  gen->m_types.type_of(stmt_have->expr));
-         gen->gen_expr(stmt_have->expr);
-         gen->pop("rax");
-         gen->m_output << "   mov QWORD [rbp + " << gen->m_current_offset << "], rax\n";
+         gen->m_types.declare_var(stmt_have->ident.value.value(), type.base);
+         
+         if (stmt_have->expr) {
+            gen->gen_expr(stmt_have->expr);
+            gen->pop("rax");
+            gen->m_output << "   mov QWORD [rbp + " << gen->m_current_offset << "], rax\n";
+         } else {
+            gen->m_output << "   mov QWORD [rbp + " << gen->m_current_offset << "], 0\n";
+         }
       }
       
       

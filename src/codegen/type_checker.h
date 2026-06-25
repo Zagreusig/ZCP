@@ -6,8 +6,6 @@
 #include <unordered_map>
 #include <vector>
 
-enum class DataType { NONE, INT, CHAR, STR, BOOL };
-
 DataType map_token_type(const TokenType);
 
 class TypeChecker {

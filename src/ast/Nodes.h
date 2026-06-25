@@ -5,6 +5,28 @@
 #include <vector>
 #include "lexer/Tokens.h"
 
+enum class DataType { NONE, INT, CHAR, STR, BOOL };
+
+struct TypeInfo {
+   DataType base = DataType::NONE;
+   bool is_array = false;
+   int array_len = 0;
+
+   // Element in bytes.
+   int elem_size() const {
+      switch (base) {
+         case DataType::CHAR: return 1;
+         case DataType::INT:  return 8;
+         default:             return 8;
+      }
+   }
+
+   // total storage this var occupies on the stack.
+   int byte_size() const {
+      return is_array ? array_len * elem_size() : elem_size();
+   }
+};
+
 enum BinExprType {
    NONE             = 0,
    ADDITION         = 1,
@@ -98,7 +120,9 @@ struct NodeStmtExit {
 
 struct NodeStmtHave {
    Token ident;
-   NodeExpr* expr = nullptr;
+   bool has_type = false;
+   TypeInfo decl_type;       // valid when has_type
+   NodeExpr* expr = nullptr; // init, nullptr if not.
 };
 
 struct NodeStmtAssign {

@@ -6,6 +6,7 @@
 #include "ast/Nodes.h"
 #include "parser.h"
 #include "lexer/Tokens.h"
+#include "symbols/SymbolTable.h"
 
 
 [[nodiscard]] inline std::optional<Token> Parser::peek(int offset = 0) const {
@@ -399,9 +400,25 @@ std::optional<NodeStmt*> Parser::parse_have() {
    if (!id.has_value()) { fail("Invalid identifier."); return {}; }
    stmt_have->ident = id.value();
 
-   if (!try_consume(TokenType::OPERATOR_EQUALS)) { fail("Expected '='."); return {}; }
-   if (auto expr = parse_expr()) stmt_have->expr = expr.value();
-   else { fail("Invalid 'have' declaration.\n"); return {}; }
+   if (try_consume(TokenType::COLON)) {
+      DataType base = Symbols::tok_dt(peek().has_value() ? peek().value().type : TokenType::NONE);
+      if (base == DataType::NONE) { fail("Expected a type after ':'."); return {}; }
+      consume();
+      stmt_have->has_type = true;
+      stmt_have->decl_type.base = base;
+      // array syntax here later
+   }
+
+   if (try_consume(TokenType::OPERATOR_EQUALS)) { 
+      if (auto expr = parse_expr()) stmt_have->expr = expr.value();
+      else { fail("Expected value after '='.\n"); return {}; }
+   }
+   
+   if (!stmt_have->has_type && stmt_have->expr == nullptr) {
+      fail("Declaration of '" + stmt_have->ident.value.value() +
+           "' needs type annotation or initializer value.");
+      return {};
+   }
 
    NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
    stmt->var = stmt_have;

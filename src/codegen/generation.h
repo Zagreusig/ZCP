@@ -60,6 +60,8 @@ private:
    int console_write(const std::string&);   
 
    const NodeProg m_prog;
+   std::stringstream _bss;
+   std::stringstream _data;
    std::stringstream m_output;
    size_t m_stack_size = 0;
    std::vector<Var> m_vars           {};
