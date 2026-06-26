@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-enum class CompPhase { Lexing, Parsing, CodeGen };
+enum class CompPhase { Lexing, Parsing, Analysis, CodeGen };
 
 class CompilerError : public std::runtime_error {
 public:

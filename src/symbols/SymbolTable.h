@@ -28,10 +28,14 @@ namespace Symbols {
    }
 
    static DataType tok_dt(TokenType t) {
-      switch(t) {
-         case TokenType::INT:  return DataType::INT;
-         case TokenType::CHAR: return DataType::CHAR;
-         default:              return DataType::NONE;
+      switch (t) {
+         case TokenType::INT:
+         case TokenType::INT_LIT:  return DataType::INT;  break;
+         case TokenType::CHAR:
+         case TokenType::CHAR_LIT: return DataType::CHAR; break;
+         case TokenType::STR:
+         case TokenType::STR_LIT:  return DataType::STR;  break;
+         default:                  return DataType::NONE;
       }
    }
 

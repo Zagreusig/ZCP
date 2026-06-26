@@ -4,6 +4,7 @@
 #include "codegen/generation.h"  
 #include "parser/parser.h"
 #include "ErrAndRep/ErrorHandler.h"
+#include "analyzer/analyer.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -75,10 +76,13 @@ int main(int argc, char* argv[]) {
 
    Diagnostics diag;
 
+   // file -> Tokens
    Lexer Lexer(contents);
    std::vector<Token> tokens = Lexer.tokenize(&diag);
+   
+   // Tokens -> AST
    Parser parser(tokens, &diag);
-   std::optional<NodeProg> prog = parser.parse_prog();
+   auto prog = parser.parse_prog();
    if (diag.has_errors()) {
       diag.report_all(contents, input_file);
       Syscaller err;
@@ -87,7 +91,13 @@ int main(int argc, char* argv[]) {
       err.make_calls(true);
       return EXIT_FAILURE;
    }
-   
+
+   // Make sure everythings in order
+   Analyzer analyzer(prog.value(), diag);
+   analyzer.analyze();
+   if (diag.has_errors()) { diag.report_all(contents, input_file); return EXIT_FAILURE; }
+
+   // Generate assembly!
    Syscaller calls(user_name, tokens, flags, prog.value());
    ASMGenerator ASMGenerator(prog.value());
    {

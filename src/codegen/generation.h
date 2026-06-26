@@ -25,6 +25,7 @@ private:
    struct Var {
       std::string name;
       int rbp_offset;
+      TypeInfo type;
    };
 
    std::optional<Var> get_var(const std::string&);
@@ -54,6 +55,10 @@ private:
    int count_locals(const std::vector<NodeStmt*>&);
    int compute_frame_size(const NodeScopeBlock*);
    int compute_frame_size(const std::vector<NodeStmt*>&);
+   int compute_frame_bytes(const std::vector<NodeStmt*>&);
+   int have_byte_size(const NodeStmtHave*);
+
+   TypeInfo resolve_have_type(NodeStmtHave*);
 
    std::string add_string(const std::string&);
 

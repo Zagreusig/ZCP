@@ -58,7 +58,7 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
             case ReadKind::Int:   gen->m_output << "   call read_int\n";  break;
             case ReadKind::Float: 
             case ReadKind::Line:
-            default:              std::cerr << "Invalid print statement.\n"; exit(EXIT_FAILURE);
+            default:              std::cerr << "Invalid read statement.\n"; exit(EXIT_FAILURE);
          }
          gen->push("rax");
       }
@@ -132,6 +132,10 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
          gen->push("rax");
       }
 
+
+      void operator()(const NodeExprArrayLit* arr) {
+         return;
+      }
    };
 
    ExprVisitor visitor({ .gen = this });
@@ -163,34 +167,52 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
             exit(EXIT_FAILURE);
          }
          
-         TypeInfo type;
-         if (stmt_have->has_type) {
-            type = stmt_have->decl_type;
+         const TypeInfo& type = stmt_have->resolved;
+         if (type.is_array) {
+            int total = type.byte_size();
+            int esz   = type.elem_size();
+            gen->m_current_offset -= total;
+            int base = gen->m_current_offset;
+            gen->m_vars.push_back(Var { .name = stmt_have->ident.value.value(), .rbp_offset = base, 
+                                        .type = type });
+            gen->m_types.declare_var(stmt_have->ident.value.value(), type.base);
+         
             if (stmt_have->expr) {
-               DataType init_t = gen->m_types.type_of(stmt_have->expr);
-               if (init_t != type.base) {
-                  std::cerr << "Type mismatch in declaration of '" << stmt_have->ident.value.value()
-                            << "'." << std::endl;
-                  exit(EXIT_FAILURE);
+               auto* lit = std::get_if<NodeExprArrayLit*>(&stmt_have->expr->var);
+               const auto& elems = (*lit)->elements;
+               for (size_t i = 0; i < elems.size(); i++) {
+                  gen->gen_expr(elems[i]);
+                  gen->pop("rax");
+                  int off = base + (int)i * esz;
+                  if (esz == 8) gen->m_output << "   mov QWORD [rbp + " << off  << "], rax\n";
+                  else          gen->m_output << "   mov byte [rbp + " << off << "], al\n";
+               }
+            } else {
+               // sized, uninit: zero entire region of mem
+               for (int i = 0; i < type.array_len; i++) {
+                  int off = base + i * esz;
+                  if (esz == 8) gen->m_output << "   mov QWORD [rbp + " << off << "], 0\n";
+                  else          gen->m_output << "   mov byte [rbp + "  << off << "], 0\n";
                }
             }
-         } else {
-            type.base = gen->m_types.type_of(stmt_have->expr);
+            return;
          }
+
          
          gen->m_current_offset -= 8; // still 8 bytes for now. (will update later)
+         int off = gen->m_current_offset;
          gen->m_vars.push_back(Var { 
             .name = stmt_have->ident.value.value(), 
-            .rbp_offset = gen->m_current_offset 
+            .rbp_offset = off, .type = type 
          });
          gen->m_types.declare_var(stmt_have->ident.value.value(), type.base);
          
          if (stmt_have->expr) {
             gen->gen_expr(stmt_have->expr);
             gen->pop("rax");
-            gen->m_output << "   mov QWORD [rbp + " << gen->m_current_offset << "], rax\n";
+            gen->m_output << "   mov QWORD [rbp + " << off << "], rax\n";
          } else {
-            gen->m_output << "   mov QWORD [rbp + " << gen->m_current_offset << "], 0\n";
+            gen->m_output << "   mov QWORD [rbp + " << off << "], 0\n";
          }
       }
       
@@ -308,6 +330,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
        */
       void operator()(const NodeStmtPrint* p) const {
          DataType t = gen->m_types.type_of(p->expr);
+         std::cout << "Checked type: " << (int)t << std::endl;
          switch (t) {
             case DataType::INT:
                gen->gen_expr(p->expr);
@@ -506,7 +529,7 @@ void ASMGenerator::gen_function(const NodeFunction* func) {
 
 
 
-[[nodiscard]] std::string ASMGenerator::build() {
+[[nodiscard]] std::string ASMGenerator::build() {   
    emit_consts();
    m_output << "section .bss\n"
             << "   print_buf resb 32\n"
@@ -599,7 +622,7 @@ int ASMGenerator::count_locals(const std::vector<NodeStmt*>& stmts) {
             count++;
          else if constexpr (std::is_same_v<T, NodeScopeBlock>)
             count += count_locals(s);
-         else if constexpr (std::is_same_v<T, NodeScopeBlock>) {
+         else if constexpr (std::is_same_v<T, NodeStmtIf>) {
             count += count_locals(s->body);
             if (s->else_body) count += count_locals(s->else_body);
          }
@@ -622,10 +645,33 @@ int ASMGenerator::compute_frame_size(const NodeScopeBlock* body) {
 }
 
 
+int ASMGenerator::have_byte_size(const NodeStmtHave* h) {
+   /* WIP */
+   return 8;
+}
+
+
 int ASMGenerator::compute_frame_size(const std::vector<NodeStmt*>& stmts) {
-   int locals = count_locals(stmts);
-   int bytes = locals * 8;
-   return (bytes + 15) & ~15;
+   int bytes = 0;
+   for (auto stmt : stmts) {
+      std::visit([&](auto* s) {
+         using T = std::decay_t<decltype(*s)>;
+         if constexpr (std::is_same_v<T, NodeStmtHave>) {
+            bytes += s->resolved.byte_size();
+         }
+         else if constexpr (std::is_same_v<T, NodeStmtWhile>) 
+            bytes += compute_frame_size(s->body->stmts);
+         else if constexpr (std::is_same_v<T, NodeStmtFor>)
+            bytes += compute_frame_size(s->body->stmts);
+         else if constexpr (std::is_same_v<T, NodeStmtIf>) {
+            bytes += compute_frame_size(s->body->stmts);
+            if (s->else_body) bytes += compute_frame_size(s->else_body->stmts);
+         }
+         else if constexpr (std::is_same_v<T, NodeScopeBlock>)
+            bytes += compute_frame_size(s->stmts);
+      }, stmt->var);
+   }
+   return bytes;
 }
 
 
@@ -768,4 +814,33 @@ std::string ASMGenerator::add_string(const std::string& str) {
    std::string label = "str_" + std::to_string(m_str_count++);
    m_strings.push_back({ label, str });
    return label;
+}
+
+
+TypeInfo ASMGenerator::resolve_have_type(NodeStmtHave* h) {
+   if (h->is_resolved) return h->resolved;
+
+   TypeInfo info;
+   if (h->has_type)
+      info = h->decl_type;
+   else if (auto* lit = std::get_if<NodeExprArrayLit*>(&h->expr->var)) {
+      const auto& elems = (*lit)->elements;
+      if (elems.empty()) { /* error: empty lit can't infer*/ }
+      DataType et = m_types.type_of(elems[0]);
+      for (size_t i = 1; i < elems.size(); i++) {
+         if (m_types.type_of(elems[i]) != et) {
+            std::cerr << "Array literal has mismatched element types." << std::endl;
+            exit(EXIT_FAILURE);
+         }
+      }
+
+      info.base = et;
+      info.is_array = true;
+      info.array_len = elems.size();
+   }
+   else info.base = m_types.type_of(h->expr); // scalar inference
+
+   h->resolved = info;
+   h->is_resolved = true;
+   return info;
 }

@@ -1,7 +1,7 @@
 fn main(): int {
-   have x = 5;
-   have y: int = 6;
-   have z: int;
-
-   return x + y;
+   have arr: int[5];
+   have zar = [1, 2, 3];
+   have arr3: int = [1, 7, 9];
+   have chr: char = [ 'h', 'e', 'l', 'l', 'o'];
+   return 0;
 }

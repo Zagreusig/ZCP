@@ -172,6 +172,14 @@ void ASTPrinter::print_expr(const NodeExpr* expr, int depth) {
             default:              std::cout << "Read<NULL>\n"; break;
          }
       }
+
+      void operator()(const NodeExprArrayLit* a) {
+         std::cout << pad(depth) << "Elements:\n";
+         for (size_t i = 0; i < a->elements.size(); i++) {
+            std::cout << pad(depth) << i << ": ";
+            p->print_expr(a->elements.at(i), depth + 1);
+         }
+      }
    };
    std::visit(Visitor{ this, depth }, expr->var);
 }

@@ -72,6 +72,10 @@ struct NodeExprIdent {
    Token ident;
 };
 
+struct NodeExprArrayLit {
+   std::vector<NodeExpr*> elements;
+};
+
 struct NodeCmpCondition {
    CmpExprType operation;
    NodeExpr* left  = nullptr;
@@ -111,7 +115,8 @@ struct NodeExprRead {
 
 struct NodeExpr {
    std::variant<NodeExprIntLit*, NodeExprIdent*, NodeBinExpr*, NodeExprCall*, 
-                NodeExprCharLit*, NodeExprStrLit*, NodeExprIncDec*, NodeExprRead*> var;
+                NodeExprCharLit*, NodeExprStrLit*, NodeExprIncDec*, NodeExprRead*,
+                NodeExprArrayLit*> var;
 };
 
 struct NodeStmtExit {
@@ -123,6 +128,9 @@ struct NodeStmtHave {
    bool has_type = false;
    TypeInfo decl_type;       // valid when has_type
    NodeExpr* expr = nullptr; // init, nullptr if not.
+
+   TypeInfo resolved;        // Stashed type
+   bool is_resolved;         // Computed yet?
 };
 
 struct NodeStmtAssign {

@@ -26,13 +26,15 @@ private:
    inline void consume(int n) { for (int i = 0; i < n; i++) consume(); }
    bool is_next(TokenType, int);
    int get_precidence(BinExprType op);
-   BinExprType bin_type_convert(TokenType);
+   // BinExprType bin_type_convert(TokenType);
 
-   BinExprType comp_to_binop(const TokenType&);
+   // BinExprType comp_to_binop(const TokenType&);
    bool is_compound_assign(const TokenType&);
 
    static bool valid_for_increment(const NodeStmt*);
    static bool is_init_stmt(const NodeStmt*);
+
+   std::optional<TypeInfo>        parse_type();
 
    std::optional<NodeExpr*>       parse_expr(int);
    std::optional<NodeStmt*>       parse_stmt();

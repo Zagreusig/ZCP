@@ -1,6 +1,6 @@
 fn main() -> int {
    have x = 0;
-   have y = 0;
+   have y: char = 'c';
    have z = 'y';
    have nwln = 'n';
 
@@ -11,7 +11,7 @@ fn main() -> int {
       y = readc();
       nwln = readc();
 
-      println();
+
       println("Your number: ");
       println(x);
       println("Your letter: ");
@@ -23,8 +23,5 @@ fn main() -> int {
       nwln = readc();
    }
 
-   {
-      println("This is in a blank scope!");
-   }
    return 0;
 }

@@ -53,28 +53,28 @@ ReadKind tok_to_rk(const TokenType& t) {
 }
 
 
-BinExprType Parser::comp_to_binop(const TokenType& t) {
-   switch(t) {
-      case TokenType::OPERATOR_ADD_EQ: return BinExprType::ADDITION;
-      case TokenType::OPERATOR_SUB_EQ: return BinExprType::SUBTRACTION;
-      case TokenType::OPERATOR_MUL_EQ: return BinExprType::MULTIPLICATION;
-      case TokenType::OPERATOR_DIV_EQ: return BinExprType::DIVISION;
-      default:                         return BinExprType::NONE;
-   }
-}
+// BinExprType Parser::comp_to_binop(const TokenType& t) {
+//    switch(t) {
+//       case TokenType::OPERATOR_ADD_EQ: return BinExprType::ADDITION;
+//       case TokenType::OPERATOR_SUB_EQ: return BinExprType::SUBTRACTION;
+//       case TokenType::OPERATOR_MUL_EQ: return BinExprType::MULTIPLICATION;
+//       case TokenType::OPERATOR_DIV_EQ: return BinExprType::DIVISION;
+//       default:                         return BinExprType::NONE;
+//    }
+// }
 
 
-BinExprType Parser::bin_type_convert(TokenType type) {
-   switch (type) {
-   case TokenType::OPERATOR_CARET:    return BinExprType::EXPONENT;
-   case TokenType::OPERATOR_ASTERISK: return BinExprType::MULTIPLICATION;
-   case TokenType::OPERATOR_SLASH:    return BinExprType::DIVISION;
-   case TokenType::OPERATOR_PERCENT:  return BinExprType::MODULUS;
-   case TokenType::OPERATOR_PLUS:     return BinExprType::ADDITION;
-   case TokenType::OPERATOR_DASH:     return BinExprType::SUBTRACTION;
-   default:                           return BinExprType::NONE;
-   }
-}
+// BinExprType Parser::bin_type_convert(TokenType type) {
+//    switch (type) {
+//    case TokenType::OPERATOR_CARET:    return BinExprType::EXPONENT;
+//    case TokenType::OPERATOR_ASTERISK: return BinExprType::MULTIPLICATION;
+//    case TokenType::OPERATOR_SLASH:    return BinExprType::DIVISION;
+//    case TokenType::OPERATOR_PERCENT:  return BinExprType::MODULUS;
+//    case TokenType::OPERATOR_PLUS:     return BinExprType::ADDITION;
+//    case TokenType::OPERATOR_DASH:     return BinExprType::SUBTRACTION;
+//    default:                           return BinExprType::NONE;
+//    }
+// }
 
 
 CmpExprType cmp_type_convert(TokenType type) {
@@ -114,12 +114,31 @@ bool Parser::is_init_stmt(const NodeStmt* s) {
 }
 
 
+std::optional<TypeInfo> Parser::parse_type() {
+   TypeInfo info;
+   DataType base = Symbols::tok_dt(peek().has_value() ? peek().value().type : TokenType::NONE);
+   if (base == DataType::NONE) { fail("Expected a type."); return {}; }
+   consume(); // type tok
+   info.base = base;
+
+   if (try_consume(TokenType::OPEN_BRACKET)) {
+      auto len_tok = try_consume(TokenType::INT_LIT);
+      if (!len_tok) { fail("Expected array size inside '[ ]'."); return {}; }
+      info.is_array = true;
+      info.array_len = std::stoi(len_tok.value().value.value());
+      if (info.array_len <= 0) { fail("Array size must be positive."); return {}; }
+      if (!try_consume(TokenType::CLOSE_BRACKET)) { fail("Expected ']'."); return {}; }
+   }
+   return info;
+}
+
+
 std::optional<NodeExpr*> Parser::parse_expr(int min_prec = 0) {
    auto left = parse_primary();
    if (!left.has_value()) return {};
 
    while (peek().has_value()) {
-      BinExprType op = bin_type_convert(peek().value().type);
+      BinExprType op = Symbols::tok_binop(peek().value().type);
       if (op == BinExprType::NONE) break;
       int prec = get_precidence(op);
       if (prec < min_prec) break;
@@ -160,6 +179,20 @@ std::optional<NodeExpr*> Parser::parse_primary() {
       NodeExprStrLit* str = m_allocator.alloc<NodeExprStrLit>();
       str->STR_LIT = val.value();
       return wrap(str);
+   }
+
+   if (try_consume(TokenType::OPEN_BRACKET)) {
+      NodeExprArrayLit* arr = m_allocator.alloc<NodeExprArrayLit>();
+      if (!is_next(TokenType::CLOSE_BRACKET)) {
+         while (true) {
+            if (auto e = parse_expr()) arr->elements.push_back(e.value());
+            else { fail("Expected expression in array literal."); return {}; }
+            if (try_consume(TokenType::COMMA)) continue;
+            break;
+         }
+      }
+      if (!try_consume(TokenType::CLOSE_BRACKET)) { fail("Expected ']'."); return {}; }
+      return wrap(arr);
    }
 
    if (peek().has_value() && is_print_stmt(peek().value().type)) {
@@ -401,11 +434,12 @@ std::optional<NodeStmt*> Parser::parse_have() {
    stmt_have->ident = id.value();
 
    if (try_consume(TokenType::COLON)) {
-      DataType base = Symbols::tok_dt(peek().has_value() ? peek().value().type : TokenType::NONE);
-      if (base == DataType::NONE) { fail("Expected a type after ':'."); return {}; }
-      consume();
-      stmt_have->has_type = true;
-      stmt_have->decl_type.base = base;
+      if (auto t = parse_type()) {
+         stmt_have->has_type = true;
+         stmt_have->decl_type = t.value();
+      } else {
+         return {};
+      }
       // array syntax here later
    }
 
@@ -459,7 +493,7 @@ std::optional<NodeStmt*> Parser::parse_assign() {
 std::optional<NodeStmt*> Parser::parse_cmpd_assign() {
    Token ident = consume(); // Identifier
    TokenType optok = consume().type; // Operation + - / *
-   BinExprType binop = comp_to_binop(optok); // BinExprType translation
+   BinExprType binop = Symbols::cmpd_binop(optok); // BinExprType translation
 
    auto rhs = parse_expr();
    if (!rhs.has_value()) { return {}; }
