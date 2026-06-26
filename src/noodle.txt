@@ -1,0 +1,9 @@
+println(arr[i]);
+
+
+PRINTLN OPEN_PAREN IDENTIFIER OPEN_BRACKET IDENTIFIER CLOSE_BRACKET CLOSE_PARENT SEMICOLON:
+
+arr (has base address; i.e. arr[0])
+to get "i"
+
+arr_base + i * arr_element_size

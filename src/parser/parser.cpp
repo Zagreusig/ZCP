@@ -42,63 +42,6 @@ bool is_print_stmt(const TokenType& t) {
 }
 
 
-ReadKind tok_to_rk(const TokenType& t) {
-   switch (t) {
-      case TokenType::READC: return ReadKind::Char;
-      case TokenType::READI: return ReadKind::Int;
-      case TokenType::READF: return ReadKind::None;
-      case TokenType::READS: return ReadKind::Line;
-      default:               return ReadKind::None;
-   }
-}
-
-
-// BinExprType Parser::comp_to_binop(const TokenType& t) {
-//    switch(t) {
-//       case TokenType::OPERATOR_ADD_EQ: return BinExprType::ADDITION;
-//       case TokenType::OPERATOR_SUB_EQ: return BinExprType::SUBTRACTION;
-//       case TokenType::OPERATOR_MUL_EQ: return BinExprType::MULTIPLICATION;
-//       case TokenType::OPERATOR_DIV_EQ: return BinExprType::DIVISION;
-//       default:                         return BinExprType::NONE;
-//    }
-// }
-
-
-// BinExprType Parser::bin_type_convert(TokenType type) {
-//    switch (type) {
-//    case TokenType::OPERATOR_CARET:    return BinExprType::EXPONENT;
-//    case TokenType::OPERATOR_ASTERISK: return BinExprType::MULTIPLICATION;
-//    case TokenType::OPERATOR_SLASH:    return BinExprType::DIVISION;
-//    case TokenType::OPERATOR_PERCENT:  return BinExprType::MODULUS;
-//    case TokenType::OPERATOR_PLUS:     return BinExprType::ADDITION;
-//    case TokenType::OPERATOR_DASH:     return BinExprType::SUBTRACTION;
-//    default:                           return BinExprType::NONE;
-//    }
-// }
-
-
-CmpExprType cmp_type_convert(TokenType type) {
-   switch (type) {
-      case TokenType::OPERATOR_EQUAL_EQUAL:   return CmpExprType::EQUAL;
-      case TokenType::OPERATOR_NOT_EQUAL:     return CmpExprType::NOT_EQUAL;
-      case TokenType::OPERATOR_GREATER_EQUAL: return CmpExprType::GREATER_EQUAL;
-      case TokenType::OPERATOR_GT:            return CmpExprType::GREATER_THAN;
-      case TokenType::OPERATOR_LESS_EQUAL:    return CmpExprType::LESS_EQUAL;
-      case TokenType::OPERATOR_LT:            return CmpExprType::LESS_THAN;
-      default:                                return CmpExprType::NONE;
-   }
-}
-
-
-static CmpExprType logic_op_convert(TokenType t) {
-   switch(t) {
-      case TokenType::OPERATOR_LOGICAL_OR:  return CmpExprType::OR;
-      case TokenType::OPERATOR_LOGICAL_AND: return CmpExprType::AND;
-      default:                              return CmpExprType::NONE;
-   }
-}
-
-
 // Disallowing statements for the incremental statements
 bool Parser::valid_for_increment(const NodeStmt* s) {
    return !std::holds_alternative<NodeStmtHave*>(s->var)   &&
@@ -197,7 +140,7 @@ std::optional<NodeExpr*> Parser::parse_primary() {
 
    if (peek().has_value() && is_print_stmt(peek().value().type)) {
       NodeExprRead* read = m_allocator.alloc<NodeExprRead>();
-      read->kind = tok_to_rk(peek().value().type);
+      read->kind = Symbols::tok_rk(peek().value().type);
       consume();
       if (!try_consume(TokenType::OPEN_PAREN)) { fail("Expected '('."); return {}; }
       if (read->kind == ReadKind::None) { fail("Invalid read type"); return {}; }
@@ -583,7 +526,7 @@ std::optional<NodeCondition*> Parser::parse_cond_primary() {
       if (auto inner = parse_condition_bp(0)) {
          if (peek().has_value() && peek().value().type == TokenType::CLOSE_PAREN) {
             if (peek(1).has_value() &&
-                cmp_type_convert(peek(1).value().type) != CmpExprType::NONE)
+                Symbols::tok_cmp(peek(1).value().type) != CmpExprType::NONE)
                reset(saved);
             else {
                consume();
@@ -600,7 +543,7 @@ std::optional<NodeCondition*> Parser::parse_cond_primary() {
    NodeCmpCondition* cmp = m_allocator.alloc<NodeCmpCondition>();
    cmp->left = left.value();
 
-   CmpExprType op = cmp_type_convert(peek().value().type);
+   CmpExprType op = Symbols::tok_cmp(peek().value().type);
    if (op != CmpExprType::NONE) {
       consume();
       auto right = parse_expr();
@@ -623,7 +566,7 @@ std::optional<NodeCondition*> Parser::parse_condition_bp(int min_prec) {
    if (!left.has_value()) return {};
 
    while (peek().has_value()) {
-      CmpExprType op = logic_op_convert(peek().value().type);
+      CmpExprType op = Symbols::tok_logop(peek().value().type);
       if (op == CmpExprType::NONE) break;
 
       int prec = cond_precidence(op);
