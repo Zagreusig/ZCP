@@ -1,7 +1,7 @@
 # Compiler Process  
 Here are the general steps the compiler takes when given a file:
 
-## Lex -> Parse -> Generate (assembly)  
+## Lex -> Parse -> Analyze -> Generate (assembly)  
 
 ### Lexing
 The lexing stage is very straightforward. Unless the compiler comes across a symbol that could be used in a compound symbol (think something like `+=` or `->`), it pushes a token into a vector that contains the token's type (enumerator), an optional value (std::string), as well as its line # and the column it begins at. 
@@ -52,6 +52,11 @@ For
 
 Statements and Expressions all get lumped under a generic Node* using c++'s `std::variant`.  
 To avoid the slowdown that would inevitably come from so many `new` / `delete` calls, I chose to employ an arena allocator, which allocates about 4MB of memory at the start, and then allocates new chunks as needed using `std::max` between the provided amount (4MB in this case) or the size of the type attempting to gain a pointer.
+
+### Analysis  
+This step is still slightly indev. In the codegen folder, there is the TypeChecker class, this is being refactored slowly into the Analyzer class. 
+The Analyzer walks through the generated AST prior to the generator and validates syntax as well as resolves types. It makes sure that when declaring variables, the initializer value matches any annotated types. It checks that all elements of an array are the correct type, it checks that identifiers are declared before they're being used, etc.
+
 
 ### Code Generation  
 This part acts by following the tree down from the top. Initially, it emits a few protocols, such as the ones used for `println` and `readi`. It also emits a variety of constants and preallocates buffers for reading and writing.  
