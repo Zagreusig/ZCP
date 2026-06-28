@@ -8,6 +8,7 @@
 #include "type_checker.h"
 #include "generation.h"
 #include "lexer/Tokens.h"
+#include "symbols/SymbolTable.h"
 
 /**
  *  rax: 0 read
@@ -47,7 +48,38 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
             exit(EXIT_FAILURE);
          }
 
-         gen->m_output << "   mov rax, QWORD [rbp + " << var.value().rbp_offset << "]\n";
+         gen->m_output << "   mov rax, QWORD [r12 + " << var.value().offset << "]\n";
+         gen->push("rax");
+      }
+
+
+      // r12 is frame base
+      // rax holds base_offset + index*esz
+      // [r12 + rax] = element's address
+      void operator()(const NodeExprIndex* idx) {
+         auto var = gen->get_var(idx->ident.value.value());
+         if (!var.has_value()) {
+            std::cerr << "Undeclared array: " << idx->ident.value.value() << std::endl;
+            exit(EXIT_FAILURE);
+         }
+         int esz = var.value().type.elem_size();
+
+         // eval expr -> its value on the stack
+         gen->gen_expr(idx->index);
+         gen->pop("rax"); // rax = index value
+
+         // address = r12 + base_offset + (index * esz)
+         //   comp elem offset into rax, then load from [r12 + rax + base]
+         if (esz != 1) 
+            gen->m_output << "   imul rax, " << esz << "\n";    // rax = index * elem_size
+         gen->m_output << "   add rax, " << var.value().offset << "\n"; // + base offset
+
+         // load element
+         if (esz == 8)
+            gen->m_output << "   mov rax, QWORD [r12 + rax]\n";
+         else // byte element
+            gen->m_output << "   movzx rax, byte [r12 + rax]\n";
+
          gen->push("rax");
       }
 
@@ -70,7 +102,7 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
             std::cerr << "Undeclared Identifier IncDec: " << node->ident.value.value() << std::endl;
             exit(EXIT_FAILURE);
          }
-         std::string slot = "QWORD [rbp + " + std::to_string(var.value().rbp_offset) + "]";
+         std::string slot = "QWORD [r12 + " + std::to_string(var.value().offset) + "]";
          const char* op = node->is_increment ? "add" : "sub";
 
          if (node->is_prefix) {
@@ -160,59 +192,60 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
       }
       
       
-      void operator()(const NodeStmtHave* stmt_have) {
-         if (gen->get_var(stmt_have->ident.value.value()).has_value()) {
+      void operator()(const NodeStmtHave* h) {
+         if (gen->get_var(h->ident.value.value()).has_value()) {
             std::cerr << "Identifier aleady used (have): " 
-                      << stmt_have->ident.value.value() << std::endl;
+                      << h->ident.value.value() << std::endl;
             exit(EXIT_FAILURE);
          }
          
-         const TypeInfo& type = stmt_have->resolved;
+         const TypeInfo& type = h->resolved;
+
          if (type.is_array) {
-            int total = type.byte_size();
-            int esz   = type.elem_size();
-            gen->m_current_offset -= total;
-            int base = gen->m_current_offset;
-            gen->m_vars.push_back(Var { .name = stmt_have->ident.value.value(), .rbp_offset = base, 
+            int esz   = type.elem_size(); // array base size
+            int base  = gen->m_current_offset; // this array's element 0
+            gen->m_vars.push_back(Var { .name = h->ident.value.value(), .offset = base, 
                                         .type = type });
-            gen->m_types.declare_var(stmt_have->ident.value.value(), type.base);
-         
-            if (stmt_have->expr) {
-               auto* lit = std::get_if<NodeExprArrayLit*>(&stmt_have->expr->var);
+            gen->m_types.declare_var(h->ident.value.value(), type.base);
+            gen->m_current_offset += type.byte_size();
+            if (h->expr) {
+               auto* lit = std::get_if<NodeExprArrayLit*>(&h->expr->var);
                const auto& elems = (*lit)->elements;
                for (size_t i = 0; i < elems.size(); i++) {
                   gen->gen_expr(elems[i]);
                   gen->pop("rax");
                   int off = base + (int)i * esz;
-                  if (esz == 8) gen->m_output << "   mov QWORD [rbp + " << off  << "], rax\n";
-                  else          gen->m_output << "   mov byte [rbp + " << off << "], al\n";
+                  if (esz == 8) gen->m_output << "   mov QWORD [r12 + " << off  << "], rax\n";
+                  else          gen->m_output << "   mov byte [r12 + " << off << "], al\n";
                }
             } else {
                // sized, uninit: zero entire region of mem
                for (int i = 0; i < type.array_len; i++) {
                   int off = base + i * esz;
-                  if (esz == 8) gen->m_output << "   mov QWORD [rbp + " << off << "], 0\n";
-                  else          gen->m_output << "   mov byte [rbp + "  << off << "], 0\n";
+                  if (esz == 8) gen->m_output << "   mov QWORD [r12 + " << off << "], 0\n";
+                  else          gen->m_output << "   mov byte [r12 + "  << off << "], 0\n";
                }
             }
             return;
          }
 
          
-         gen->m_current_offset -= 8; // still 8 bytes for now. (will update later)
+         // Scalar
          int off = gen->m_current_offset;
          gen->m_vars.push_back(Var { 
-            .name = stmt_have->ident.value.value(), 
-            .rbp_offset = off, .type = type 
+            .name = h->ident.value.value(), 
+            .offset = off, .type = type 
          });
-         gen->m_types.declare_var(stmt_have->ident.value.value(), type.base);
+         gen->m_types.declare_var(h->ident.value.value(), type.base);
          
-         if (stmt_have->expr) {
-            gen->gen_expr(stmt_have->expr);
+         gen->m_current_offset += type.byte_size();
+
+         if (h->expr) {
+            gen->gen_expr(h->expr);
             gen->pop("rax");
-            gen->m_output << "   mov QWORD [rbp + " << off << "], rax\n";
+            gen->m_output << "   mov QWORD [r12 + " << off << "], rax\n";
          } else {
-            gen->m_output << "   mov QWORD [rbp + " << off << "], 0\n";
+            gen->m_output << "   mov QWORD [r12 + " << off << "], 0\n";
          }
       }
       
@@ -275,7 +308,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
 
          gen->gen_expr(assign->expr);
          gen->pop("rax");
-         gen->m_output << "   mov QWORD [rbp + " << var.value().rbp_offset << "], rax\n";
+         gen->m_output << "   mov QWORD [r12 + " << var.value().offset << "], rax\n";
       }
    
    
@@ -285,9 +318,8 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
          gen->gen_stmt(loop->init);
          std::string strt = gen->make_label();
          std::string ender = gen->make_label();
-         gen->gen_cond(loop->condition, ender);
          gen->m_output << strt << ":\n";
-         
+         gen->gen_cond(loop->condition, ender);
          
          gen->begin_scope();
          for (auto stmt : loop->body->stmts)
@@ -308,6 +340,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
          gen->gen_expr(_return->expr);
          gen->pop("rax");
          gen->m_output << "   mov rsp, rbp\n"
+                       << "   pop r12\n"
                        << "   pop rbp\n"
                        << "   ret\n";
       }
@@ -501,20 +534,24 @@ void ASMGenerator::gen_function(const NodeFunction* func) {
 
    m_output << "\n\n" << func->name.value.value() << ":\n"
          << "   push rbp\n"
+         << "   push r12\n"
          << "   mov rbp, rsp\n"
-         << "   sub rsp, " << frame_size << "\n";
+         << "   sub rsp, " << frame_size << "\n"
+         << "   mov r12, rsp\n";
 
    begin_scope();
    static const std::string param_regs[] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
    for (size_t i = 0; i < func->params.size(); i++) {
       const std::string& name = func->params[i].name.value.value();
-      m_current_offset -= 8;
+      int off = m_current_offset;
       m_vars.push_back(Var {
          .name = name,
-         .rbp_offset = m_current_offset
+         .offset = off,
+         .type = TypeInfo{ .base = Symbols::tok_dt(func->params[i].type.type) }
       });
-      m_types.declare_var(name, map_token_type(func->params[i].type.type));
-      m_output << "   mov QWORD [rbp + " << m_current_offset << "], " << param_regs[i] << "\n";
+      m_types.declare_var(name, Symbols::tok_dt(func->params[i].type.type));
+      m_output << "   mov QWORD [r12 + " << off << "], " << param_regs[i] << "\n";
+      m_current_offset += 8; /** TODO: this is only 8 bytes for now, this will change */
    }
    
 
@@ -523,6 +560,7 @@ void ASMGenerator::gen_function(const NodeFunction* func) {
    end_scope();
 
    m_output << "   mov rsp, rbp\n"
+            << "   pop r12\n"
             << "   pop rbp\n"
             << "   ret\n";
 }
@@ -577,6 +615,7 @@ void ASMGenerator::end_scope() {
    m_scope_stack.pop_back();
    m_vars.resize(var_before);
    m_types.pop_scope();
+   /** NOTE: m_current_offset intentionally not rolled back, no mem reclaiming (yet) */
 }
 
 

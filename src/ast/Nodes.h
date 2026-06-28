@@ -76,6 +76,11 @@ struct NodeExprArrayLit {
    std::vector<NodeExpr*> elements;
 };
 
+struct NodeExprIndex {
+   Token ident;
+   NodeExpr* index = nullptr;
+};
+
 struct NodeCmpCondition {
    CmpExprType operation;
    NodeExpr* left  = nullptr;
@@ -116,7 +121,7 @@ struct NodeExprRead {
 struct NodeExpr {
    std::variant<NodeExprIntLit*, NodeExprIdent*, NodeBinExpr*, NodeExprCall*, 
                 NodeExprCharLit*, NodeExprStrLit*, NodeExprIncDec*, NodeExprRead*,
-                NodeExprArrayLit*> var;
+                NodeExprArrayLit*, NodeExprIndex*> var;
 };
 
 struct NodeStmtExit {

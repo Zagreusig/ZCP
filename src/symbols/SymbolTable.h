@@ -30,12 +30,22 @@ namespace Symbols {
    static DataType tok_dt(TokenType t) {
       switch (t) {
          case TokenType::INT:
-         case TokenType::INT_LIT:  return DataType::INT;  break;
+         case TokenType::INT_LIT:  return DataType::INT;
          case TokenType::CHAR:
-         case TokenType::CHAR_LIT: return DataType::CHAR; break;
+         case TokenType::CHAR_LIT: return DataType::CHAR;
          case TokenType::STR:
-         case TokenType::STR_LIT:  return DataType::STR;  break;
+         case TokenType::STR_LIT:  return DataType::STR;
          default:                  return DataType::NONE;
+      }
+   }
+
+   static TokenType dt_tok(DataType t) {
+      switch (t) {
+         case DataType::INT:  return TokenType::INT;
+         case DataType::CHAR: return TokenType::CHAR;
+         case DataType::STR:  return TokenType::STR;
+         case DataType::BOOL:
+         default:             return TokenType::NONE;
       }
    }
 

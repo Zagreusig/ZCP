@@ -1,19 +1,10 @@
 fn main(): int {
-   have arr: int[5];
-   have zar = [1, 2, 3];
-   have arr3: int = [1, 7, 9];
-   have chr: char = [ 'h', 'e', 'l', 'l', 'o'];
-
-   have i = 0;
-   while (i != 5) {
-      i++;
-      println(chr);
+   have arr: int[10];
+   for (have i = 0; i < 10; i++) {
+      println(arr[i]);
    }
 
-   for (have z: int = 0; z < 5; z++) {
-      if (z == 3) {
-         return 1;
-      }
-   }
+   println(arr[9]);
+
    return 0;
 }

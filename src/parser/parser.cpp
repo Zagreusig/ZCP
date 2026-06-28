@@ -168,6 +168,19 @@ std::optional<NodeExpr*> Parser::parse_ident_expr() {
    if (is_next(TokenType::OPEN_PAREN))
       return parse_call(id);
 
+   // array indexing arr[ expr ]
+   if (is_next(TokenType::OPEN_BRACKET)) {
+      consume(); // [
+      auto idx = parse_expr();
+      if (!idx.has_value()) { fail("Expected index expression."); return {}; }
+      if (!try_consume(TokenType::CLOSE_BRACKET)) { fail("Expected ']'."); return {}; }
+
+      NodeExprIndex* node = m_allocator.alloc<NodeExprIndex>();
+      node->ident = id;
+      node->index = idx.value();
+      return wrap(node);
+   }
+
    if (is_next(TokenType::OPERATOR_INCR) || is_next(TokenType::OPERATOR_DECR)) {
       bool inc = is_next(TokenType::OPERATOR_INCR);
       consume(); // inc / dec
@@ -502,6 +515,15 @@ std::optional<NodeScopeBlock*> Parser::parse_scope() {
       while (peek().has_value() && peek().value().type != TokenType::CLOSE_BRACE) {
          if (auto stmt = parse_stmt())
             block->stmts.push_back(stmt.value());
+         // Comment parsing
+         else if (peek().value().type == TokenType::COMMENT || peek().value().type == TokenType::START_COMMENT_BLOCK) {
+            if (peek().value().type == TokenType::COMMENT) { consume(); }
+            else {
+               while (peek().has_value() && peek().value().type != TokenType::END_COMMENT_BLOCK)
+                  consume();
+               consume(); // The ender token
+            }
+         }
          else 
             synchronize(); // Errored and now get back to a spot that's ok.  
       }
@@ -700,13 +722,15 @@ inline std::optional<Token> Parser::try_consume(TokenType type) {
 }
 
 
+// Something went wrong and now we try to recover parsing to report multiple errors at once.
 void Parser::synchronize() {
    while (peek().has_value()) {
       if (peek().value().type == TokenType::SEMICOLON) { consume(); return; }
       TokenType t = peek().value().type;
       if (t == TokenType::CLOSE_BRACE || t == TokenType::IF || t == TokenType::WHILE ||
           t == TokenType::FOR || t == TokenType::HAVE || t == TokenType::RETURN ||
-          t == TokenType::PRINT || t == TokenType::PRINTLN)
+          t == TokenType::PRINT || t == TokenType::PRINTLN || t == TokenType::READC ||
+          t == TokenType::READF || t == TokenType::READI || t == TokenType::READS)
          return;
       consume();
    }

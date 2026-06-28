@@ -95,7 +95,7 @@ int main(int argc, char* argv[]) {
    // Make sure everythings in order
    Analyzer analyzer(prog.value(), diag);
    analyzer.analyze();
-   if (diag.has_errors()) { diag.report_all(contents, input_file); return EXIT_FAILURE; }
+   if (diag.has_errors()) { diag.report_all(contents, input_file); exit(EXIT_FAILURE); }
 
    // Generate assembly!
    Syscaller calls(user_name, tokens, flags, prog.value());

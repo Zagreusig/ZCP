@@ -54,6 +54,8 @@ DataType TypeChecker::type_of(const NodeExpr* expr) const {
          auto it = m_func_ret.find(node->name.value.value());
          return it != m_func_ret.end() ? it->second : DataType::NONE;
       }
+      else if constexpr (std::is_same_v<T, NodeExprIndex>)
+         return var_type(node->ident.value.value());
       else return DataType::NONE;
    }, expr->var);
 }

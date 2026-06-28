@@ -125,126 +125,42 @@ read_char:
 
 main:
    push rbp
+   push r12
    mov rbp, rsp
-   sub rsp, 112
-   mov QWORD [rbp + -40], 0
-   mov QWORD [rbp + -32], 0
-   mov QWORD [rbp + -24], 0
-   mov QWORD [rbp + -16], 0
-   mov QWORD [rbp + -8], 0
-   mov rax, 1
-   push rax
-   pop rax
-   mov QWORD [rbp + -64], rax
-   mov rax, 2
-   push rax
-   pop rax
-   mov QWORD [rbp + -56], rax
-   mov rax, 3
-   push rax
-   pop rax
-   mov QWORD [rbp + -48], rax
-   mov rax, 1
-   push rax
-   pop rax
-   mov QWORD [rbp + -88], rax
-   mov rax, 7
-   push rax
-   pop rax
-   mov QWORD [rbp + -80], rax
-   mov rax, 9
-   push rax
-   pop rax
-   mov QWORD [rbp + -72], rax
-   mov rax, 'h'
-   push rax
-   pop rax
-   mov byte [rbp + -93], al
-   mov rax, 'e'
-   push rax
-   pop rax
-   mov byte [rbp + -92], al
-   mov rax, 'l'
-   push rax
-   pop rax
-   mov byte [rbp + -91], al
-   mov rax, 'l'
-   push rax
-   pop rax
-   mov byte [rbp + -90], al
-   mov rax, 'o'
-   push rax
-   pop rax
-   mov byte [rbp + -89], al
+   sub rsp, 0
+   mov r12, rsp
    mov rax, 0
    push rax
    pop rax
-   mov QWORD [rbp + -101], rax
+   mov QWORD [r12 + 0], rax
 .L0:
-   mov rax, QWORD [rbp + -101]
+   mov rax, QWORD [r12 + 0]
    push rax
-   mov rax, 5
+   mov rax, 10
    push rax
    pop rbx
    pop rax
    cmp rax, rbx
-   je .L1
-   mov rax, QWORD [rbp + -101]
-   push rax
-   add QWORD [rbp + -101], 1
-   pop rax
-   mov rax, QWORD [rbp + -93]
+   jge .L1
+   mov rax, QWORD [r12 + 0]
    push rax
    pop rax
-   mov byte [print_buf], al
-   mov byte [print_buf + 1], LF
-   mov rsi, print_buf
-   mov rdx, 2
-   mov rdi, STDOUT
-   mov rax, SYS_write
-   syscall
+   mov rdi, 1
+   call print_int
+   mov rax, QWORD [r12 + 0]
+   push rax
+   add QWORD [r12 + 0], 1
+   pop rax
    jmp .L0
 .L1:
    mov rax, 0
    push rax
    pop rax
-   mov QWORD [rbp + -109], rax
-   mov rax, QWORD [rbp + -109]
-   push rax
-   mov rax, 5
-   push rax
-   pop rbx
-   pop rax
-   cmp rax, rbx
-   jge .L3
-.L2:
-   mov rax, QWORD [rbp + -109]
-   push rax
-   mov rax, 3
-   push rax
-   pop rbx
-   pop rax
-   cmp rax, rbx
-   jne .L4
-   mov rax, 1
-   push rax
-   pop rax
    mov rsp, rbp
-   pop rbp
-   ret
-.L4:
-   mov rax, QWORD [rbp + -109]
-   push rax
-   add QWORD [rbp + -109], 1
-   pop rax
-   jmp .L2
-.L3:
-   mov rax, 0
-   push rax
-   pop rax
-   mov rsp, rbp
+   pop r12
    pop rbp
    ret
    mov rsp, rbp
+   pop r12
    pop rbp
    ret

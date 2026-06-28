@@ -249,6 +249,16 @@ TypeInfo Analyzer::type_of(const NodeExpr* expr) {
                            .array_len = (int)node->elements.size() };
       }
 
+      else if constexpr (std::is_same_v<T, NodeExprIndex>) {
+         auto arr = lookup(node->ident.value.value());
+         if (!arr.has_value()) { /** TODO: err msg */ return {}; }
+         if (!arr.value().is_array) 
+            { m_diag.error(CompPhase::Analysis, node->ident.line, node->ident.col,
+                           "Cannot index non-array."); return {}; }
+         // indexing array yields its ELEMENT type (scalar, not array)
+         return TypeInfo { .base = arr.value().base }; // is_array = false (default)
+      }
+
       else if constexpr (std::is_same_v<T, NodeExprStrLit>)
          return TypeInfo { .base = DataType::CHAR, .is_array = true,
                            .array_len = /* strlen */ 0 };

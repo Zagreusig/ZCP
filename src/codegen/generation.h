@@ -24,7 +24,7 @@ public:
 private:
    struct Var {
       std::string name;
-      int rbp_offset;
+      int offset;
       TypeInfo type;
    };
 

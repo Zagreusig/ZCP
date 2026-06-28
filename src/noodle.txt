@@ -7,3 +7,22 @@ arr (has base address; i.e. arr[0])
 to get "i"
 
 arr_base + i * arr_element_size
+
+
+move indexing so instead of it being arr_base - (i * esz) it becomes a true arr_base + (i * esz)
+
+based on rbp size <- push to another saved reg <- r12
+
+something like
+push rbp
+push r12
+move rsp into rbp
+sub the frame size from rsp <- reserve locals
+then move whats in rsp into r12 <- the bottom of the frame, so now r12 + i*size works
+
+for the outro,
+move rbp back into rsp (discarding frame)
+pop 12 and rbp
+return
+
+
