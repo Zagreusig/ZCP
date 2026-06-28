@@ -1,16 +1,26 @@
-fn main(): int {
-   have arr: int[10];
+fn mult(int a, int b) -> int {
+   return a * b;
+}
+
+fn funny(int a) -> int {
    for (have i = 0; i < 10; i++) {
-      arr[i] = i;
+      if (i % 2 == 0) {
+         return a * 5;
+      }
    }
-   for (have i = 0; i < 10; i++) {
+   return a % 3;
+} 
+
+fn main(): int {
+   have x = 3;
+   have arr: int[5];
+
+   for (have i = 0; i < 5; i++) {
+      arr[i] = funny(mult(x, i));
+   }
+   for (have i = 0; i < 5; i++) {
       println(arr[i]);
    }
-   /*
-      This is a comment block
-   */
 
-   // This is a comment
-
-   return 0;
+   return x / 3;
 }

@@ -23,12 +23,11 @@ INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
 # The -MMD and -MP flags together generate Makefiles for us!
 # These files will have .d instead of .o as the output.
-CPPFLAGS := $(INC_FLAGS) -MMD -MP -g -std=c++23
+CPPFLAGS := $(INC_FLAGS) -MMD -MP -O2 -g -std=c++23
 
 # The final build step.
 $(TARGET_EXEC): $(OBJS)
 	@$(CXX) $(OBJS) -o $@ $(LDFLAGS)
-	@$(MAKE) deldir -i -s
 	@echo "Usage like: ./zcp <flags> <file.z>"
 	@echo "Help flag (currently needs some file): ./zcp -h <file.z>"
 
@@ -45,6 +44,7 @@ clean:
 	@$(MAKE) rmFiles -i -s
 	clear
 
+
 deldir:
 	@rm -r $(BUILD_DIR)
 
@@ -53,7 +53,7 @@ rmExecs:
 	@find . -maxdepth 1 -type f -executable -exec rm -i {} +
 
 rmFiles:
-	@rm *.o *.asm
+	@rm *.o *.asm original.txt
 
 run:	
 	@valgrind --leak-check=full $(BUILD_DIR)/$(TARGET_EXEC)

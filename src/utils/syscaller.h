@@ -88,7 +88,7 @@ private:
    std::vector<Token> tokens {};
    uint32_t all_flags {};
 
-   bool name {}, assm {}, ast{}, obj {}, flagz {}, toks {};
+   bool name {}, assm {}, ast{}, obj {}, flagz {}, toks {}, pre_op {};
 };
 
 #endif // SYSCALLER_H

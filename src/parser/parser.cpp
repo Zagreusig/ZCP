@@ -446,6 +446,11 @@ std::optional<NodeStmt*> Parser::finish_assign(NodeExpr* target) {
    assign->target = target;
    assign->expr = rhs.value();
    
+   if (auto* id = std::get_if<NodeExprIdent*>(&target->var))
+      assign->ident = (*id)->ident;
+   else if (auto* idx = std::get_if<NodeExprIndex*>(&target->var))
+      assign->ident = (*idx)->ident;
+
    NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
    stmt->var = assign;
    return stmt;

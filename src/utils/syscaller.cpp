@@ -6,13 +6,14 @@
 void Syscaller::set_bools() {
    for (auto& flag : flags) {
       switch (flag) {
-         case Flags::LEAVE_ASM:    assm  = true; break;
-         case Flags::LEAVE_OBJ:    obj   = true; break;
-         case Flags::PRINT_TOKENS: toks  = true; break;
-         case Flags::PRINT_FLAGS:  flagz = true; break;
-         case Flags::PRINT_AST:    ast   = true; break;
-         case Flags::USER_NAME:    name  = true; break;
-         default:                                break;
+         case Flags::LEAVE_ASM:       assm   = true; break;
+         case Flags::LEAVE_OBJ:       obj    = true; break;
+         case Flags::PRINT_TOKENS:    toks   = true; break;
+         case Flags::PRINT_FLAGS:     flagz  = true; break;
+         case Flags::PRINT_AST:       ast    = true; break;
+         case Flags::USER_NAME:       name   = true; break;
+         case Flags::PRESERVE_PRE_OP: pre_op = true; break;
+         default:                                    break;
       }
    }
 }
@@ -50,4 +51,5 @@ void Syscaller::cleanup() {
    if (!assm) system(rm_statement.c_str());
    rm_statement.clear(); rm_statement = "rm " + obj_file;
    if (!obj)  system(rm_statement.c_str());
+   if (!pre_op) system("rm original.txt");
 }

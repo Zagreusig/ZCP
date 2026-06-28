@@ -69,8 +69,9 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
          gen->m_output << "   add rax, " << var.value().offset << "\n"; // + base offset
 
          // load element
-         if (esz == 8)
+         if (esz == 8) {
             gen->m_output << "   mov rax, QWORD [r12 + rax]\n";
+         }
          else // byte element
             gen->m_output << "   movzx rax, byte [r12 + rax]\n";
 
@@ -112,18 +113,19 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
 
 
       void operator()(const NodeBinExpr* bin_expr) {
-         std::visit(ExprVisitor{ .gen = gen }, bin_expr->left->var);
-         std::visit(ExprVisitor{ .gen = gen }, bin_expr->right->var);
-         gen->pop("rbx");
-         gen->pop("rax");
-
+         gen->gen_expr(bin_expr->left);
+         
+         if (gen->try_load_simple(bin_expr->right, "rbx"))
+            gen->pop("rax");
+         else {
+            gen->gen_expr(bin_expr->right);
+            gen->pop("rax");
+            gen->pop("rbx");
+         }
          switch (bin_expr->operation) {
-            case BinExprType::ADDITION:
-               gen->m_output << "   add rax, rbx\n"; break;
-            case BinExprType::SUBTRACTION:
-               gen->m_output << "   sub rax, rbx\n"; break;
-            case BinExprType::MULTIPLICATION:
-               gen->m_output << "   imul rax, rbx\n"; break;
+            case BinExprType::ADDITION:       gen->m_output << "   add rax, rbx\n"; break;
+            case BinExprType::SUBTRACTION:    gen->m_output << "   sub rax, rbx\n"; break;
+            case BinExprType::MULTIPLICATION: gen->m_output << "   imul rax, rbx\n"; break;
             case BinExprType::DIVISION:
             case BinExprType::MODULUS:
                gen->m_output << "   cqo\n";
@@ -214,11 +216,11 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
                }
             } else {
                // sized, uninit: zero entire region of mem
-               for (int i = 0; i < type.array_len; i++) {
-                  int off = base + i * esz;
-                  if (esz == 8) gen->m_output << "   mov QWORD [r12 + " << off << "], 0\n";
-                  else          gen->m_output << "   mov byte [r12 + "  << off << "], 0\n";
-               }
+               const char* store_op = (esz == 8) ? "rep stosq" : "rep stosb";
+               gen->m_output << "   lea rdi, [r12 + " << base << "]\n"
+                              << "   mov rcx, " << type.array_len << "\n"
+                              << "   xor rax, rax\n"
+                              << "   " << store_op << "\n"; 
             }
             return;
          }
@@ -300,9 +302,9 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
 
          // Regular assignment 
          if (auto* id = std::get_if<NodeExprIdent*>(&assign->target->var)) {
-            auto var = gen->get_var(assign->ident.value.value());
+            auto var = gen->get_var((*id)->ident.value.value());
             if (!var.has_value()) {
-               std::cerr << "Undeclared identifier Assign: " << assign->ident.value.value() << std::endl;
+               std::cerr << "Undeclared identifier assign: " << assign->ident.value.value() << std::endl;
                exit(EXIT_FAILURE);
             } 
             gen->m_output << "   mov QWORD [r12 + " << var.value().offset << "], rax\n";
@@ -310,7 +312,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
          else if (auto* idx = std::get_if<NodeExprIndex*>(&assign->target->var)) {
             auto var = gen->get_var((*idx)->ident.value.value());
             if (!var.has_value()) {
-               std::cerr << "Undeclared identifier Assign: " << assign->ident.value.value() << std::endl;
+               std::cerr << "Undeclared identifier index assign: " << assign->ident.value.value() << std::endl;
                exit(EXIT_FAILURE);
             }
             int esz = var.value().type.elem_size();
@@ -356,10 +358,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
       void operator()(const NodeStmtReturn* _return) const {
          gen->gen_expr(_return->expr);
          gen->pop("rax");
-         gen->m_output << "   mov rsp, rbp\n"
-                       << "   pop r12\n"
-                       << "   pop rbp\n"
-                       << "   ret\n";
+         gen->emit_epilogue();
       }
 
 
@@ -380,7 +379,6 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
        */
       void operator()(const NodeStmtPrint* p) const {
          DataType t = gen->m_types.type_of(p->expr);
-         std::cout << "Checked type: " << (int)t << std::endl;
          switch (t) {
             case DataType::INT:
                gen->gen_expr(p->expr);
@@ -461,9 +459,13 @@ void ASMGenerator::gen_cond(const NodeCondition* cond, const std::string& false_
          }
 
          gen->gen_expr(cmp->left);
-         gen->gen_expr(cmp->right);
-         gen->pop("rbx");
-         gen->pop("rax");
+         if (gen->try_load_simple(cmp->right, "rbx"))
+            gen->pop("rax");
+         else {
+            gen->gen_expr(cmp->right);
+            gen->pop("rbx");
+            gen->pop("rax");
+         }
          gen->m_output << "   cmp rax, rbx\n";
       
          switch (cmp->operation) {
@@ -510,9 +512,13 @@ void ASMGenerator::gen_cond_true(const NodeCondition* cond, const std::string& t
          }
 
          gen->gen_expr(cmp->left);
-         gen->gen_expr(cmp->right);
-         gen->pop("rbx");
-         gen->pop("rax");
+         if (gen->try_load_simple(cmp->right, "rbx"))
+            gen->pop("rax");
+         else {
+            gen->gen_expr(cmp->right);
+            gen->pop("rbx");
+            gen->pop("rax");
+         }
          gen->m_output << "   cmp rax, rbx\n";
 
          switch (cmp->operation) {
@@ -548,13 +554,18 @@ void ASMGenerator::gen_function(const NodeFunction* func) {
    int frame_size = compute_frame_size(func->body->stmts);
    frame_size += func->params.size() * 8;
    frame_size = (frame_size + 15) & ~15;
+   m_uses_frame_base = (frame_size > 0 || !func->params.empty());
 
-   m_output << "\n\n" << func->name.value.value() << ":\n"
-         << "   push rbp\n"
-         << "   push r12\n"
-         << "   mov rbp, rsp\n"
-         << "   sub rsp, " << frame_size << "\n"
-         << "   mov r12, rsp\n";
+
+   m_output << func->name.value.value() << ":\n"
+            << "   push rbp\n";
+
+   if (m_uses_frame_base) m_output << "   push r12\n";
+   m_output << "   mov rbp, rsp\n";
+   if (m_uses_frame_base) {
+      m_output << "   sub rsp, " << frame_size << "\n"
+               << "   mov r12, rsp\n";
+   }
 
    begin_scope();
    static const std::string param_regs[] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
@@ -576,10 +587,7 @@ void ASMGenerator::gen_function(const NodeFunction* func) {
       gen_stmt(stmt);
    end_scope();
 
-   m_output << "   mov rsp, rbp\n"
-            << "   pop r12\n"
-            << "   pop rbp\n"
-            << "   ret\n";
+   emit_epilogue();
 }
 
 
@@ -903,4 +911,33 @@ TypeInfo ASMGenerator::resolve_have_type(NodeStmtHave* h) {
    h->resolved = info;
    h->is_resolved = true;
    return info;
+}
+
+
+bool ASMGenerator::try_load_simple(const NodeExpr* e, const std::string& reg) {
+   if (auto* lit = std::get_if<NodeExprIntLit*>(&e->var)) {
+      m_output << "   mov " << reg << ", " << (*lit)->INT_LIT.value.value() << "\n";
+      return true;
+   }
+   if (auto* id = std::get_if<NodeExprIdent*>(&e->var)) {
+      auto var = get_var((*id)->ident.value.value());
+      if (var.has_value()) {
+         m_output << "   mov " << reg << ", QWORD [r12 + " << var.value().offset << "]\n";
+         return true;
+      }
+   }
+   return false; // not simple -> caller falls back on gen_expr
+}
+
+
+void ASMGenerator::emit_epilogue() {
+   if (m_uses_frame_base) {
+      m_output << "   mov rsp, rbp\n"
+               << "   pop r12\n"
+               << "   pop rbp\n"
+               << "   ret\n";
+   } else {
+      m_output << "   pop rbp\n"
+               << "   ret\n";
+   }
 }

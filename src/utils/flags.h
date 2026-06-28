@@ -6,14 +6,15 @@
 #include <string>
 
 enum class Flags {
-   NONE         = 0,
-   USER_NAME    = BIT(1),   // -o  
-   PRINT_TOKENS = BIT(2),   // -t  
-   PRINT_FLAGS  = BIT(3),   // -f
-   PRINT_AST    = BIT(4),   // -s
-   LEAVE_ASM    = BIT(5),   // -a
-   LEAVE_OBJ    = BIT(6),   // -j
-   HALLLLLPUH   = BIT(7)    // -h
+   NONE            = 0,
+   USER_NAME       = BIT(1),   // -o  
+   PRINT_TOKENS    = BIT(2),   // -t  
+   PRINT_FLAGS     = BIT(3),   // -f
+   PRINT_AST       = BIT(4),   // -s
+   LEAVE_ASM       = BIT(5),   // -a
+   LEAVE_OBJ       = BIT(6),   // -j
+   HALLLLLPUH      = BIT(7),   // -h
+   PRESERVE_PRE_OP = BIT(8)    // -p
 };
 
 inline Flags operator|(Flags a, Flags b) {

@@ -5,6 +5,7 @@
 #include "parser/parser.h"
 #include "ErrAndRep/ErrorHandler.h"
 #include "analyzer/analyer.h"
+#include "optimizations/optimizer.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -40,13 +41,14 @@ int main(int argc, char* argv[]) {
 
          for (size_t j = 1; j < flag.length(); j++) {
             switch (flag.at(j)) {
-               case 'a': flags.push_back(Flags::LEAVE_ASM);    continue;
-               case 'j': flags.push_back(Flags::LEAVE_OBJ);    continue;
-               case 's': flags.push_back(Flags::PRINT_AST);    continue;
-               case 'f': flags.push_back(Flags::PRINT_FLAGS);  continue;
-               case 't': flags.push_back(Flags::PRINT_TOKENS); continue;
+               case 'a': flags.push_back(Flags::LEAVE_ASM);       continue;
+               case 'j': flags.push_back(Flags::LEAVE_OBJ);       continue;
+               case 's': flags.push_back(Flags::PRINT_AST);       continue;
+               case 'f': flags.push_back(Flags::PRINT_FLAGS);     continue;
+               case 't': flags.push_back(Flags::PRINT_TOKENS);    continue;
+               case 'p': flags.push_back(Flags::PRESERVE_PRE_OP); continue;
                case 'o': flags.push_back(Flags::USER_NAME); 
-                        user_name = argv[i++ + 1]; continue;
+                        user_name = argv[i++ + 1];                continue;
                case 'h':
                   std::cout << "Help!!\n"
                            << "-a        Leaves assembly file\n"
@@ -100,9 +102,14 @@ int main(int argc, char* argv[]) {
    // Generate assembly!
    Syscaller calls(user_name, tokens, flags, prog.value());
    ASMGenerator ASMGenerator(prog.value());
+   std::string temp = ASMGenerator.build();
+   Optimizer optimizer(temp);
+   optimizer.optimize();
    {
       std::fstream file(calls.get_name() + ".asm", std::ios::out);
-      file << ASMGenerator.build();
+      std::fstream other("original.txt", std::ios::out);
+      file << optimizer.finish();
+      other << optimizer.orig();
    }
    calls.make_calls(diag.has_errors());
 

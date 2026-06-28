@@ -47,6 +47,7 @@ private:
    void emit_read_chars();
    void emit_read_char();
    void emit_read_int();
+   void emit_epilogue();
 
    void begin_scope();
    void end_scope();
@@ -64,6 +65,8 @@ private:
 
    int console_write(const std::string&);   
 
+   bool try_load_simple(const NodeExpr*, const std::string&);
+
    const NodeProg m_prog;
    std::stringstream _bss;
    std::stringstream _data;
@@ -76,8 +79,9 @@ private:
 
    TypeChecker m_types;
 
-   int m_current_offset = 0;
-   int m_label_count    = 0;
+   bool m_uses_frame_base = {};
+   int m_current_offset   = 0;
+   int m_label_count      = 0;
    std::vector<size_t> m_scope_stack {};
 
 };
