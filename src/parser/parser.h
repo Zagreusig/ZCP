@@ -33,6 +33,7 @@ private:
 
    static bool valid_for_increment(const NodeStmt*);
    static bool is_init_stmt(const NodeStmt*);
+   static bool is_lval(const NodeExpr*);
 
    std::optional<TypeInfo>        parse_type();
 
@@ -51,7 +52,8 @@ private:
    std::optional<NodeStmt*>       parse_return();
    std::optional<NodeStmt*>       parse_have();
    std::optional<NodeStmt*>       parse_print();
-   std::optional<NodeStmt*>       parse_assign();
+   std::optional<NodeStmt*>       finish_assign(NodeExpr*);
+   std::optional<NodeStmt*>       wrap_expr_stmt(NodeExpr*);
    std::optional<NodeStmt*>       parse_cmpd_assign();
 
    std::optional<NodeExpr*>       parse_primary();

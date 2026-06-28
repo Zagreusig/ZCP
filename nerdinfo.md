@@ -45,7 +45,7 @@ For
    Increment:
       StmtExpr:
          IncDec:
-            Ident:  IDENTIFIER
+            Ident:  i
             Mode:   ADD
             Prefix: False
 ```

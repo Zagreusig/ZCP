@@ -42,11 +42,15 @@ for (have i = 0; i <= 10; i++)
 ```
 
 ### Variables:  
-Currently, only integers and single characters are supported when declaring a variable. You can do so like the example below.  
+Currently, only integers and single characters are supported when declaring a variable, although you can create stack allocated arrays. You can do so like the example below.  
 ```
 have x = 9;
 have y = 'z';
+have arr: int[5];
+have arr2 = ['h', 'i'];
 ```
+Small note, you can declare an empty array---which the memory get's 0'd for---however you must annotate the type.
+
 ### Baked in functions:  
 You are able to use print and read functions to interact with the console.
 - `print` - Prints whats inside it.
@@ -69,8 +73,17 @@ println(readi());
 5. structs -> later classes
 6. Ternary operators
 
+# NOTE:  
+I'm planning to implement an optimization pass after the assembly code generates. I'm using the stack to move things between calls and such,
+which internally always has the evaluator push and the caller pop. This will (often times) generate useless instruction blocks. Such as a function doing:
+"mov rax, rbx
+ push rax
+ pop rax
+ mov rbx, rax"
+This will use a technique called a "peephole" pass. It will look at 2-3 adjacent instructions to rewrite or remove wasteful patterns / instructions.
 
-# Compiler Flags:  
+
+# Compiler Flags:
 You are able to combine multiple flags into one, or keep them as separate statements.
 ```
 ./zcp -f -astj -o {exec name} myfile.z

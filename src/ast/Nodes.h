@@ -119,10 +119,16 @@ struct NodeExprRead {
 };
 
 struct NodeExpr {
-   std::variant<NodeExprIntLit*, NodeExprIdent*, NodeBinExpr*, NodeExprCall*, 
-                NodeExprCharLit*, NodeExprStrLit*, NodeExprIncDec*, NodeExprRead*,
-                NodeExprArrayLit*, NodeExprIndex*> var;
+   std::variant<NodeExprIntLit*, NodeExprCharLit*, NodeExprStrLit*,
+                NodeExprIdent*, NodeExprIndex*, NodeExprRead*,
+                NodeExprIncDec*, NodeBinExpr*, NodeExprCall*, NodeExprArrayLit*> var;
 };
+
+
+
+// -------------- STATEMENTS -------------------------
+
+
 
 struct NodeStmtExit {
    NodeExpr* expr = nullptr;
@@ -140,7 +146,8 @@ struct NodeStmtHave {
 
 struct NodeStmtAssign {
    Token ident;
-   NodeExpr* expr = nullptr;
+   NodeExpr* target = nullptr; // lvalue !!!
+   NodeExpr* expr   = nullptr;
 };
 
 struct NodeScopeBlock {
@@ -197,9 +204,9 @@ struct NodeStmtExpr {
 };
 
 struct NodeStmt {
-   std::variant<NodeStmtExit*, NodeStmtHave*, NodeScopeBlock*, NodeStmtIf*, 
-                NodeStmtWhile*, NodeStmtFor*, NodeStmtAssign*, NodeStmtReturn*,  
-                NodeStmtPrint*, NodeStmtExpr*, NodeStmtScope*> var;
+   std::variant<NodeStmtExit*, NodeStmtExpr*, NodeStmtHave*, NodeScopeBlock*, NodeStmtIf*, 
+                NodeStmtWhile*, NodeStmtAssign*, NodeStmtFor*, NodeStmtReturn*,  
+                NodeStmtScope*, NodeStmtPrint*> var;
 };
 
 struct NodeProg {

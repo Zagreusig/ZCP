@@ -8,12 +8,16 @@ static const std::unordered_map<std::string, TokenType> KEYWORDS = {
    { "if", TokenType::IF }, { "else", TokenType::ELSE },
    { "while", TokenType::WHILE }, { "for", TokenType::FOR },
    { "have", TokenType::HAVE },
-   { "int", TokenType::INT }, { "char", TokenType::CHAR },
-   { "and", TokenType::OPERATOR_LOGICAL_AND }, { "or", TokenType::OPERATOR_LOGICAL_OR },
+   { "void", TokenType::VOID },
+   { "int", TokenType::INT }, { "char", TokenType::CHAR }, { "bool", TokenType::BOOL },
+   { "and", TokenType::OPERATOR_LOGICAL_AND }, { "or", TokenType::OPERATOR_LOGICAL_OR }, 
+   { "is", TokenType::IS }, { "kinda", TokenType::KINDA }, // ignore these for now - I might not use them
    { "print", TokenType::PRINT }, { "println", TokenType::PRINTLN },
    { "readc", TokenType::READC }, { "readln", TokenType::READS }, { "reads", TokenType::READS},
-   { "readi", TokenType::READI }, { "readf", TokenType::READF }
+   { "readi", TokenType::READI }, { "readf", TokenType::READF },
+   { "global", TokenType::GLOBAL }, { "const", TokenType::CONST }
 };
+
 
 [[nodiscard]] std::optional<char> Lexer::peek(int offset = 0) const {
    if (m_currIndex + offset >= m_src.length()) return {};
@@ -31,6 +35,13 @@ std::vector<Token> Lexer::tokenize(Diagnostics* diag) {
    std::vector<Token> tokens {};
 
    while (peek().has_value()) {
+      if (!tokens.empty() && tokens.back().type == TokenType::COMMENT) {
+         while (!peek_eval('\n')) consume();
+         consume(); // '\n'
+         tokens.pop_back();
+      }
+
+
       if (std::isalpha(peek().value())) { 
          int tok_line = m_line, tok_col = m_col;        
          buf.push_back(consume());

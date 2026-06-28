@@ -57,6 +57,12 @@ bool Parser::is_init_stmt(const NodeStmt* s) {
 }
 
 
+bool Parser::is_lval(const NodeExpr* x) {
+   return std::holds_alternative<NodeExprIdent*>(x->var) ||
+          std::holds_alternative<NodeExprIndex*>(x->var);
+}
+
+
 std::optional<TypeInfo> Parser::parse_type() {
    TypeInfo info;
    DataType base = Symbols::tok_dt(peek().has_value() ? peek().value().type : TokenType::NONE);
@@ -231,6 +237,15 @@ std::optional<NodeExpr*> Parser::parse_call(Token name) {
 }
 
 
+std::optional<NodeStmt*> Parser::wrap_expr_stmt(NodeExpr* e) {
+   NodeStmtExpr* se = m_allocator.alloc<NodeStmtExpr>();
+   se->expr = e;
+   NodeStmt* s = m_allocator.alloc<NodeStmt>();
+   s->var = se;
+   return s;
+}
+
+
 NodeExpr* Parser::wrap(auto* node) {
    NodeExpr* expr = m_allocator.alloc<NodeExpr>();
    expr->var = node;
@@ -272,10 +287,16 @@ std::optional<NodeStmt*> Parser::parse_simple_stmt() {
             is_next(TokenType::OPEN_PAREN, 1))
       return parse_print();
    else if (is_next(TokenType::IDENTIFIER)) {
-      if (is_next(TokenType::OPERATOR_EQUALS, 1))
-         return parse_assign();
-      else if (peek(1).has_value() && is_compound_assign(peek(1).value().type))
-         return parse_cmpd_assign();   
+      if (peek(1).has_value() && is_compound_assign(peek(1).value().type))
+         return parse_cmpd_assign();
+
+      auto lhs = parse_expr();
+      if (!lhs.has_value()) { fail("Expected expression."); return {}; }
+
+      if (try_consume(TokenType::OPERATOR_EQUALS))
+         return finish_assign(lhs.value());
+      else
+         return wrap_expr_stmt(lhs.value());
    }
 
 
@@ -416,14 +437,15 @@ std::optional<NodeStmt*> Parser::parse_have() {
 }
 
 
-std::optional<NodeStmt*> Parser::parse_assign() {
+std::optional<NodeStmt*> Parser::finish_assign(NodeExpr* target) {
+   if (!is_lval(target)) { fail("Left side of '=' is not assignable."); return {}; }
+   auto rhs = parse_expr();
+   if (!rhs.has_value()) { fail("Invalid assignment expression."); return {}; }
+
    NodeStmtAssign* assign = m_allocator.alloc<NodeStmtAssign>();
-   assign->ident = consume();
-   if (!try_consume(TokenType::OPERATOR_EQUALS)) { fail("Expected '='."); return {};}
-
-   if (auto expr = parse_expr()) assign->expr = expr.value();
-   else { fail("Invalid assignment expression.\n"); return {}; }
-
+   assign->target = target;
+   assign->expr = rhs.value();
+   
    NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
    stmt->var = assign;
    return stmt;
@@ -467,7 +489,7 @@ std::optional<NodeStmt*> Parser::parse_cmpd_assign() {
    bin_wrap->var = bin;
 
    NodeStmtAssign* assign = m_allocator.alloc<NodeStmtAssign>();
-   assign->ident = ident;
+   assign->target = id_wrapped;
    assign->expr = bin_wrap;
 
    if (!try_consume(TokenType::SEMICOLON)) { fail("Expected ';'"); return {}; }
@@ -516,13 +538,10 @@ std::optional<NodeScopeBlock*> Parser::parse_scope() {
          if (auto stmt = parse_stmt())
             block->stmts.push_back(stmt.value());
          // Comment parsing
-         else if (peek().value().type == TokenType::COMMENT || peek().value().type == TokenType::START_COMMENT_BLOCK) {
-            if (peek().value().type == TokenType::COMMENT) { synchronize(); }
-            else {
-               while (peek().has_value() && peek().value().type != TokenType::END_COMMENT_BLOCK)
-                  consume();
-               consume(); // The ender token
-            }
+         else if (peek().value().type == TokenType::START_COMMENT_BLOCK) {
+            while (peek().has_value() && peek().value().type != TokenType::END_COMMENT_BLOCK)
+               consume();
+            consume(); // The ender token
          }
          else 
             synchronize(); // Errored and now get back to a spot that's ok.  

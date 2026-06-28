@@ -29,6 +29,11 @@
    X(CHAR)                        \
    X(STR)                         \
    X(BOOL)                        \
+   X(VOID)                        \
+   X(TRUE)                        \
+   X(FALSE)                       \
+   X(IS)                          \
+   X(KINDA)                       \
    X(UDEF_STRUCT)                 \
    X(UDEF_CLASS)                  \
    X(PUBLIC)                      \
@@ -79,7 +84,9 @@
    X(COMMENT)                     \
    X(START_COMMENT_BLOCK)         \
    X(END_COMMENT_BLOCK)           \
-   X(INVALID)
+   X(INVALID)                     \
+   X(CONST)                       \
+   X(GLOBAL)
 
 
 enum class TokenType {

@@ -1,5 +1,6 @@
 #include "analyer.h"
 #include "symbols/SymbolTable.h"
+#include "utils/msc.h"
 #include <iostream>
 
 void Analyzer::analyze() {
@@ -110,16 +111,11 @@ void Analyzer::analyze_stmt(NodeStmt* s) {
       
       else if constexpr (std::is_same_v<T, NodeStmtAssign>) {
          // trgt must exist; RHS -> t should match var's type
-         auto var = lookup(s->ident.value.value());
-         if (!var.has_value()) {
+         TypeInfo target_t = type_of(s->target);
+         TypeInfo rhs_t    = type_of(s->expr);
+         if (!types_match(target_t, rhs_t))
             m_diag.error(CompPhase::Analysis, s->ident.line, s->ident.col,
-                         "Assignment to undeclared variable '" + s->ident.value.value() + "'.");
-         } else {
-            TypeInfo rhs = type_of(s->expr);
-            if (!types_match(var.value(), rhs))
-               m_diag.error(CompPhase::Analysis, s->ident.line, s->ident.col,
                             "Type mismatch in assignment to '" + s->ident.value.value() + "'.");
-         }
       }
       
       else if constexpr (std::is_same_v<T, NodeStmtReturn>)
@@ -167,6 +163,7 @@ void Analyzer::analyze_stmt(NodeStmt* s) {
          for (auto* inner : s->body->stmts) analyze_stmt(inner);
          pop_scope();
       }
+      else return;
    }, s->var);
 }
 
@@ -182,6 +179,7 @@ void Analyzer::analyze_condition(const NodeCondition* cond) {
          analyze_condition(c->left);
          analyze_condition(c->right);
       }
+      else return;
    }, cond->var);
 }
 
@@ -263,7 +261,7 @@ TypeInfo Analyzer::type_of(const NodeExpr* expr) {
          return TypeInfo { .base = DataType::CHAR, .is_array = true,
                            .array_len = /* strlen */ 0 };
    
-      else static_assert(false);
+      else static_assert(always_false<T>, "Unhandled node.");
    }, expr->var);
 }
 

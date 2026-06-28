@@ -9,14 +9,8 @@
 #include "generation.h"
 #include "lexer/Tokens.h"
 #include "symbols/SymbolTable.h"
+#include "utils/msc.h"
 
-/**
- *  rax: 0 read
- *       1 write
- * 
- *  rdi: 0 stdin
- *       1 stdout 
- */
 
 void ASMGenerator::gen_expr(const NodeExpr* expr) {
    struct ExprVisitor {
@@ -300,15 +294,38 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
 
 
       void operator()(const NodeStmtAssign* assign) const {
-         auto var = gen->get_var(assign->ident.value.value());
-         if (!var.has_value()) {
-            std::cerr << "Undeclared identifier Assign: " << assign->ident.value.value() << std::endl;
-            exit(EXIT_FAILURE);
-         }
-
+         // eval RHS first -> val on stack
          gen->gen_expr(assign->expr);
          gen->pop("rax");
-         gen->m_output << "   mov QWORD [r12 + " << var.value().offset << "], rax\n";
+
+         // Regular assignment 
+         if (auto* id = std::get_if<NodeExprIdent*>(&assign->target->var)) {
+            auto var = gen->get_var(assign->ident.value.value());
+            if (!var.has_value()) {
+               std::cerr << "Undeclared identifier Assign: " << assign->ident.value.value() << std::endl;
+               exit(EXIT_FAILURE);
+            } 
+            gen->m_output << "   mov QWORD [r12 + " << var.value().offset << "], rax\n";
+         }
+         else if (auto* idx = std::get_if<NodeExprIndex*>(&assign->target->var)) {
+            auto var = gen->get_var((*idx)->ident.value.value());
+            if (!var.has_value()) {
+               std::cerr << "Undeclared identifier Assign: " << assign->ident.value.value() << std::endl;
+               exit(EXIT_FAILURE);
+            }
+            int esz = var.value().type.elem_size();
+            // comp index into rbx
+            gen->push("rax");             // save value
+            gen->gen_expr((*idx)->index); // evaluate index
+            gen->pop("rbx");              // rbx = index
+            gen->pop("rax");              // resture val to assign
+
+            if (esz == 8)
+               gen->m_output << "   mov QWORD [r12 + rbx*8 + " << var.value().offset << "], rax\n";
+            else
+               gen->m_output << "   mov byte [r12 + rbx + " << var.value().offset << "], al\n";
+
+         }
       }
    
    
@@ -645,6 +662,7 @@ int ASMGenerator::count_locals(const NodeScopeBlock* body) {
             count++;
             count += count_locals(s->body);
          }
+         else return;
       }, stmt->var);
    }
 
@@ -659,6 +677,8 @@ int ASMGenerator::count_locals(const std::vector<NodeStmt*>& stmts) {
          using T = std::decay_t<decltype(*s)>;
          if constexpr (std::is_same_v<T, NodeStmtHave>)
             count++;
+         else if constexpr (std::is_same_v<T, NodeStmtScope>)
+            count += count_locals(s->scope);
          else if constexpr (std::is_same_v<T, NodeScopeBlock>)
             count += count_locals(s);
          else if constexpr (std::is_same_v<T, NodeStmtIf>) {
@@ -671,6 +691,7 @@ int ASMGenerator::count_locals(const std::vector<NodeStmt*>& stmts) {
             count++;
             count += count_locals(s->body);
          }
+         else return;
       }, stmt->var);
    }
 
@@ -864,7 +885,7 @@ TypeInfo ASMGenerator::resolve_have_type(NodeStmtHave* h) {
       info = h->decl_type;
    else if (auto* lit = std::get_if<NodeExprArrayLit*>(&h->expr->var)) {
       const auto& elems = (*lit)->elements;
-      if (elems.empty()) { /* error: empty lit can't infer*/ }
+      if (elems.empty()) { /** TODO: Error for this */ }
       DataType et = m_types.type_of(elems[0]);
       for (size_t i = 1; i < elems.size(); i++) {
          if (m_types.type_of(elems[i]) != et) {
