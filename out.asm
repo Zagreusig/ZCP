@@ -127,14 +127,54 @@ main:
    push rbp
    push r12
    mov rbp, rsp
-   sub rsp, 0
+   sub rsp, 80
    mov r12, rsp
-   mov rax, 0
+   mov rax, 1
    push rax
    pop rax
    mov QWORD [r12 + 0], rax
+   mov rax, 2
+   push rax
+   pop rax
+   mov QWORD [r12 + 8], rax
+   mov rax, 3
+   push rax
+   pop rax
+   mov QWORD [r12 + 16], rax
+   mov rax, 4
+   push rax
+   pop rax
+   mov QWORD [r12 + 24], rax
+   mov rax, 5
+   push rax
+   pop rax
+   mov QWORD [r12 + 32], rax
+   mov rax, 6
+   push rax
+   pop rax
+   mov QWORD [r12 + 40], rax
+   mov rax, 7
+   push rax
+   pop rax
+   mov QWORD [r12 + 48], rax
+   mov rax, 8
+   push rax
+   pop rax
+   mov QWORD [r12 + 56], rax
+   mov rax, 9
+   push rax
+   pop rax
+   mov QWORD [r12 + 64], rax
+   mov rax, 10
+   push rax
+   pop rax
+   mov QWORD [r12 + 72], rax
+   mov rax, 0
+   push rax
+   pop rax
+   mov QWORD [r12 + 80], rax
 .L0:
-   mov rax, QWORD [r12 + 0]
+   mov rax, QWORD [r12 + 80]
    push rax
    mov rax, 10
    push rax
@@ -142,14 +182,19 @@ main:
    pop rax
    cmp rax, rbx
    jge .L1
-   mov rax, QWORD [r12 + 0]
+   mov rax, QWORD [r12 + 80]
+   push rax
+   pop rax
+   imul rax, 8
+   add rax, 0
+   mov rax, QWORD [r12 + rax]
    push rax
    pop rax
    mov rdi, 1
    call print_int
-   mov rax, QWORD [r12 + 0]
+   mov rax, QWORD [r12 + 80]
    push rax
-   add QWORD [r12 + 0], 1
+   add QWORD [r12 + 80], 1
    pop rax
    jmp .L0
 .L1:

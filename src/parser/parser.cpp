@@ -517,7 +517,7 @@ std::optional<NodeScopeBlock*> Parser::parse_scope() {
             block->stmts.push_back(stmt.value());
          // Comment parsing
          else if (peek().value().type == TokenType::COMMENT || peek().value().type == TokenType::START_COMMENT_BLOCK) {
-            if (peek().value().type == TokenType::COMMENT) { consume(); }
+            if (peek().value().type == TokenType::COMMENT) { synchronize(); }
             else {
                while (peek().has_value() && peek().value().type != TokenType::END_COMMENT_BLOCK)
                   consume();
