@@ -1,26 +1,11 @@
-fn mult(int a, int b) -> int {
-   return a * b;
-}
+func main() ->int {
+   have s: str = "hello";
+   println(s);
 
-fn funny(int a) -> int {
-   for (have i = 0; i < 10; i++) {
-      if (i % 2 == 0) {
-         return a * 5;
-      }
-   }
-   return a % 3;
-} 
-
-fn main(): int {
-   have x = 3;
-   have arr: int[5];
-
-   for (have i = 0; i < 5; i++) {
-      arr[i] = funny(mult(x, i));
-   }
-   for (have i = 0; i < 5; i++) {
-      println(arr[i]);
-   }
-
-   return x / 3;
+   have b = "hi";
+   println(b);
+   b = "goodbye";
+   println(b);
+   
+   return 0;
 }

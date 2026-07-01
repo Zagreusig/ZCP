@@ -62,10 +62,13 @@ private:
    TypeInfo resolve_have_type(NodeStmtHave*);
 
    std::string add_string(const std::string&);
+   void store_string_literal(int, const std::string&);
 
    int console_write(const std::string&);   
 
    bool try_load_simple(const NodeExpr*, const std::string&);
+
+   void total_fail();
 
    const NodeProg m_prog;
    std::stringstream _bss;

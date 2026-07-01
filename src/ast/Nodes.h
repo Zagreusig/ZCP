@@ -23,6 +23,7 @@ struct TypeInfo {
 
    // total storage this var occupies on the stack.
    int byte_size() const {
+      if (base == DataType::STR) return 16; // fat pointer: ptr(8) + len(8)
       return is_array ? array_len * elem_size() : elem_size();
    }
 };

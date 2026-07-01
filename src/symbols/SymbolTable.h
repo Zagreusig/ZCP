@@ -4,6 +4,7 @@
 #include "ast/Nodes.h"
 #include "codegen/type_checker.h"
 #include "lexer/Tokens.h"
+#include <string>
 
 namespace Symbols {
 
@@ -46,6 +47,16 @@ namespace Symbols {
          case DataType::STR:  return TokenType::STR;
          case DataType::BOOL:
          default:             return TokenType::NONE;
+      }
+   }
+
+   static std::string dt_str(DataType t) {
+      switch (t) {
+         case DataType::INT:  return "INT";
+         case DataType::CHAR: return "CHAR";
+         case DataType::STR:  return "STR";
+         case DataType::BOOL: return "BOOL";
+         default:             return "NULL";
       }
    }
 
@@ -100,6 +111,7 @@ namespace Symbols {
          default:                              return CmpExprType::NONE;
       }
    }
+
 };
 
 #endif // SYMBOLTABLE_H

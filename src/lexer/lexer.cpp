@@ -9,8 +9,8 @@ static const std::unordered_map<std::string, TokenType> KEYWORDS = {
    { "while", TokenType::WHILE }, { "for", TokenType::FOR },
    { "have", TokenType::HAVE },
    { "void", TokenType::VOID },
-   { "int", TokenType::INT }, { "char", TokenType::CHAR }, { "bool", TokenType::BOOL },
-   { "and", TokenType::OPERATOR_LOGICAL_AND }, { "or", TokenType::OPERATOR_LOGICAL_OR }, 
+   { "int", TokenType::INT }, { "char", TokenType::CHAR }, { "bool", TokenType::BOOL }, { "str", TokenType::STR },
+   { "and", TokenType::OPERATOR_LOGICAL_AND }, { "or", TokenType::OPERATOR_LOGICAL_OR },
    { "is", TokenType::IS }, { "kinda", TokenType::KINDA }, // ignore these for now - I might not use them
    { "print", TokenType::PRINT }, { "println", TokenType::PRINTLN },
    { "readc", TokenType::READC }, { "readln", TokenType::READS }, { "reads", TokenType::READS},

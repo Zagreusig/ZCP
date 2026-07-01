@@ -213,6 +213,9 @@ TypeInfo Analyzer::type_of(const NodeExpr* expr) {
       else if constexpr (std::is_same_v<T, NodeExprCharLit>)
          return TypeInfo { .base = DataType::CHAR };
       
+      else if constexpr (std::is_same_v<T, NodeExprStrLit>)
+         return TypeInfo{ .base = DataType::STR };
+
       else if constexpr (std::is_same_v<T, NodeExprIdent>) {
          auto found = lookup(node->ident.value.value());
          if (found.has_value()) return found.value();

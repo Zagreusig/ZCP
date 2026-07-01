@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cassert>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <sstream>
@@ -30,8 +31,10 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
 
 
       void operator()(const NodeExprStrLit* _str) {
+         std::cerr << "DEBUG: " << _str->STR_LIT.value.value() << std::endl;
+         
          std::cerr << "String values currently only work as args." << std::endl;
-         exit(EXIT_FAILURE);
+         gen->total_fail();
       }
 
 
@@ -39,7 +42,7 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
          auto var = gen->get_var(expr_ident->ident.value.value());
          if (!var.has_value()) {
             std::cerr << "Undeclared identifier visiting during gen_expr: " << expr_ident->ident.value.value() << std::endl;
-            exit(EXIT_FAILURE);
+            gen->total_fail();
          }
 
          gen->m_output << "   mov rax, QWORD [r12 + " << var.value().offset << "]\n";
@@ -54,7 +57,7 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
          auto var = gen->get_var(idx->ident.value.value());
          if (!var.has_value()) {
             std::cerr << "Undeclared array: " << idx->ident.value.value() << std::endl;
-            exit(EXIT_FAILURE);
+            gen->total_fail();
          }
          int esz = var.value().type.elem_size();
 
@@ -85,7 +88,7 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
             case ReadKind::Int:   gen->m_output << "   call read_int\n";  break;
             case ReadKind::Float: 
             case ReadKind::Line:
-            default:              std::cerr << "Invalid read statement.\n"; exit(EXIT_FAILURE);
+            default:              std::cerr << "Invalid read statement.\n"; gen->total_fail();
          }
          gen->push("rax");
       }
@@ -95,7 +98,7 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
          auto var = gen->get_var(node->ident.value.value());
          if (!var.has_value()) {
             std::cerr << "Undeclared Identifier IncDec: " << node->ident.value.value() << std::endl;
-            exit(EXIT_FAILURE);
+            gen->total_fail();
          }
          std::string slot = "QWORD [r12 + " + std::to_string(var.value().offset) + "]";
          const char* op = node->is_increment ? "add" : "sub";
@@ -135,7 +138,7 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
                break;
             default:
                std::cerr << "Unknown binary operator." << std::endl;
-               exit(EXIT_FAILURE);
+               gen->total_fail();
          }
 
          gen->push("rax");
@@ -146,7 +149,7 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
          if (call->args.size() > 6) {
             std::cerr << "Too many arguments in call to \""
                       << call->name.value.value() << "\"" << std::endl;
-            exit(EXIT_FAILURE);
+            gen->total_fail();
          }
 
          static const std::string param_regs[] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
@@ -192,11 +195,29 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
          if (gen->get_var(h->ident.value.value()).has_value()) {
             std::cerr << "Identifier aleady used (have): " 
                       << h->ident.value.value() << std::endl;
-            exit(EXIT_FAILURE);
+            gen->total_fail();
          }
          
          const TypeInfo& type = h->resolved;
-
+         if (type.base == DataType::STR) {
+            int base = gen->m_current_offset;
+            gen->m_vars.push_back(Var{ .name = h->ident.value.value(), .offset = base, .type = type });
+            gen->m_types.declare_var(h->ident.value.value(), DataType::STR);
+            gen->m_current_offset += 16; // fat pointer
+         
+            if (h->expr) {
+               auto* lit = std::get_if<NodeExprStrLit*>(&h->expr->var);
+               if (!lit) { std::cerr << "String var must be initialized with a str lit (for now).\n"; gen->total_fail(); }
+               const std::string& str = (*lit)->STR_LIT.value.value();
+               std::string label = gen->add_string(str);
+               gen->store_string_literal(base, str);
+            } else {
+               // uninit: nullptr, len 0
+               gen->m_output << "   mov QWORD [r12 + " << base << "], 0\n"
+                             << "   mov QWORD [r12 + " << (base + 8) << "], 0\n";
+            }
+            return;
+         }
          if (type.is_array) {
             int esz   = type.elem_size(); // array base size
             int base  = gen->m_current_offset; // this array's element 0
@@ -296,24 +317,52 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
 
 
       void operator()(const NodeStmtAssign* assign) const {
-         // eval RHS first -> val on stack
-         gen->gen_expr(assign->expr);
-         gen->pop("rax");
 
          // Regular assignment 
          if (auto* id = std::get_if<NodeExprIdent*>(&assign->target->var)) {
             auto var = gen->get_var((*id)->ident.value.value());
             if (!var.has_value()) {
                std::cerr << "Undeclared identifier assign: " << assign->ident.value.value() << std::endl;
-               exit(EXIT_FAILURE);
-            } 
-            gen->m_output << "   mov QWORD [r12 + " << var.value().offset << "], rax\n";
+               gen->total_fail();
+            }
+            int off = var.value().offset;
+            
+            if (var.value().type.base == DataType::STR) {
+              
+               if (auto* lit = std::get_if<NodeExprStrLit*>(&assign->expr->var)) {
+                  gen->store_string_literal(off, (*lit)->STR_LIT.value.value());
+               }
+               else if (auto* rhs_id = std::get_if<NodeExprIdent*>(&assign->expr->var)) {
+                  auto rhs_var = gen->get_var((*rhs_id)->ident.value.value());
+                  if (!rhs_var.has_value()) { 
+                     std::cerr << "Undeclared ident: " << (*rhs_id)->ident.value.value() << std::endl; 
+                     gen->total_fail(); 
+                  }
+               
+                  int rhs_off = rhs_var.value().offset;
+                  gen->m_output << "   mov rax, QWORD [r12 + " << rhs_off << "]\n"        // load other's ptr
+                                << "   mov QWORD [r12 + " << off << "], rax\n"            // store to target's ptr  
+                                << "   mov rax, QWORD [r12 + " << (rhs_off + 8) << "]\n"  // load other's len
+                                << "   mov QWORD [r12 + " << (off + 8) << "], rax\n";     // store to target's len
+               }
+               else {
+                  std::cerr << "String assignment RHS must be a str lit or str var (for now).\n";
+                  gen->total_fail();
+               }
+            }            
+            else {
+               gen->gen_expr(assign->expr);
+               gen->pop("rax");
+               gen->m_output << "   mov QWORD [r12 + " << off << "], rax\n";
+            }
          }
          else if (auto* idx = std::get_if<NodeExprIndex*>(&assign->target->var)) {
+            gen->gen_expr(assign->expr);
+            gen->pop("rax");
             auto var = gen->get_var((*idx)->ident.value.value());
             if (!var.has_value()) {
                std::cerr << "Undeclared identifier index assign: " << assign->ident.value.value() << std::endl;
-               exit(EXIT_FAILURE);
+               gen->total_fail();
             }
             int esz = var.value().type.elem_size();
             // comp index into rbx
@@ -387,21 +436,27 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
                gen->m_output << "   call print_int\n";
                break;
             case DataType::STR: {
-               auto* str_node = std::get_if<NodeExprStrLit*>(&p->expr->var);
-               if (!str_node) {
-                  std::cerr << "Print works with string literals currently." << std::endl;
-                  exit(EXIT_FAILURE);
+               if (auto* lit = std::get_if<NodeExprStrLit*>(&p->expr->var)) {
+                  const std::string& bytes = (*lit)->STR_LIT.value.value();
+                  std::string label = gen->add_string(bytes);
+
+                  gen->m_output << "   mov rax, SYS_write\n"
+                                << "   mov rdi, STDOUT\n"
+                                << "   mov rsi, " << label << '\n'
+                                << "   mov rdx, " << label << "_len\n"
+                                << "   syscall\n";
                }
-
-               const std::string& bytes = (*str_node)->STR_LIT.value.value();
-               std::string label = gen->add_string(bytes);
-
-               gen->m_output << "   mov rax, SYS_write\n"
-                             << "   mov rdi, STDOUT\n"
-                             << "   mov rsi, " << label << '\n'
-                             << "   mov rdx, " << label << "_len\n"
-                             << "   syscall\n";
-
+               else if (auto* id = std::get_if<NodeExprIdent*>(&p->expr->var)) {
+                  auto var = gen->get_var((*id)->ident.value.value());
+                  if (!var.has_value()) { std::cerr << "Undeclared identifier: " << (*id)->ident.value.value() << std::endl; gen->total_fail(); }
+                  int off = var.value().offset;
+                  gen->m_output << "   mov rsi, QWORD [r12 + " << off << "]\n"
+                                << "   mov rdx, QWORD [r12 + " << (off + 8) << "]\n"
+                                << "   mov rax, SYS_write\n"
+                                << "   mov rdi, STDOUT\n"
+                                << "   syscall\n";
+               }
+               else { /* other str expr not supported yet */}
                if (p->nwln) {
                   gen->m_output << "   mov byte [print_buf], LF\n"
                                 << "   mov rax, SYS_write\n"
@@ -435,7 +490,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
                break;
             default: 
                std::cerr << "Cannot print value of unknown type." << std::endl;
-               exit(EXIT_FAILURE);
+               gen->total_fail();
          }
       }
    };
@@ -898,7 +953,7 @@ TypeInfo ASMGenerator::resolve_have_type(NodeStmtHave* h) {
       for (size_t i = 1; i < elems.size(); i++) {
          if (m_types.type_of(elems[i]) != et) {
             std::cerr << "Array literal has mismatched element types." << std::endl;
-            exit(EXIT_FAILURE);
+            total_fail();
          }
       }
 
@@ -940,4 +995,20 @@ void ASMGenerator::emit_epilogue() {
       m_output << "   pop rbp\n"
                << "   ret\n";
    }
+}
+
+
+void ASMGenerator::total_fail() {
+   std::fstream file("failed.asm", std::ios::out);
+   file << m_output.str();
+   file.close();
+   exit(EXIT_FAILURE);
+}
+
+
+void ASMGenerator::store_string_literal(int off, const std::string& str) {
+   std::string label = add_string(str);
+   m_output << "   lea rax, [ " << label << "]\n"
+            << "   mov QWORD [r12 + " << off << "], rax\n"
+            << "   mov QWORD [r12 + " << (off + 8) << "], " << str.size() << "\n";
 }
