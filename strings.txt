@@ -40,3 +40,10 @@ Type-aware D:
 stage 3 calling conv 
 ABI: 16-byte values in rax:rdx
 ptr going into rax, len going into rdx
+
+str params (by val, 2 regs) -> reags 2 arg regs into param's 16byte slot
+str ret (rax:rdx) func returning str puts ptr in rax, len in rdx, caller reads both.
+
+retrofitting for char param/ret. Chars 1 byte. param/ret put into al..
+array params (reference) Arr pass by ptr. Gets arr's base addr, can index through it. <- last
+array param wont be at r12 + offset, its at ptr + i*esz

@@ -25,11 +25,22 @@ INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 # These files will have .d instead of .o as the output.
 CPPFLAGS := $(INC_FLAGS) -MMD -MP -O2 -g -std=c++23
 
+
+.PHONY: all live clean deldir rmExecs rmFiles run test
+
+all: live
+
+indev: $(TARGET_EXEC)
+
+live: $(TARGET_EXEC)
+	@$(MAKE) deldir -i -s
+	@echo "Usage like: ./zcp <flags> <file.z>"
+	@echo "Help flag (currently needs some file): ./zcp -h <file.z>"
+
+
 # The final build step.
 $(TARGET_EXEC): $(OBJS)
 	@$(CXX) $(OBJS) -o $@ $(LDFLAGS)
-	@echo "Usage like: ./zcp <flags> <file.z>"
-	@echo "Help flag (currently needs some file): ./zcp -h <file.z>"
 
 # Build step for C++ source
 $(BUILD_DIR)/%.cpp.o: %.cpp
@@ -37,7 +48,6 @@ $(BUILD_DIR)/%.cpp.o: %.cpp
 	@$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 
 
-.PHONY: clean
 clean:
 	@$(MAKE) deldir -i -s
 	@$(MAKE) rmExecs -i -s
@@ -59,9 +69,8 @@ run:
 	@valgrind --leak-check=full $(BUILD_DIR)/$(TARGET_EXEC)
 
 test:
-	@./$(TARGET_EXEC) ./tests/test.z
+	@./$(TARGET_EXEC) -ast ./tests/test.z
 	@./out
-	@echo $?
 
 # Include the .d makefiles. The - at the front suppresses the errors of missing
 # Makefiles. Initially, all the .d files will be missing, and we don't want those
