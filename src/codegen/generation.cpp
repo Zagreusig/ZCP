@@ -28,8 +28,12 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
          const char* ch = _char->CHAR_LIT.value.value().c_str();
          if (Esc::is_esc_char(ch[0]))
             gen->m_output << "   mov rax, " << Esc::asm_code(ch[0]) << "\n";
-         else
-            gen->m_output << "   mov rax, '" << _char->CHAR_LIT.value.value() << "'\n";
+         else {
+            gen->m_output << "   mov rax, '";
+            if (_char->CHAR_LIT.value.value() == "'")
+               gen->m_output << "\\";
+            gen->m_output << _char->CHAR_LIT.value.value() << "'\n";
+         }
          gen->push("rax");         
       }
 
@@ -485,7 +489,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
             else if (auto* id = std::get_if<NodeExprIdent*>(&_return->expr->var)) {
                auto var = gen->get_var((*id)->ident.value.value());
                int off = var.value().offset;
-               gen->m_output << "   movzx al, byte [r12 + " << off << "]\n";
+               gen->m_output << "   mov al, byte [r12 + " << off << "]\n";
             }
             else {
                std::cerr << "Unsupported char return expr.\n";
@@ -822,68 +826,6 @@ std::optional<ASMGenerator::Var> ASMGenerator::get_var(const std::string& name) 
 }
 
 
-int ASMGenerator::count_locals(const NodeScopeBlock* body) {
-   int count = 0;
-   for (auto stmt : body->stmts) {
-      std::visit([&](auto* s) {
-         using T = std::decay_t<decltype(*s)>;
-         if constexpr (std::is_same_v<T, NodeStmtHave>)
-            count++;
-         else if constexpr (std::is_same_v<T, NodeScopeBlock>)
-            count += count_locals(s);
-         else if constexpr (std::is_same_v<T, NodeScopeBlock>) {
-            count += count_locals(s->body);
-            if (s->else_body) count += count_locals(s->else_body);
-         }
-         else if constexpr (std::is_same_v<T, NodeStmtWhile>)
-            count += count_locals(s->body);
-         else if constexpr (std::is_same_v<T, NodeStmtFor>) {
-            count++;
-            count += count_locals(s->body);
-         }
-         else return;
-      }, stmt->var);
-   }
-
-   return count;
-}
-
-
-int ASMGenerator::count_locals(const std::vector<NodeStmt*>& stmts) {
-   int count = 0;
-   for (auto stmt : stmts) {
-      std::visit([&](auto* s) {
-         using T = std::decay_t<decltype(*s)>;
-         if constexpr (std::is_same_v<T, NodeStmtHave>)
-            count++;
-         else if constexpr (std::is_same_v<T, NodeStmtScope>)
-            count += count_locals(s->scope);
-         else if constexpr (std::is_same_v<T, NodeScopeBlock>)
-            count += count_locals(s);
-         else if constexpr (std::is_same_v<T, NodeStmtIf>) {
-            count += count_locals(s->body);
-            if (s->else_body) count += count_locals(s->else_body);
-         }
-         else if constexpr (std::is_same_v<T, NodeStmtWhile>)
-            count += count_locals(s->body);
-         else if constexpr (std::is_same_v<T, NodeStmtFor>) {
-            count++;
-            count += count_locals(s->body);
-         }
-         else return;
-      }, stmt->var);
-   }
-
-   return count;
-}
-
-int ASMGenerator::compute_frame_size(const NodeScopeBlock* body) {
-   int locals = count_locals(body);
-   int bytes = locals * 8;
-   return (bytes + 15) & ~15; // Rounding up to 16-byte alignment
-}
-
-
 int ASMGenerator::compute_frame_size(const std::vector<NodeStmt*>& stmts) {
    int bytes = 0;
    for (auto stmt : stmts) {
@@ -894,8 +836,10 @@ int ASMGenerator::compute_frame_size(const std::vector<NodeStmt*>& stmts) {
          }
          else if constexpr (std::is_same_v<T, NodeStmtWhile>) 
             bytes += compute_frame_size(s->body->stmts);
-         else if constexpr (std::is_same_v<T, NodeStmtFor>)
+         else if constexpr (std::is_same_v<T, NodeStmtFor>) {
+            if (s->init) bytes += compute_frame_size(std::vector<NodeStmt*>{ s->init });
             bytes += compute_frame_size(s->body->stmts);
+         }
          else if constexpr (std::is_same_v<T, NodeStmtIf>) {
             bytes += compute_frame_size(s->body->stmts);
             if (s->else_body) bytes += compute_frame_size(s->else_body->stmts);
@@ -905,19 +849,6 @@ int ASMGenerator::compute_frame_size(const std::vector<NodeStmt*>& stmts) {
       }, stmt->var);
    }
    return bytes;
-}
-
-
-/** TODO: Remove this lol */
-int ASMGenerator::console_write(const std::string& msg) {
-   if (msg.empty()) return -1;
-   int len = msg.length();
-   m_output << "   mov eax, 1\n"
-            << "   mov ebx, 1\n"
-            << "   mov ecx, \"" << msg << "\"\n"
-            << "   mov edx, " << len << '\n'
-            << "   syscall\n";
-   return 0;
 }
 
 

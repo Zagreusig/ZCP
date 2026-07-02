@@ -1,4 +1,5 @@
 #include "analyer.h"
+#include "driver/compiler.h"
 #include "symbols/SymbolTable.h"
 #include "utils/msc.h"
 #include <iostream>
@@ -27,7 +28,7 @@ void Analyzer::analyze_have(NodeStmtHave* h) {
    TypeInfo info;
 
    if (!h->has_type && h->expr == nullptr) {
-      m_diag.error(CompPhase::Analysis, h->ident.line, h->ident.col,
+      m_ctx.diag.error(CompPhase::Analysis, h->ident.line, h->ident.col,
                    "Declaration needs type of initializer.");
       return;
    }
@@ -41,7 +42,7 @@ void Analyzer::analyze_have(NodeStmtHave* h) {
             for (size_t i = 0; i < elems.size(); i++) {
                TypeInfo et = type_of(elems[i]);
                if (et.base != info.base) {
-                  m_diag.error(CompPhase::Analysis, h->ident.line, h->ident.col,
+                  m_ctx.diag.error(CompPhase::Analysis, h->ident.line, h->ident.col,
                               "Array literal has mismatched element types.");
                   break;   
                } 
@@ -51,7 +52,7 @@ void Analyzer::analyze_have(NodeStmtHave* h) {
             if (info.is_array) {
                // annotation was int[N] - N must be equal lit's len
                if (info.array_len != (int)elems.size())
-                  m_diag.error(CompPhase::Analysis, h->ident.line, h->ident.col,
+                  m_ctx.diag.error(CompPhase::Analysis, h->ident.line, h->ident.col,
                               "Array literals doesn't match declared length.");
             } else {
                info.is_array = true;
@@ -60,7 +61,7 @@ void Analyzer::analyze_have(NodeStmtHave* h) {
          } else {
             TypeInfo init = type_of(h->expr);
             if (!types_match(info, init))
-               m_diag.error(CompPhase::Analysis, h->ident.line, h->ident.col, 
+               m_ctx.diag.error(CompPhase::Analysis, h->ident.line, h->ident.col, 
                            "Array type mismatch.");
          }
       }
@@ -70,13 +71,13 @@ void Analyzer::analyze_have(NodeStmtHave* h) {
    else if (auto* lit = std::get_if<NodeExprArrayLit*>(&h->expr->var)) {
       const auto& elems = (*lit)->elements;
       if (elems.empty()) {
-         m_diag.error(CompPhase::Analysis, h->ident.line, h->ident.col,
+         m_ctx.diag.error(CompPhase::Analysis, h->ident.line, h->ident.col,
                       "Cannot infer type of empty array.");
       } else {
          TypeInfo et = type_of(elems[0]);
          for (size_t i = 1; i < elems.size(); i++) {
             if (!types_match(et, type_of(elems[i]))) {
-               m_diag.error(CompPhase::Analysis, h->ident.line, h->ident.col,
+               m_ctx.diag.error(CompPhase::Analysis, h->ident.line, h->ident.col,
                             "Array literal has mismatched element types.");
                break;
             }
@@ -118,14 +119,14 @@ void Analyzer::analyze_stmt(NodeStmt* s) {
          TypeInfo target_t = type_of(s->target);
          TypeInfo rhs_t    = type_of(s->expr);
          if (!types_match(target_t, rhs_t))
-            m_diag.error(CompPhase::Analysis, s->ident.line, s->ident.col,
+            m_ctx.diag.error(CompPhase::Analysis, s->ident.line, s->ident.col,
                             "Type mismatch in assignment to '" + s->ident.value.value() + "'.");
       }
       
       else if constexpr (std::is_same_v<T, NodeStmtReturn>) {
          TypeInfo ret = type_of(s->expr);
          if (m_curr_func.ret_type.base != DataType::NONE && !types_match(ret, m_curr_func.ret_type))
-            m_diag.error(CompPhase::Analysis, m_curr_func.ident.line, m_curr_func.ident.col,
+            m_ctx.diag.error(CompPhase::Analysis, m_curr_func.ident.line, m_curr_func.ident.col,
                          "Return type mismatch.");
       }
        
@@ -236,7 +237,7 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
       else if constexpr (std::is_same_v<T, NodeExprIdent>) {
          auto found = lookup(node->ident.value.value());
          if (found.has_value()) return found.value();
-         m_diag.error(CompPhase::Analysis, node->ident.line, node->ident.col,
+         m_ctx.diag.error(CompPhase::Analysis, node->ident.line, node->ident.col,
                       "Use of undeclared identifier '" + node->ident.value.value() + "'.");
          return {};
       }
@@ -250,7 +251,7 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
          auto it = m_func_sigs.find(node->name.value.value());
          
          if (it == m_func_sigs.end()) {
-            m_diag.error(CompPhase::Analysis, node->name.line, node->name.col,
+            m_ctx.diag.error(CompPhase::Analysis, node->name.line, node->name.col,
                          "Call made to undeclared function '" + node->name.value.value() + "'.");
          
             for (auto* arg : node->args) type_of(arg); // still walk args to grab extra problems
@@ -261,7 +262,7 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
 
          // arg count check
          if (node->args.size() != sig.param_types.size()) {
-            m_diag.error(CompPhase::Analysis, node->name.line, node->name.col,
+            m_ctx.diag.error(CompPhase::Analysis, node->name.line, node->name.col,
                          std::to_string(sig.param_types.size()) + " argument(s) expected, got " + 
                          std::to_string(node->args.size()) + ".");
          }
@@ -270,7 +271,7 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
          for (size_t i = 0; i < node->args.size(); i++) {
             TypeInfo at = type_of(node->args[i]);
             if (i < sig.param_types.size() && !types_match(sig.param_types[i], at)) {
-               m_diag.error(CompPhase::Analysis, node->name.line, node->name.col,
+               m_ctx.diag.error(CompPhase::Analysis, node->name.line, node->name.col,
                             "Argument " + std::to_string(i + 1) + " to '" + node->name.value.value() + 
                             "' has mismatched type.");
             }
@@ -300,10 +301,10 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
       else if constexpr (std::is_same_v<T, NodeExprIndex>) {
          auto arr = lookup(node->ident.value.value());
          if (!arr.has_value()) { 
-            m_diag.error(CompPhase::Analysis, node->ident.line, node->ident.col,
+            m_ctx.diag.error(CompPhase::Analysis, node->ident.line, node->ident.col,
                          "This broken...."); return {}; }
          if (!arr.value().is_array && arr.value().base != DataType::STR) 
-            { m_diag.error(CompPhase::Analysis, node->ident.line, node->ident.col,
+            { m_ctx.diag.error(CompPhase::Analysis, node->ident.line, node->ident.col,
                            "Cannot index non-array."); return {}; }
          // indexing array yields its ELEMENT type (scalar, not array)
          return TypeInfo { .base = (arr.value().base == DataType::STR ? DataType::CHAR : arr.value().base) }; // is_array = false (default)

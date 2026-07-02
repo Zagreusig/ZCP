@@ -123,14 +123,62 @@ main:
    push rbp
    push r12
    mov rbp, rsp
-   sub rsp, 32
+   sub rsp, 128 // int array[10] = 80 bytes + 16 bytes (str) + 3 int (24) = 120(rounded 128)
    mov r12, rsp
-   mov rax, 10
-   mov QWORD [r12 + 0], rax
+   lea rdi, [r12 + 0]
+   mov rcx, 10
+   xor rax, rax
+   rep stosq
    lea rax, [str_0]
-   mov QWORD [r12 + 1], rax
-   mov QWORD [r12 + 9], 18
-   mov rax, QWORD [r12 + 0]
+   mov QWORD [r12 + 80], rax
+   mov QWORD [r12 + 88], 6
+   xor eax, eax
+   mov QWORD [r12 + 96], rax
+.L0:
+   mov rax, QWORD [r12 + 96]
+   push rax
+   mov rbx, 10
+   pop rax
+   cmp rax, rbx
+   jge .L1
+   mov rax, QWORD [r12 + 96]
+   push rax
+   mov rax, QWORD [r12 + 96]
+   mov rbx, rax
+   pop rax
+   mov QWORD [r12 + rbx*8 + 0], rax
+   mov rax, QWORD [r12 + 96]
+   push rax
+   add QWORD [r12 + 96], 1
+   pop rax
+   jmp .L0
+.L1:
+   xor eax, eax
+   mov QWORD [r12 + 104], rax
+.L2:
+   mov rax, QWORD [r12 + 104]
+   push rax
+   mov rbx, 10
+   pop rax
+   cmp rax, rbx
+   jge .L3
+   mov rax, QWORD [r12 + 104]
+   imul rax, 8
+   mov rax, QWORD [r12 + rax]
+   xor edi, edi
+   call print_int
+   mov rax, SYS_write
+   mov rdi, STDOUT
+   mov rsi, str_1
+   mov rdx, str_1_len
+   syscall
+   mov rax, QWORD [r12 + 104]
+   push rax
+   add QWORD [r12 + 104], 1
+   pop rax
+   jmp .L2
+.L3:
+   mov rax, 10
    mov byte [print_buf], al
    mov byte [print_buf + 1], LF
    mov rsi, print_buf
@@ -138,16 +186,53 @@ main:
    mov rdi, STDOUT
    mov rax, SYS_write
    syscall
-   mov rsi, QWORD [r12 + 1]
-   mov rdx, QWORD [r12 + 9]
+   xor eax, eax
+   mov QWORD [r12 + 112], rax
+.L4:
+   mov rax, QWORD [r12 + 112]
+   push rax
+   mov rbx, 6
+   pop rax
+   cmp rax, rbx
+   jge .L5
+   mov rax, SYS_write
+   mov rdi, STDOUT
+   mov rsi, str_2
+   mov rdx, str_2_len
+   syscall
+   mov rax, QWORD [r12 + 112]
+   mov rbx, rax
+   mov rax, QWORD [r12 + 80]
+   movzx rax, byte [rax + rbx]
+   mov byte [print_buf], al
+   mov rsi, print_buf
+   mov rdx, 1
    mov rax, SYS_write
    mov rdi, STDOUT
    syscall
-   mov byte [print_buf], LF
    mov rax, SYS_write
    mov rdi, STDOUT
+   mov rsi, str_3
+   mov rdx, str_3_len
+   syscall
+   mov rax, SYS_write
+   mov rdi, STDOUT
+   mov rsi, str_4
+   mov rdx, str_4_len
+   syscall
+   mov rax, QWORD [r12 + 112]
+   push rax
+   add QWORD [r12 + 112], 1
+   pop rax
+   jmp .L4
+.L5:
+   mov rax, 10
+   mov byte [print_buf], al
+   mov byte [print_buf + 1], LF
    mov rsi, print_buf
-   mov rdx, 1
+   mov rdx, 2
+   mov rdi, STDOUT
+   mov rax, SYS_write
    syscall
    xor eax, eax
    mov rsp, rbp
@@ -155,5 +240,13 @@ main:
    pop rbp
    ret
 section .data
-   str_0: db 83, 104, 101, 32, 115, 97, 105, 100, 32, 34, 104, 101, 108, 108, 111, 34, 46, 10
+   str_0: db 72, 101, 108, 108, 111, 33
    str_0_len: equ $ - str_0
+   str_1: db 32
+   str_1_len: equ $ - str_1
+   str_2: db 39
+   str_2_len: equ $ - str_2
+   str_3: db 39
+   str_3_len: equ $ - str_3
+   str_4: db 32
+   str_4_len: equ $ - str_4

@@ -1,9 +1,10 @@
 #include "lexer.h"
+#include "driver/compiler.h"
 #include "symbols/EscapeChars.h"
 #include <iostream>
 #include <unordered_map>
 
-static const std::unordered_map<std::string, TokenType> KEYWORDS = {
+const std::unordered_map<std::string, TokenType> KEYWORDS = {
    { "exit", TokenType::_EXIT }, { "return", TokenType::RETURN },
    { "func", TokenType::FUNC }, { "fn", TokenType::FUNC },
    { "if", TokenType::IF }, { "else", TokenType::ELSE },
@@ -32,9 +33,20 @@ bool Lexer::peek_eval(char ch, int offset = 0) {
 }
 
 
-std::vector<Token> Lexer::tokenize(Diagnostics* diag) {
+std::vector<Token> Lexer::lex() {
+   try {
+      return tokenize();
+   } catch (const CompilerError& e) {
+      std::cerr << "At " << e.line() << ":" << e.col() << ": " << e.what() << std::endl;
+      return tokens;
+   }
+}
+
+
+std::vector<Token> Lexer::tokenize() {
    std::string buf {};
-   std::vector<Token> tokens {};
+   // std::vector<Token> tokens {};
+   m_src = m_ctx.get_src();
 
    while (peek().has_value()) {
       if (!tokens.empty() && tokens.back().type == TokenType::COMMENT) {
@@ -72,20 +84,18 @@ std::vector<Token> Lexer::tokenize(Diagnostics* diag) {
       else if (peek().value() == '\'') {
          int tok_line = m_line, tok_col = m_col;
          consume();
-         if (!peek().has_value()) {
-            std::cerr << "Expected char literal.\n";
-            exit(EXIT_FAILURE);
-         }
+         if (!peek().has_value())
+            m_ctx.diag.fatal(CompPhase::Lexing, tok_line, tok_col, "Expected char literal.");
          char c = consume();
          if (c == '\\') {
-            if (!peek().has_value()) { std::cerr << "Unterminated escape.\n"; break; }
+            if (!peek().has_value()) { 
+               m_ctx.diag.error(CompPhase::Lexing, tok_line, tok_col, "Unterminated escape.");
+               break; 
+            }
             c = Esc::translate_escape(consume());
          }
-         if (c == '\'') c = '\0';
-         if (!peek().has_value() || peek().value() != '\'') {
-            std::cerr << "Expected closing '.\n";
-            exit(EXIT_FAILURE);
-         }
+         if (!peek().has_value() || peek().value() != '\'')
+            m_ctx.diag.fatal(CompPhase::Lexing, tok_line, tok_col, "Expected closing '.");
          consume();
          tokens.push_back({ .type = TokenType::CHAR_LIT, .value = std::string(1, c),
                             .line = tok_line, .col = tok_col });
@@ -97,7 +107,7 @@ std::vector<Token> Lexer::tokenize(Diagnostics* diag) {
          while (peek().has_value() && peek().value() != '"') {
             char c = consume();
             if (c == '\\') {
-               if (!peek().has_value()) { std::cerr << "Unterminated escape.\n"; break; }
+               if (!peek().has_value()) { m_ctx.diag.error(CompPhase::Lexing, tok_line, tok_col, "Unterminated escape."); break; }
                char esc = consume(), translated = Esc::translate_escape(esc);
                if (esc == translated) { buf.push_back(esc); }
                else { buf.push_back(translated); }
@@ -105,10 +115,8 @@ std::vector<Token> Lexer::tokenize(Diagnostics* diag) {
                buf.push_back(c);
             }
          }
-         if (!peek().has_value()) {
-            std::cerr << "Expected closing \"." << std::endl;
-            exit(EXIT_FAILURE);
-         }
+         if (!peek().has_value()) 
+            m_ctx.diag.fatal(CompPhase::Lexing, tok_line, tok_col, "Expected closing \"");
          if (peek().value() == '"' && buf.length() < 1) buf.push_back('\0'); 
 
          consume();
@@ -134,7 +142,7 @@ inline Token Lexer::resolveSymbol(char symbol) {
    case  ':': return Token { .type = TokenType::COLON             };
    case  '?': return Token { .type = TokenType::QUESTION          };
    case  '!': 
-      if (peek().has_value() && peek().value() == '=') {
+      if (peek_eval('=')) {
          consume();
          return Token { .type = TokenType::OPERATOR_NOT_EQUAL     };
       }
@@ -196,7 +204,7 @@ inline Token Lexer::resolveSymbol(char symbol) {
    case  '%': return Token { .type = TokenType::OPERATOR_PERCENT  };
    
    case  '-': 
-      if (peek().has_value() && peek().value() == '>') {
+      if (peek_eval('>')) {
          consume();
          return Token { .type = TokenType::OPERATOR_ARROW         };
       }
@@ -213,33 +221,33 @@ inline Token Lexer::resolveSymbol(char symbol) {
    case  '^': return Token { .type = TokenType::OPERATOR_CARET    };
    
    case  '>': 
-      if (peek().has_value() && peek().value() == '=') {
+      if (peek_eval('=')) {
          consume();
          return Token { .type = TokenType::OPERATOR_GREATER_EQUAL };
       }
       return Token { .type = TokenType::OPERATOR_GT               };
    
    case  '<': 
-      if (peek().has_value() && peek().value() == '=' ) {
+      if (peek_eval('=') ) {
          consume();
          return Token { .type = TokenType::OPERATOR_LESS_EQUAL    };
       }
       return Token { .type = TokenType::OPERATOR_LT               };
    
    case  '|':
-      if (peek().has_value() && peek().value() == '|') {
+      if (peek_eval('|')) {
          consume();
          return Token { .type = TokenType::OPERATOR_LOGICAL_OR    };
       }
       return Token { .type = TokenType::PIPE                      };
    
    case '&':
-      if (peek().has_value() && peek().value() == '&') {
+      if (peek_eval('&')) {
          consume();
          return Token { .type = TokenType::OPERATOR_LOGICAL_AND   };
       }
       return Token { .type = TokenType::AMPERSAND                 };
-   default:  return {};
+   default:  m_ctx.diag.error(CompPhase::Lexing, m_line, m_col, "Unknown symbol."); return {};
    }
 }
 

@@ -16,7 +16,7 @@
 #include <string>
 
 namespace Esc {
-   static char translate_escape(char esc) {
+   inline char translate_escape(char esc) {
          switch (esc) {
          case 'n':  return '\n';
          case 't':  return '\t';
@@ -30,7 +30,7 @@ namespace Esc {
       }
    }
 
-   static int asm_code(char esc) {
+   inline int asm_code(char esc) {
       switch (esc) {
          case '\n': return 10;
          case '\t': return 9;
@@ -40,7 +40,7 @@ namespace Esc {
       }
    }
 
-   static bool is_esc_char(char esc) {
+   inline bool is_esc_char(char esc) {
       switch (esc) {
          case '\n':
          case '\t':
@@ -50,7 +50,7 @@ namespace Esc {
       }
    }
 
-   static std::string esc_str(char esc) {
+   inline std::string esc_str(char esc) {
       switch (esc) {
          case '\n': return "'\\n'";
          case '\t': return "'\\t'";

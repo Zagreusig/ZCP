@@ -1,0 +1,28 @@
+func foo(int a, int b) -> int {
+   return a * b;
+}
+
+fn bar(str s) {
+   println(s);
+}
+
+fn get_char(str prompt) -> char {
+   have ch: char;
+   have bf: char;
+   println(prompt);
+   ch = readc();
+   bf = readc();
+
+   return ch;
+}
+
+
+fn main() {
+   have s = "Gimme char: ";
+   have ch = get_char(s);
+   have i = foo(5, 2);
+
+   println(ch);
+
+   return 0;
+}

@@ -1,0 +1,23 @@
+fn main() {
+   have arr: int[10];
+   have st = "Hello!";
+   for (have i = 0; i < 10; i++) {
+      arr[i] = i;
+   }
+
+   for (have i = 0; i < 10; i++) {
+      print(arr[i]);
+      print(" ");
+   }
+   println('\n');
+
+   for (have i = 0; i < 6; i++) {
+      print("'");
+      print(st[i]);
+      print("'");
+      print(" ");
+   }
+   println('\n');
+
+   return 0;
+}

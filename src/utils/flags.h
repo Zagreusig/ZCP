@@ -1,27 +1,35 @@
 #ifndef FLAGS_H
 #define FLAGS_H
 
-#define BIT(x) (1 << x)   
-
+#include <stdint.h>
 #include <string>
+#include <vector>
+
+#define BIT(x) (1 << x)   
 
 enum class Flags {
    NONE            = 0,
-   USER_NAME       = BIT(1),   // -o  
-   PRINT_TOKENS    = BIT(2),   // -t  
-   PRINT_FLAGS     = BIT(3),   // -f
-   PRINT_AST       = BIT(4),   // -s
-   LEAVE_ASM       = BIT(5),   // -a
-   LEAVE_OBJ       = BIT(6),   // -j
-   HALLLLLPUH      = BIT(7),   // -h
-   PRESERVE_PRE_OP = BIT(8)    // -p
+   USER_NAME       = BIT(0),   // -o  
+   PRINT_TOKENS    = BIT(1),   // -t  
+   PRINT_FLAGS     = BIT(2),   // -f
+   PRINT_AST       = BIT(3),   // -s
+   LEAVE_ASM       = BIT(4),   // -a
+   LEAVE_OBJ       = BIT(5),   // -j
+   HALLLLLPUH      = BIT(6),   // -h
+   PRESERVE_PRE_OP = BIT(7)    // -p
 };
 
 inline Flags operator|(Flags a, Flags b) {
-   return static_cast<Flags>(static_cast<unsigned int>(a) | static_cast<unsigned int>(b));
+   return static_cast<Flags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
 }
 
-static std::string to_str(Flags flag) {
+inline Flags combine_flags(std::vector<Flags> flags) {
+   Flags t = {};
+   for (auto& flag : flags) t = flag | t;
+   return t;
+}
+
+inline std::string to_str(Flags flag) {
    switch (flag) {
       case Flags::NONE:         return "NONE";
       case Flags::USER_NAME:    return "USER_NAME";

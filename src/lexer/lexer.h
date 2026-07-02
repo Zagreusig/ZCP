@@ -8,11 +8,13 @@
 #include <string>
 #include <vector>
 
+class Compiler;
+
 class Lexer {
 public:
-   inline explicit Lexer(const std::string& src) 
-      : m_src(src) {}
-   std::vector<Token> tokenize(Diagnostics*);
+   inline explicit Lexer(Compiler& cmp) : m_ctx(cmp) {}
+   std::vector<Token> lex();
+   std::vector<Token> tokenize();
 
 private:
    [[nodiscard]] std::optional<char> peek(int) const;
@@ -26,7 +28,11 @@ private:
    inline Token resolveSymbol(char);
    void synchronize();
 
-   const std::string m_src;
+   Compiler& m_ctx;
+
+   std::vector<Token> tokens {};
+
+   std::string m_src;
    size_t m_currIndex = 0;
    int m_line = 1, m_col = 1;
 };

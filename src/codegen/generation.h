@@ -9,11 +9,12 @@
 #include <sstream>
 #include <unordered_map>
 
+class Compiler;
 
 class ASMGenerator {
 public:
-   inline explicit ASMGenerator(NodeProg prog) 
-      : m_prog(std::move(prog)) {}
+   inline explicit ASMGenerator(Compiler& cmp, NodeProg prog) 
+      : m_prog(std::move(prog)), m_ctx(cmp) {}
 
    [[nodiscard]] std::string build();
    void gen_expr(const NodeExpr*);
@@ -52,9 +53,6 @@ private:
    void begin_scope();
    void end_scope();
 
-   int count_locals(const NodeScopeBlock*);
-   int count_locals(const std::vector<NodeStmt*>&);
-   int compute_frame_size(const NodeScopeBlock*);
    int compute_frame_size(const std::vector<NodeStmt*>&);
    int param_reg_count(const TypeInfo&);
 
@@ -86,6 +84,7 @@ private:
    int m_label_count      = 0;
    std::vector<size_t> m_scope_stack {};
 
+   Compiler& m_ctx;
 };
 
 

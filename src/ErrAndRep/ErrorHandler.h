@@ -8,7 +8,7 @@
 
 enum class CompPhase { Lexing, Parsing, Analysis, CodeGen };
 
-static std::string str(CompPhase phase) {
+inline std::string str(CompPhase phase) {
    switch (phase) {
       case CompPhase::Lexing:   return "Lexing";
       case CompPhase::Parsing:  return "Parsing";
@@ -20,17 +20,16 @@ static std::string str(CompPhase phase) {
 
 class CompilerError : public std::runtime_error {
 public:
-   CompilerError(CompPhase phase, const std::string& msg)
-      : std::runtime_error(msg), m_phase(phase) {}
-   
+   CompilerError(CompPhase phase, int line, int col, const std::string& msg)
+      : std::runtime_error(msg), m_line(line), m_col(col), m_phase(phase) {}
    CompPhase phase() const { return m_phase; }
    inline int line() const { return m_line; }
    inline int col()  const { return m_col; }
 
-
 private:
    CompPhase m_phase;
-   int m_line, m_col;
+   int m_line = 0;
+   int m_col = 0;
 };
 
 void report(const std::string&, const std::string&, const CompilerError&);
@@ -47,6 +46,11 @@ public:
    void error (CompPhase phase, int line, int col, const std::string& msg) {
       m_errors[phase].push_back({ phase, line, col, msg });
       err_count++;
+   }
+
+   [[noreturn]] void fatal (CompPhase phase, int line, int col, const std::string& msg) {
+      error(phase, line, col, msg);
+      throw CompilerError(phase, line, col, msg);
    }
    bool has_errors() const { return !m_errors.empty(); }
    size_t count() const { return m_errors.size(); }

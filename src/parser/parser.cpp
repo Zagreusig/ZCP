@@ -4,6 +4,7 @@
 #include "ast/arena.h"
 #include "ast/ASTPrinter.h"
 #include "ast/Nodes.h"
+#include "driver/compiler.h"
 #include "parser.h"
 #include "lexer/Tokens.h"
 #include "symbols/SymbolTable.h"
@@ -103,10 +104,10 @@ std::optional<NodeExpr*> Parser::parse_expr(int min_prec = 0) {
       auto right = parse_expr(next_prec);
       if (!right.has_value()) { return {}; }
 
-      NodeBinExpr* bin = m_allocator.alloc<NodeBinExpr>();
+      NodeBinExpr* bin = m_ctx.arena.alloc<NodeBinExpr>();
       bin->operation = op; bin->left = left.value(); bin->right = right.value();
       
-      NodeExpr* expr = m_allocator.alloc<NodeExpr>();
+      NodeExpr* expr = m_ctx.arena.alloc<NodeExpr>();
       expr->var = bin;
       left = expr;
    }
@@ -119,25 +120,25 @@ std::optional<NodeExpr*> Parser::parse_primary() {
       return parse_prefix_incdec();
    
    if (auto val = try_consume(TokenType::INT_LIT)) {
-      NodeExprIntLit* i = m_allocator.alloc<NodeExprIntLit>();
+      NodeExprIntLit* i = m_ctx.arena.alloc<NodeExprIntLit>();
       i->INT_LIT = val.value();
       return wrap(i);
    }
 
    if (auto val = try_consume(TokenType::CHAR_LIT)) {
-      NodeExprCharLit* ch = m_allocator.alloc<NodeExprCharLit>();
+      NodeExprCharLit* ch = m_ctx.arena.alloc<NodeExprCharLit>();
       ch->CHAR_LIT = val.value();
       return wrap(ch);
    }
 
    if (auto val = try_consume(TokenType::STR_LIT)) {
-      NodeExprStrLit* str = m_allocator.alloc<NodeExprStrLit>();
+      NodeExprStrLit* str = m_ctx.arena.alloc<NodeExprStrLit>();
       str->STR_LIT = val.value();
       return wrap(str);
    }
 
    if (try_consume(TokenType::OPEN_BRACKET)) {
-      NodeExprArrayLit* arr = m_allocator.alloc<NodeExprArrayLit>();
+      NodeExprArrayLit* arr = m_ctx.arena.alloc<NodeExprArrayLit>();
       if (!is_next(TokenType::CLOSE_BRACKET)) {
          while (true) {
             if (auto e = parse_expr()) arr->elements.push_back(e.value());
@@ -151,7 +152,7 @@ std::optional<NodeExpr*> Parser::parse_primary() {
    }
 
    if (peek().has_value() && is_print_stmt(peek().value().type)) {
-      NodeExprRead* read = m_allocator.alloc<NodeExprRead>();
+      NodeExprRead* read = m_ctx.arena.alloc<NodeExprRead>();
       read->kind = Symbols::tok_rk(peek().value().type);
       consume();
       if (!try_consume(TokenType::OPEN_PAREN)) { fail("Expected '('."); return {}; }
@@ -187,7 +188,7 @@ std::optional<NodeExpr*> Parser::parse_ident_expr() {
       if (!idx.has_value()) { fail("Expected index expression."); return {}; }
       if (!try_consume(TokenType::CLOSE_BRACKET)) { fail("Expected ']'."); return {}; }
 
-      NodeExprIndex* node = m_allocator.alloc<NodeExprIndex>();
+      NodeExprIndex* node = m_ctx.arena.alloc<NodeExprIndex>();
       node->ident = id;
       node->index = idx.value();
       return wrap(node);
@@ -196,12 +197,12 @@ std::optional<NodeExpr*> Parser::parse_ident_expr() {
    if (is_next(TokenType::OPERATOR_INCR) || is_next(TokenType::OPERATOR_DECR)) {
       bool inc = is_next(TokenType::OPERATOR_INCR);
       consume(); // inc / dec
-      NodeExprIncDec* node = m_allocator.alloc<NodeExprIncDec>();
+      NodeExprIncDec* node = m_ctx.arena.alloc<NodeExprIncDec>();
       node->ident = id; node->is_increment = inc;
       return wrap(node);
    }
 
-   NodeExprIdent* node = m_allocator.alloc<NodeExprIdent>();
+   NodeExprIdent* node = m_ctx.arena.alloc<NodeExprIdent>();
    node->ident = id;
    return wrap(node);
 }
@@ -216,7 +217,7 @@ std::optional<NodeExpr*> Parser::parse_prefix_incdec() {
       return {};
    }
    
-   NodeExprIncDec* node = m_allocator.alloc<NodeExprIncDec>();
+   NodeExprIncDec* node = m_ctx.arena.alloc<NodeExprIncDec>();
    node->ident = id.value(); node->is_increment = inc; node->is_prefix = true;
    return wrap(node);
 }
@@ -224,7 +225,7 @@ std::optional<NodeExpr*> Parser::parse_prefix_incdec() {
 
 std::optional<NodeExpr*> Parser::parse_call(Token name) {
    consume(); // (
-   NodeExprCall* call = m_allocator.alloc<NodeExprCall>();
+   NodeExprCall* call = m_ctx.arena.alloc<NodeExprCall>();
    call->name = name;
    while (peek().has_value() && peek().value().type != TokenType::CLOSE_PAREN) {
       if (call->args.size() >= 6) {
@@ -244,16 +245,16 @@ std::optional<NodeExpr*> Parser::parse_call(Token name) {
 
 
 std::optional<NodeStmt*> Parser::wrap_expr_stmt(NodeExpr* e) {
-   NodeStmtExpr* se = m_allocator.alloc<NodeStmtExpr>();
+   NodeStmtExpr* se = m_ctx.arena.alloc<NodeStmtExpr>();
    se->expr = e;
-   NodeStmt* s = m_allocator.alloc<NodeStmt>();
+   NodeStmt* s = m_ctx.arena.alloc<NodeStmt>();
    s->var = se;
    return s;
 }
 
 
 NodeExpr* Parser::wrap(auto* node) {
-   NodeExpr* expr = m_allocator.alloc<NodeExpr>();
+   NodeExpr* expr = m_ctx.arena.alloc<NodeExpr>();
    expr->var = node;
    return expr;
 }
@@ -267,10 +268,10 @@ std::optional<NodeStmt*> Parser::parse_stmt() {
       auto scope = parse_scope();
       if (!scope) { fail("Error reading scope."); return {}; }
       
-      NodeStmtScope* sc = m_allocator.alloc<NodeStmtScope>();
+      NodeStmtScope* sc = m_ctx.arena.alloc<NodeStmtScope>();
       sc->scope = scope.value();
       
-      NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
+      NodeStmt* stmt = m_ctx.arena.alloc<NodeStmt>();
       stmt->var = sc;
       return stmt;
    }
@@ -307,9 +308,9 @@ std::optional<NodeStmt*> Parser::parse_simple_stmt() {
 
 
    if (auto expr = parse_expr()) {
-      NodeStmtExpr* stex = m_allocator.alloc<NodeStmtExpr>();
+      NodeStmtExpr* stex = m_ctx.arena.alloc<NodeStmtExpr>();
       stex->expr = expr.value();
-      NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
+      NodeStmt* stmt = m_ctx.arena.alloc<NodeStmt>();
       stmt->var = stex;
       return stmt;
    }
@@ -321,7 +322,7 @@ std::optional<NodeStmt*> Parser::parse_if() {
    consume(); // if
    if (!try_consume(TokenType::OPEN_PAREN)) { fail("Expected '('."); return {}; }
 
-   NodeStmtIf* stmt_if = m_allocator.alloc<NodeStmtIf>();
+   NodeStmtIf* stmt_if = m_ctx.arena.alloc<NodeStmtIf>();
    if (auto cond = parse_condition()) stmt_if->condition = cond.value();
    else { fail("Expected if condition.\n"); return {}; }
 
@@ -335,7 +336,7 @@ std::optional<NodeStmt*> Parser::parse_if() {
       else { fail("Expected body in else path.\n"); return {}; }
    }
 
-   NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
+   NodeStmt* stmt = m_ctx.arena.alloc<NodeStmt>();
    stmt->var = stmt_if;
    return stmt;
 }
@@ -345,7 +346,7 @@ std::optional<NodeStmt*> Parser::parse_while() {
    consume(); // while
    if (!try_consume(TokenType::OPEN_PAREN)) { fail("Expected '('."); return {}; }
 
-   NodeStmtWhile* _while = m_allocator.alloc<NodeStmtWhile>();
+   NodeStmtWhile* _while = m_ctx.arena.alloc<NodeStmtWhile>();
    if (auto cond = parse_condition()) _while->condition = cond.value();
    else { fail("Expected while condition.\n"); return {}; }
 
@@ -354,7 +355,7 @@ std::optional<NodeStmt*> Parser::parse_while() {
    if (auto body = parse_scope()) _while->body = body.value();
    else { fail("Expected while body.\n"); return {}; }
 
-   NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
+   NodeStmt* stmt = m_ctx.arena.alloc<NodeStmt>();
    stmt->var = _while;
    return stmt;
 }
@@ -363,7 +364,7 @@ std::optional<NodeStmt*> Parser::parse_while() {
 std::optional<NodeStmt*> Parser::parse_for() {
    consume(); // for
    if (!try_consume(TokenType::OPEN_PAREN)) { fail("Expected '('."); return {};}
-   NodeStmtFor* _for = m_allocator.alloc<NodeStmtFor>();
+   NodeStmtFor* _for = m_ctx.arena.alloc<NodeStmtFor>();
 
    if (auto init = parse_simple_stmt()) {
       if (!is_init_stmt(init.value())) { fail("Invalid for loop initializer.\n"); return {}; }
@@ -386,7 +387,7 @@ std::optional<NodeStmt*> Parser::parse_for() {
    if (auto body = parse_scope()) _for->body = body.value();
    else { fail("Expected for body.\n"); return {}; }
 
-   NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
+   NodeStmt* stmt = m_ctx.arena.alloc<NodeStmt>();
    stmt->var = _for;
    return stmt;
 }
@@ -395,7 +396,7 @@ std::optional<NodeStmt*> Parser::parse_for() {
 std::optional<NodeStmt*> Parser::parse_exit() {
    consume(2); // exit(
 
-   NodeStmtExit* stmt_exit = m_allocator.alloc<NodeStmtExit>();
+   NodeStmtExit* stmt_exit = m_ctx.arena.alloc<NodeStmtExit>();
    if (auto node_expr = parse_expr()) stmt_exit->expr = node_expr.value();
    else {
       fail("Invalid exit expression.");
@@ -403,7 +404,7 @@ std::optional<NodeStmt*> Parser::parse_exit() {
    }
    if (!try_consume(TokenType::CLOSE_PAREN)) { fail("Expected ')'."); return {};}
 
-   NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
+   NodeStmt* stmt = m_ctx.arena.alloc<NodeStmt>();
    stmt->var = stmt_exit;
    return stmt;
 }
@@ -411,7 +412,7 @@ std::optional<NodeStmt*> Parser::parse_exit() {
 
 std::optional<NodeStmt*> Parser::parse_have() {
    consume(); // have
-   NodeStmtHave* stmt_have = m_allocator.alloc<NodeStmtHave>();
+   NodeStmtHave* stmt_have = m_ctx.arena.alloc<NodeStmtHave>();
    auto id = try_consume(TokenType::IDENTIFIER);
    if (!id.has_value()) { fail("Invalid identifier."); return {}; }
    stmt_have->ident = id.value();
@@ -437,7 +438,7 @@ std::optional<NodeStmt*> Parser::parse_have() {
       return {};
    }
 
-   NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
+   NodeStmt* stmt = m_ctx.arena.alloc<NodeStmt>();
    stmt->var = stmt_have;
    return stmt;
 }
@@ -448,7 +449,7 @@ std::optional<NodeStmt*> Parser::finish_assign(NodeExpr* target) {
    auto rhs = parse_expr();
    if (!rhs.has_value()) { fail("Invalid assignment expression."); return {}; }
 
-   NodeStmtAssign* assign = m_allocator.alloc<NodeStmtAssign>();
+   NodeStmtAssign* assign = m_ctx.arena.alloc<NodeStmtAssign>();
    assign->target = target;
    assign->expr = rhs.value();
    
@@ -457,7 +458,7 @@ std::optional<NodeStmt*> Parser::finish_assign(NodeExpr* target) {
    else if (auto* idx = std::get_if<NodeExprIndex*>(&target->var))
       assign->ident = (*idx)->ident;
 
-   NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
+   NodeStmt* stmt = m_ctx.arena.alloc<NodeStmt>();
    stmt->var = assign;
    return stmt;
 }
@@ -487,24 +488,24 @@ std::optional<NodeStmt*> Parser::parse_cmpd_assign() {
    auto rhs = parse_expr();
    if (!rhs.has_value()) { return {}; }
 
-   NodeExprIdent* id_expr = m_allocator.alloc<NodeExprIdent>();
+   NodeExprIdent* id_expr = m_ctx.arena.alloc<NodeExprIdent>();
    id_expr->ident = ident;
-   NodeExpr* id_wrapped = m_allocator.alloc<NodeExpr>();
+   NodeExpr* id_wrapped = m_ctx.arena.alloc<NodeExpr>();
    id_wrapped->var = id_expr;
 
-   NodeBinExpr* bin = m_allocator.alloc<NodeBinExpr>();
+   NodeBinExpr* bin = m_ctx.arena.alloc<NodeBinExpr>();
    bin->operation = binop;
    bin->left = id_wrapped;
    bin->right = rhs.value();
-   NodeExpr* bin_wrap = m_allocator.alloc<NodeExpr>();
+   NodeExpr* bin_wrap = m_ctx.arena.alloc<NodeExpr>();
    bin_wrap->var = bin;
 
-   NodeStmtAssign* assign = m_allocator.alloc<NodeStmtAssign>();
+   NodeStmtAssign* assign = m_ctx.arena.alloc<NodeStmtAssign>();
    assign->target = id_wrapped;
    assign->expr = bin_wrap;
 
    if (!try_consume(TokenType::SEMICOLON)) { fail("Expected ';'"); return {}; }
-   NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
+   NodeStmt* stmt = m_ctx.arena.alloc<NodeStmt>();
    stmt->var = assign;
    return stmt;
 }
@@ -513,19 +514,19 @@ std::optional<NodeStmt*> Parser::parse_cmpd_assign() {
 std::optional<NodeStmt*> Parser::parse_print() {
    bool with_nl = (peek().value().type == TokenType::PRINTLN);
    consume(2);
-   NodeStmtPrint* stmt_print = m_allocator.alloc<NodeStmtPrint>();
+   NodeStmtPrint* stmt_print = m_ctx.arena.alloc<NodeStmtPrint>();
    stmt_print->nwln = with_nl;
 
    if (auto expr = parse_expr()) stmt_print->expr = expr.value();
    else {
-      NodeExprStrLit* def = m_allocator.alloc<NodeExprStrLit>();
+      NodeExprStrLit* def = m_ctx.arena.alloc<NodeExprStrLit>();
       def->STR_LIT.value.value() = "";
       stmt_print->expr = wrap(def);
    }
 
    if (!try_consume(TokenType::CLOSE_PAREN)) { fail("Expected ')'."); return {}; }
 
-   NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
+   NodeStmt* stmt = m_ctx.arena.alloc<NodeStmt>();
    stmt->var = stmt_print;
    return stmt;
 }
@@ -533,11 +534,11 @@ std::optional<NodeStmt*> Parser::parse_print() {
 
 std::optional<NodeStmt*> Parser::parse_return() {
    consume(); // return
-   NodeStmtReturn* _return = m_allocator.alloc<NodeStmtReturn>();
+   NodeStmtReturn* _return = m_ctx.arena.alloc<NodeStmtReturn>();
    if (auto expr = parse_expr()) _return->expr = expr.value();
    else { return {}; }
 
-   NodeStmt* stmt = m_allocator.alloc<NodeStmt>();
+   NodeStmt* stmt = m_ctx.arena.alloc<NodeStmt>();
    stmt->var = _return;
    return stmt;
 }
@@ -546,7 +547,7 @@ std::optional<NodeStmt*> Parser::parse_return() {
 
 std::optional<NodeScopeBlock*> Parser::parse_scope() {
    if (!try_consume(TokenType::OPEN_BRACE)) { fail("Expected '{'."); return {}; }
-   NodeScopeBlock* block = m_allocator.alloc<NodeScopeBlock>();
+   NodeScopeBlock* block = m_ctx.arena.alloc<NodeScopeBlock>();
    // if (is_next(TokenType::OPEN_BRACE)){
    //    consume();
       while (peek().has_value() && peek().value().type != TokenType::CLOSE_BRACE) {
@@ -596,7 +597,7 @@ std::optional<NodeCondition*> Parser::parse_cond_primary() {
    auto left = parse_expr();
    if (!left .has_value()) return {};
 
-   NodeCmpCondition* cmp = m_allocator.alloc<NodeCmpCondition>();
+   NodeCmpCondition* cmp = m_ctx.arena.alloc<NodeCmpCondition>();
    cmp->left = left.value();
 
    CmpExprType op = Symbols::tok_cmp(peek().value().type);
@@ -611,7 +612,7 @@ std::optional<NodeCondition*> Parser::parse_cond_primary() {
       cmp->right = nullptr;
    }
 
-   NodeCondition* node = m_allocator.alloc<NodeCondition>();
+   NodeCondition* node = m_ctx.arena.alloc<NodeCondition>();
    node->var = cmp;
    return node;
 }
@@ -635,12 +636,12 @@ std::optional<NodeCondition*> Parser::parse_condition_bp(int min_prec) {
          return {};
       }
 
-      NodeLogicCondition* logic = m_allocator.alloc<NodeLogicCondition>();
+      NodeLogicCondition* logic = m_ctx.arena.alloc<NodeLogicCondition>();
       logic->operation = op;
       logic->left = left.value();
       logic->right = right.value();
 
-      NodeCondition* node = m_allocator.alloc<NodeCondition>();
+      NodeCondition* node = m_ctx.arena.alloc<NodeCondition>();
       node->var = logic;
       left = node;
    }
@@ -657,7 +658,7 @@ std::optional<NodeCondition*> Parser::parse_condition() {
 std::optional<NodeFunction*> Parser::parse_func() {
    if (!peek().has_value() || peek().value().type != TokenType::FUNC) return {};
 
-   NodeFunction* func = m_allocator.alloc<NodeFunction>();
+   NodeFunction* func = m_ctx.arena.alloc<NodeFunction>();
    consume();  // consume 'func' / 'fn'
 
    auto name = try_consume(TokenType::IDENTIFIER);
@@ -711,22 +712,26 @@ std::optional<NodeFunction*> Parser::parse_func() {
 
 std::optional<NodeProg> Parser::parse_prog() {
    NodeProg prog;
-   while (peek().has_value()) {
-      if (is_next(TokenType::FUNC)){
-         if (auto func = parse_func())
-            prog.funcs.push_back(func.value());
-         else
+   try {
+      while (peek().has_value()) {
+         if (is_next(TokenType::FUNC)){
+            if (auto func = parse_func())
+               prog.funcs.push_back(func.value());
+            else
+               sync_next_func();
+         }
+         else {
+            int line = 0, col = 0;
+            if (peek().has_value()) { line = peek().value().line; col = peek().value().col; }
+            m_ctx.diag.error(CompPhase::Parsing, line, col,
+                        "Expected function declaration at top level.");
             sync_next_func();
+         }
       }
-      else {
-         int line = 0, col = 0;
-         if (peek().has_value()) { line = peek().value().line; col = peek().value().col; }
-         m_diag->error(CompPhase::Parsing, line, col,
-                       "Expected function declaration at top level.");
-         sync_next_func();
-      }
+      return prog;
+   } catch (const CompilerError&) {
+      return prog;
    }
-   return prog;
 }
 
 
@@ -776,7 +781,7 @@ void Parser::synchronize() {
 void Parser::fail(const std::string& msg) {
    int line = 0, col = 0;
    if (peek().has_value()) { line = peek().value().line; col = peek().value().col; }
-   m_diag->error(CompPhase::Parsing, line, col, msg);
+   m_ctx.diag.error(CompPhase::Parsing, line, col, msg);
    synchronize();
 }
 

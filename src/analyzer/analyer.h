@@ -14,10 +14,12 @@ struct FuncSig {
    Token ident;
 };
 
+class Compiler;
+
 class Analyzer {
 public:
-   Analyzer(NodeProg& prog, Diagnostics& diag)
-      : m_prog(prog), m_diag(diag) {}
+   Analyzer(Compiler& cmp, NodeProg& prog)
+      : m_prog(prog), m_ctx(cmp) {}
    void analyze(); // walks AST for any issues.
 
 private:
@@ -36,7 +38,7 @@ private:
    bool types_match(TypeInfo, TypeInfo);
 
    NodeProg& m_prog;
-   Diagnostics& m_diag;
+   Compiler& m_ctx;
    std::unordered_map<std::string, FuncSig> m_func_sigs;
    std::vector<std::pair<std::string, TypeInfo>> m_vars;
    std::vector<size_t> m_scopes;

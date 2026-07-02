@@ -1,11 +1,6 @@
 #include "utils/flags.h"
 #include "utils/syscaller.h"
-#include "lexer/lexer.h"
-#include "codegen/generation.h"  
-#include "parser/parser.h"
-#include "ErrAndRep/ErrorHandler.h"
-#include "analyzer/analyer.h"
-#include "optimizations/optimizer.h"
+#include "driver/compiler.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -76,42 +71,53 @@ int main(int argc, char* argv[]) {
       contents = in_stream.str();
    }
 
-   Diagnostics diag;
+   Compiler ctx(contents, flags, user_name, argv[argc - 1]);
+   if (ctx.run() != 0) { return 1; }
+   return 0;
+   // {
+   //    std::fstream file(ctx.prog_name + ".asm", std::ios::out);
+   //    std::fstream other(ctx.prog_name + "_preop.asm", std::ios::out);
+   //    if (!file.is_open()) { std::cerr << "Asm file failed to open."; return 1; }
+   //    if (!other.is_open()) { std::cerr << "Preop file failed to open."; return 1; }
 
-   // file -> Tokens
-   Lexer Lexer(contents);
-   std::vector<Token> tokens = Lexer.tokenize(&diag);
+   //    file << ctx.m_asm_out;
+   //    other << ctx.m_orig;
+   // }
+
+   // // file -> Tokens
+   // Lexer Lexer(contents);
+   // std::vector<Token> tokens = Lexer.tokenize(&diag);
    
-   // Tokens -> AST
-   Parser parser(tokens, &diag);
-   auto prog = parser.parse_prog();
-   if (diag.has_errors()) {
-      diag.report_all(contents, input_file);
-      Syscaller err;
-      err.give_toks(tokens); err.set_flags(flags);
+   // // Tokens -> AST
+   // Parser parser(tokens, &diag);
+   // auto prog = parser.parse_prog();
+   // if (diag.has_errors()) {
+   //    diag.report_all(contents, input_file);
+   //    Syscaller err;
+   //    err.give_toks(tokens); err.set_flags(flags);
 
-      err.make_calls(true);
-      return EXIT_FAILURE;
-   }
+   //    err.make_calls(true);
+   //    return EXIT_FAILURE;
+   // }
 
-   // Make sure everythings in order
-   Analyzer analyzer(prog.value(), diag);
-   analyzer.analyze();
-   if (diag.has_errors()) { diag.report_all(contents, input_file); exit(EXIT_FAILURE); }
+   // // Make sure everythings in order
+   // Analyzer analyzer(prog.value(), diag);
+   // analyzer.analyze();
+   // if (diag.has_errors()) { diag.report_all(contents, input_file); exit(EXIT_FAILURE); }
 
-   // Generate assembly!
-   Syscaller calls(user_name, tokens, flags, prog.value());
-   ASMGenerator ASMGenerator(prog.value());
-   std::string temp = ASMGenerator.build();
-   Optimizer optimizer(temp);
-   optimizer.optimize();
-   {
-      std::fstream file(calls.get_name() + ".asm", std::ios::out);
-      std::fstream other("original.txt", std::ios::out);
-      file << optimizer.finish();
-      other << optimizer.orig();
-   }
-   calls.make_calls(diag.has_errors());
+   // // Generate assembly!
+   // Syscaller calls(user_name, tokens, flags, prog.value());
+   // ASMGenerator ASMGenerator(prog.value());
+   // std::string temp = ASMGenerator.build();
+   // Optimizer optimizer(temp);
+   // optimizer.optimize();
+   // {
+   //    std::fstream file(calls.get_name() + ".asm", std::ios::out);
+   //    std::fstream other("original.txt", std::ios::out);
+   //    file << optimizer.finish();
+   //    other << optimizer.orig();
+   // }
+   // calls.make_calls(diag.has_errors());
 
-   return EXIT_SUCCESS;
+   // return EXIT_SUCCESS;
 }

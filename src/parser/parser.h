@@ -9,12 +9,14 @@
 
 // enum class UnaryExprType { NEGATIVE };
 
+class Compiler;
+
 
 class Parser {
 public:
-   inline explicit Parser(std::vector<Token> tokens, Diagnostics* diag)
+   inline explicit Parser(Compiler& cmp, std::vector<Token> tokens)
       : m_tokens(tokens),
-        m_allocator(1024 * 1024 * 4), m_diag(diag) {}
+        m_ctx(cmp) {}
 
    std::vector<Token> regurg_toks() { return m_tokens; }
 
@@ -72,8 +74,9 @@ private:
 
    const std::vector<Token> m_tokens;
    size_t m_index = 0;
-   ArenaAllocator m_allocator;
-   Diagnostics* m_diag;
+   
+   Compiler& m_ctx;
+   
 };
 
 int cond_precidence(CmpExprType);

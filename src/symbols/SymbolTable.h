@@ -7,7 +7,7 @@
 
 namespace Symbols {
 
-   static bool is_compd_assign(TokenType t) {
+   inline bool is_compd_assign(TokenType t) {
       switch (t) {
          case TokenType::OPERATOR_ADD_EQ:
          case TokenType::OPERATOR_SUB_EQ:
@@ -17,7 +17,7 @@ namespace Symbols {
       }
    }
 
-   static bool is_read_stmt(TokenType t) {
+   inline bool is_read_stmt(TokenType t) {
       switch (t) {
          case TokenType::READC:
          case TokenType::READF:
@@ -27,7 +27,7 @@ namespace Symbols {
       }
    }
 
-   static DataType tok_dt(TokenType t) {
+   inline DataType tok_dt(TokenType t) {
       switch (t) {
          case TokenType::INT:
          case TokenType::INT_LIT:  return DataType::INT;
@@ -39,7 +39,7 @@ namespace Symbols {
       }
    }
 
-   static TokenType dt_tok(DataType t) {
+   inline TokenType dt_tok(DataType t) {
       switch (t) {
          case DataType::INT:  return TokenType::INT;
          case DataType::CHAR: return TokenType::CHAR;
@@ -49,7 +49,7 @@ namespace Symbols {
       }
    }
 
-   static std::string dt_str(DataType t) {
+   inline std::string dt_str(DataType t) {
       switch (t) {
          case DataType::INT:  return "INT";
          case DataType::CHAR: return "CHAR";
@@ -59,7 +59,7 @@ namespace Symbols {
       }
    }
 
-   static ReadKind tok_rk(TokenType t) {
+   inline ReadKind tok_rk(TokenType t) {
       switch (t) {
          case TokenType::READC: return ReadKind::Char;
          case TokenType::READI: return ReadKind::Int;
@@ -69,7 +69,7 @@ namespace Symbols {
       }
    }
 
-   static BinExprType cmpd_binop(TokenType t) {
+   inline BinExprType cmpd_binop(TokenType t) {
       switch (t) {
          case TokenType::OPERATOR_ADD_EQ: return BinExprType::ADDITION;
          case TokenType::OPERATOR_SUB_EQ: return BinExprType::SUBTRACTION;
@@ -79,7 +79,7 @@ namespace Symbols {
       }
    }
 
-   static BinExprType tok_binop(TokenType t) {
+   inline BinExprType tok_binop(TokenType t) {
       switch (t) {
          case TokenType::OPERATOR_CARET:    return BinExprType::EXPONENT;
          case TokenType::OPERATOR_ASTERISK: return BinExprType::MULTIPLICATION;
@@ -91,7 +91,7 @@ namespace Symbols {
       }
    }
 
-   static CmpExprType tok_cmp(TokenType t) {
+   inline CmpExprType tok_cmp(TokenType t) {
       switch (t) {
          case TokenType::OPERATOR_EQUAL_EQUAL:   return CmpExprType::EQUAL;
          case TokenType::OPERATOR_NOT_EQUAL:     return CmpExprType::NOT_EQUAL;
@@ -103,7 +103,7 @@ namespace Symbols {
       }
    }
 
-   static CmpExprType tok_logop(TokenType t) {
+   inline CmpExprType tok_logop(TokenType t) {
       switch (t) {
          case TokenType::OPERATOR_LOGICAL_AND: return CmpExprType::AND;
          case TokenType::OPERATOR_LOGICAL_OR:  return CmpExprType::OR;
