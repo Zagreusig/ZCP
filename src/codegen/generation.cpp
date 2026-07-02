@@ -221,7 +221,6 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
          if (type.base == DataType::STR) {
             int base = gen->m_current_offset;
             gen->m_vars.push_back(Var{ .name = h->ident.value.value(), .offset = base, .type = type });
-            gen->m_types.declare_var(h->ident.value.value(), DataType::STR);
             gen->m_current_offset += 16; // fat pointer
          
             if (h->expr) {
@@ -242,7 +241,6 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
             int base  = gen->m_current_offset; // this array's element 0
             gen->m_vars.push_back(Var { .name = h->ident.value.value(), .offset = base, 
                                         .type = type });
-            gen->m_types.declare_var(h->ident.value.value(), type.base);
             gen->m_current_offset += type.byte_size();
             if (h->expr) {
                auto* lit = std::get_if<NodeExprArrayLit*>(&h->expr->var);
@@ -272,7 +270,6 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
             .name = h->ident.value.value(), 
             .offset = off, .type = type 
          });
-         gen->m_types.declare_var(h->ident.value.value(), type.base);
          
          gen->m_current_offset += type.byte_size();
 
@@ -446,7 +443,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
        * rdx = length <- how many bytes
        */
       void operator()(const NodeStmtPrint* p) const {
-         DataType t = gen->m_types.type_of(p->expr);
+         DataType t = p->expr->resolved.base;
          switch (t) {
             case DataType::INT:
                gen->gen_expr(p->expr);
@@ -626,7 +623,8 @@ void ASMGenerator::gen_cond_true(const NodeCondition* cond, const std::string& t
 void ASMGenerator::gen_function(const NodeFunction* func) {
    m_current_offset = 0;
    int frame_size = compute_frame_size(func->body->stmts);
-   frame_size += func->params.size() * 8;
+   for (const NodeParam& p : func->params)
+      frame_size += p.type.byte_size();
    frame_size = (frame_size + 15) & ~15;
    m_uses_frame_base = (frame_size > 0 || !func->params.empty());
 
@@ -645,30 +643,34 @@ void ASMGenerator::gen_function(const NodeFunction* func) {
    static std::string param_regs[] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
    int reg_idx = 0;
    
-   for (size_t i = 0; i < func->params.size(); i++) {
-      const std::string& name = func->params[i].name.value.value();
+   for (const NodeParam& p : func->params) {
+      const TypeInfo& pt = p.type;
       int off = m_current_offset;
       m_vars.push_back(Var {
-         .name = name,
+         .name = p.name.value.value(),
          .offset = off,
-         .type = func->params[i].type
+         .type = pt
       });
 
-      int regs_used = param_reg_count(func->params[i].type);
+      int regs_used = param_reg_count(pt);
       if (reg_idx + regs_used > 6) {
          std::cerr << "Too many register args (strs count as 2).\n";
          total_fail();
       }
 
-      if (func->params[i].type.base == DataType::STR) {
+      if (pt.base == DataType::STR) {
+         // 2 regs -> 16-byte slot: ptr at off, len at off + 8
          m_output << "   mov QWORD [r12 + " << off << "], " << param_regs[reg_idx] << "\n"            // ptr
                   << "   mov QWORD [r12 + " << (off + 8) << "], " << param_regs[reg_idx + 1] << "\n"; // len
       } 
-      else if (func->params[i].type.base == DataType::CHAR)
+      else if (pt.base == DataType::CHAR)
+         // byte-width spill, storw in low byte of arg reg
          m_output << "   mov byte [r12 + " << off << "], " << reg_map.at(param_regs[reg_idx])._8_Bits.second << "\n";
       else
+         // int / bool
          m_output << "   mov QWORD [r12 + " << off << "], " << param_regs[reg_idx] << "\n";
-      m_current_offset += func->params[i].type.byte_size();
+      m_current_offset += pt.byte_size();
+
       reg_idx += regs_used;
    }
    
@@ -721,7 +723,6 @@ void ASMGenerator::gen_function(const NodeFunction* func) {
 
 void ASMGenerator::begin_scope() {
    m_scope_stack.push_back(m_vars.size());
-   m_types.push_scope();
 }
 
 
@@ -729,7 +730,6 @@ void ASMGenerator::end_scope() {
    size_t var_before = m_scope_stack.back();
    m_scope_stack.pop_back();
    m_vars.resize(var_before);
-   m_types.pop_scope();
    /** NOTE: m_current_offset intentionally not rolled back, no mem reclaiming (yet) */
 }
 
@@ -800,12 +800,6 @@ int ASMGenerator::compute_frame_size(const NodeScopeBlock* body) {
    int locals = count_locals(body);
    int bytes = locals * 8;
    return (bytes + 15) & ~15; // Rounding up to 16-byte alignment
-}
-
-
-int ASMGenerator::have_byte_size(const NodeStmtHave* h) {
-   /* WIP */
-   return 8;
 }
 
 
@@ -984,9 +978,9 @@ TypeInfo ASMGenerator::resolve_have_type(NodeStmtHave* h) {
    else if (auto* lit = std::get_if<NodeExprArrayLit*>(&h->expr->var)) {
       const auto& elems = (*lit)->elements;
       if (elems.empty()) { std::cerr << "Elements are empty.\n"; total_fail(); }
-      DataType et = m_types.type_of(elems[0]);
+      DataType et = elems[0]->resolved.base;
       for (size_t i = 1; i < elems.size(); i++) {
-         if (m_types.type_of(elems[i]) != et) {
+         if (elems[i]->resolved.base != et) {
             std::cerr << "Array literal has mismatched element types." << std::endl;
             total_fail();
          }
@@ -996,7 +990,7 @@ TypeInfo ASMGenerator::resolve_have_type(NodeStmtHave* h) {
       info.is_array = true;
       info.array_len = elems.size();
    }
-   else info.base = m_types.type_of(h->expr); // scalar inference
+   else info.base = h->expr->resolved.base; // scalar inference
 
    h->resolved = info;
    h->is_resolved = true;
@@ -1043,14 +1037,14 @@ void ASMGenerator::total_fail() {
 
 void ASMGenerator::store_string_literal(int off, const std::string& str) {
    std::string label = add_string(str);
-   m_output << "   lea rax, [ " << label << "]\n"
+   m_output << "   lea rax, [" << label << "]\n"
             << "   mov QWORD [r12 + " << off << "], rax\n"
             << "   mov QWORD [r12 + " << (off + 8) << "], " << str.size() << "\n";
 }
 
 
 int ASMGenerator::param_reg_count(const TypeInfo& t) {
-   if (t.base == DataType::STR) return 1;
+   if (t.base == DataType::STR) return 2;
    return 1;
    // later for struct: ceil(size/8) for <= 16 bytes, else push to stack.
 }

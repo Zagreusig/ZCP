@@ -56,7 +56,7 @@ private:
    void report_one(const std::string&, const std::string&, const Diagnostic&) const;
 
    std::unordered_map<CompPhase, std::vector<Diagnostic>> m_errors;
-   unsigned int err_count = 0;
+   long unsigned int err_count = 0;
 };
 
 

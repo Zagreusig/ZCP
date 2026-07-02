@@ -119,53 +119,14 @@ read_char:
    syscall
    movzx rax, byte [chr]
    ret
-foo:
-   push rbp
-   push r12
-   mov rbp, rsp
-   sub rsp, 16
-   mov r12, rsp
-   mov byte [r12 + 0], dil
-   mov rax, 'a'
-   mov rsp, rbp
-   pop r12
-   pop rbp
-   ret
-bar:
+greet:
    push rbp
    push r12
    mov rbp, rsp
    sub rsp, 16
    mov r12, rsp
    mov QWORD [r12 + 0], rdi
-   mov byte [r12 + 8], sil
-   mov rax, QWORD [r12 + 8]
-   push rax
-   mov rax, 'c'
-   mov rbx, rax
-   pop rax
-   cmp rax, rbx
-   jne .L0
-   mov rax, 5
-   mov rsp, rbp
-   pop r12
-   pop rbp
-   ret
-.L0:
-   mov rax, 9
-   mov rsp, rbp
-   pop r12
-   pop rbp
-   ret
-main:
-   push rbp
-   push r12
-   mov rbp, rsp
-   sub rsp, 32
-   mov r12, rsp
-   lea rax, [ str_1]
-   mov QWORD [r12 + 0], rax
-   mov QWORD [r12 + 8], 5
+   mov QWORD [r12 + 8], rsi
    mov rsi, QWORD [r12 + 0]
    mov rdx, QWORD [r12 + 8]
    mov rax, SYS_write
@@ -177,9 +138,31 @@ main:
    mov rsi, print_buf
    mov rdx, 1
    syscall
-   lea rax, [ str_3]
-   mov QWORD [r12 + 16], rax
-   mov QWORD [r12 + 24], 2
+   mov rsp, rbp
+   pop r12
+   pop rbp
+   ret
+foo:
+   push rbp
+   push r12
+   mov rbp, rsp
+   sub rsp, 32
+   mov r12, rsp
+   mov QWORD [r12 + 0], rdi
+   mov QWORD [r12 + 8], rsi
+   mov QWORD [r12 + 16], rdx
+   mov QWORD [r12 + 24], rcx
+   mov rsi, QWORD [r12 + 0]
+   mov rdx, QWORD [r12 + 8]
+   mov rax, SYS_write
+   mov rdi, STDOUT
+   syscall
+   mov byte [print_buf], LF
+   mov rax, SYS_write
+   mov rdi, STDOUT
+   mov rsi, print_buf
+   mov rdx, 1
+   syscall
    mov rsi, QWORD [r12 + 16]
    mov rdx, QWORD [r12 + 24]
    mov rax, SYS_write
@@ -191,11 +174,24 @@ main:
    mov rsi, print_buf
    mov rdx, 1
    syscall
-   lea rax, [ str_4]
-   mov QWORD [r12 + 16], rax
-   mov QWORD [r12 + 24], 7
-   mov rsi, QWORD [r12 + 16]
-   mov rdx, QWORD [r12 + 24]
+   mov rsp, rbp
+   pop r12
+   pop rbp
+   ret
+bar:
+   push rbp
+   push r12
+   mov rbp, rsp
+   sub rsp, 32
+   mov r12, rsp
+   mov QWORD [r12 + 0], rdi
+   mov QWORD [r12 + 8], rsi
+   mov QWORD [r12 + 16], rdx
+   mov rax, QWORD [r12 + 0]
+   mov rdi, 1
+   call print_int
+   mov rsi, QWORD [r12 + 8]
+   mov rdx, QWORD [r12 + 16]
    mov rax, SYS_write
    mov rdi, STDOUT
    syscall
@@ -205,19 +201,107 @@ main:
    mov rsi, print_buf
    mov rdx, 1
    syscall
+   mov rsp, rbp
+   pop r12
+   pop rbp
+   ret
+third:
+   push rbp
+   push r12
+   mov rbp, rsp
+   sub rsp, 32
+   mov r12, rsp
+   mov QWORD [r12 + 0], rdi
+   mov byte [r12 + 8], sil
+   mov QWORD [r12 + 9], rdx
+   mov QWORD [r12 + 17], rcx
+   mov rax, QWORD [r12 + 0]
+   mov rdi, 1
+   call print_int
+   mov rax, QWORD [r12 + 8]
+   mov byte [print_buf], al
+   mov byte [print_buf + 1], LF
+   mov rsi, print_buf
+   mov rdx, 2
+   mov rdi, STDOUT
+   mov rax, SYS_write
+   syscall
+   mov rsi, QWORD [r12 + 9]
+   mov rdx, QWORD [r12 + 17]
+   mov rax, SYS_write
+   mov rdi, STDOUT
+   syscall
+   mov byte [print_buf], LF
+   mov rax, SYS_write
+   mov rdi, STDOUT
+   mov rsi, print_buf
+   mov rdx, 1
+   syscall
+   mov rsp, rbp
+   pop r12
+   pop rbp
+   ret
+main:
+   push rbp
+   push r12
+   mov rbp, rsp
+   sub rsp, 16
+   mov r12, rsp
+   lea rax, [str_1]
+   mov QWORD [r12 + 0], rax
+   mov QWORD [r12 + 8], 11
+   lea rdi, [str_2]
+   mov rsi, 2
+   lea rdx, [str_3]
+   mov rcx, 3
+   call foo
+   mov rdi, QWORD [r12 + 0]
+   mov rsi, QWORD [r12 + 8]
+   lea rdx, [str_4]
+   mov rcx, 2
+   call foo
+   mov rax, 5
+   mov rdi, rax
+   lea rsi, [str_5]
+   mov rdx, 5
+   call bar
+   mov rax, 5
+   push rax
+   mov rbx, 6
+   pop rax
+   add rax, rbx
+   push rax
+   mov rbx, 2
+   pop rax
+   imul rax, rbx
+   mov rdi, rax
+   lea rsi, [str_6]
+   mov rdx, 4
+   call bar
+   mov rax, 1
+   mov rdi, rax
+   mov rax, 'a'
+   mov rsi, rax
+   mov rdx, QWORD [r12 + 0]
+   mov rcx, QWORD [r12 + 8]
+   call third
    xor eax, eax
    mov rsp, rbp
    pop r12
    pop rbp
    ret
 section .data
-   str_0: db 104, 101, 108, 108, 111
+   str_0: db 72, 101, 108, 108, 111, 32, 116, 104, 101, 114, 101
    str_0_len: equ $ - str_0
-   str_1: db 104, 101, 108, 108, 111
+   str_1: db 72, 101, 108, 108, 111, 32, 116, 104, 101, 114, 101
    str_1_len: equ $ - str_1
    str_2: db 104, 105
    str_2_len: equ $ - str_2
-   str_3: db 104, 105
+   str_3: db 121, 117, 104
    str_3_len: equ $ - str_3
-   str_4: db 103, 111, 111, 100, 98, 121, 101
+   str_4: db 104, 105
    str_4_len: equ $ - str_4
+   str_5: db 104, 101, 108, 108, 111
+   str_5_len: equ $ - str_5
+   str_6: db 98, 97, 114, 33
+   str_6_len: equ $ - str_6

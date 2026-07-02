@@ -1,22 +1,30 @@
-func foo(char b) -> char {
-   return 'a';
+fn greet(str s) {
+   println(s);
 }
 
-
-func bar(int a, char b) -> int {
-   if (b == 'c') { return 5; }
-   return 9;
+fn foo(str a, str b) {
+   println(a);
+   println(b);
 }
 
+fn bar(int a, str b) {
+   println(a);
+   println(b);
+}
+
+fn third(int a, char b, str c) {
+   println(a);
+   println(b);
+   println(c);
+}
 
 func main() ->int {
-   have s: str = "hello";
-   println(s);
-
-   have b = "hi";
-   println(b);
-   b = "goodbye";
-   println(b);
+   have s: str = "Hello there";
+   foo("hi", "yuh");
+   foo(s, "hi");
+   bar(5, "hello");
+   bar((5 + 6) * 2, "bar!");
+   third(1, 'a', s);
 
    return 0;
 }

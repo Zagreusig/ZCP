@@ -14,7 +14,7 @@
 class ASMGenerator {
 public:
    inline explicit ASMGenerator(NodeProg prog) 
-      : m_prog(std::move(prog)), m_types(m_prog) {}
+      : m_prog(std::move(prog)) {}
 
    [[nodiscard]] std::string build();
    void gen_expr(const NodeExpr*);
@@ -57,7 +57,6 @@ private:
    int count_locals(const std::vector<NodeStmt*>&);
    int compute_frame_size(const NodeScopeBlock*);
    int compute_frame_size(const std::vector<NodeStmt*>&);
-   int have_byte_size(const NodeStmtHave*);
    int param_reg_count(const TypeInfo&);
 
    TypeInfo resolve_have_type(NodeStmtHave*);
@@ -80,8 +79,6 @@ private:
 
    std::vector<std::pair<std::string, std::string>> m_strings {};
    int m_str_count = 0;
-
-   TypeChecker m_types;
 
    bool m_uses_frame_base = {};
    int m_current_offset   = 0;
