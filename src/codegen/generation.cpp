@@ -146,21 +146,40 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
 
 
       void operator()(const NodeExprCall* call) {
-         if (call->args.size() > 6) {
-            std::cerr << "Too many arguments in call to \""
-                      << call->name.value.value() << "\"" << std::endl;
-            gen->total_fail();
-         }
+         // comp total reg footprint, check <= 6.
+         // then load each into indiv reg slot(s)
 
          static const std::string param_regs[] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
-         for (auto arg : call->args)
-            gen->gen_expr(arg);
-         
-         for (int i = call->args.size() - 1; i >= 0; i--)
-            gen->pop(param_regs[i]);
+         int reg_idx = 0;
 
+         for (auto* arg : call->args) {
+            const TypeInfo& at = arg->resolved;
+            int regs_used = gen->param_reg_count(at);
+
+            if (at.base == DataType::STR) {
+               // load ptr & len in 2 consec regs
+               if (auto* id = std::get_if<NodeExprIdent*>(&arg->var)) {
+                  auto var = gen->get_var((*id)->ident.value.value());
+                  int off = var.value().offset;
+                  gen->m_output << "   mov " << param_regs[reg_idx] << ", QWORD [r12 + " << off << "]\n"
+                                << "   mov " << param_regs[reg_idx + 1] << ", QWORD [r12 + " << (off + 8) << "]\n";
+               }
+               else if (auto* lit = std::get_if<NodeExprStrLit*>(&arg->var)) {
+                  const std::string& str = (*lit)->STR_LIT.value.value();
+                  std::string label = gen->add_string(str);
+                  gen->m_output << "   lea " << param_regs[reg_idx] << ", [" << label << "]\n"
+                                << "   mov " << param_regs[reg_idx + 1] << ", " << str.size() << "\n";
+               }
+            } else {
+               // scalar arg: eval into rax, move into reg
+               gen->gen_expr(arg);
+               gen->pop(param_regs[reg_idx]);
+            }
+            reg_idx += regs_used;
+         }
          gen->m_output << "   call " << call->name.value.value() << "\n";
-         gen->push("rax");
+         gen->push("rax"); // ret val
+         /** TODO: Add string returns */
       }
 
 
@@ -623,18 +642,34 @@ void ASMGenerator::gen_function(const NodeFunction* func) {
    }
 
    begin_scope();
-   static const std::string param_regs[] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
+   static std::string param_regs[] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
+   int reg_idx = 0;
+   
    for (size_t i = 0; i < func->params.size(); i++) {
       const std::string& name = func->params[i].name.value.value();
       int off = m_current_offset;
       m_vars.push_back(Var {
          .name = name,
          .offset = off,
-         .type = TypeInfo{ .base = Symbols::tok_dt(func->params[i].type.type) }
+         .type = func->params[i].type
       });
-      m_types.declare_var(name, Symbols::tok_dt(func->params[i].type.type));
-      m_output << "   mov QWORD [r12 + " << off << "], " << param_regs[i] << "\n";
-      m_current_offset += 8; /** TODO: this is only 8 bytes for now, this will change */
+
+      int regs_used = param_reg_count(func->params[i].type);
+      if (reg_idx + regs_used > 6) {
+         std::cerr << "Too many register args (strs count as 2).\n";
+         total_fail();
+      }
+
+      if (func->params[i].type.base == DataType::STR) {
+         m_output << "   mov QWORD [r12 + " << off << "], " << param_regs[reg_idx] << "\n"            // ptr
+                  << "   mov QWORD [r12 + " << (off + 8) << "], " << param_regs[reg_idx + 1] << "\n"; // len
+      } 
+      else if (func->params[i].type.base == DataType::CHAR)
+         m_output << "   mov byte [r12 + " << off << "], " << reg_map.at(param_regs[reg_idx])._8_Bits.second << "\n";
+      else
+         m_output << "   mov QWORD [r12 + " << off << "], " << param_regs[reg_idx] << "\n";
+      m_current_offset += func->params[i].type.byte_size();
+      reg_idx += regs_used;
    }
    
 
@@ -948,7 +983,7 @@ TypeInfo ASMGenerator::resolve_have_type(NodeStmtHave* h) {
       info = h->decl_type;
    else if (auto* lit = std::get_if<NodeExprArrayLit*>(&h->expr->var)) {
       const auto& elems = (*lit)->elements;
-      if (elems.empty()) { /** TODO: Error for this */ }
+      if (elems.empty()) { std::cerr << "Elements are empty.\n"; total_fail(); }
       DataType et = m_types.type_of(elems[0]);
       for (size_t i = 1; i < elems.size(); i++) {
          if (m_types.type_of(elems[i]) != et) {
@@ -1011,4 +1046,11 @@ void ASMGenerator::store_string_literal(int off, const std::string& str) {
    m_output << "   lea rax, [ " << label << "]\n"
             << "   mov QWORD [r12 + " << off << "], rax\n"
             << "   mov QWORD [r12 + " << (off + 8) << "], " << str.size() << "\n";
+}
+
+
+int ASMGenerator::param_reg_count(const TypeInfo& t) {
+   if (t.base == DataType::STR) return 1;
+   return 1;
+   // later for struct: ceil(size/8) for <= 16 bytes, else push to stack.
 }

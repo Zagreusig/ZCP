@@ -1,4 +1,5 @@
 #include "optimizer.h"
+#include "utils/msc.h"
 #include <fstream>
 #include <iostream>
 #include <set>

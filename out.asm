@@ -119,6 +119,44 @@ read_char:
    syscall
    movzx rax, byte [chr]
    ret
+foo:
+   push rbp
+   push r12
+   mov rbp, rsp
+   sub rsp, 16
+   mov r12, rsp
+   mov byte [r12 + 0], dil
+   mov rax, 'a'
+   mov rsp, rbp
+   pop r12
+   pop rbp
+   ret
+bar:
+   push rbp
+   push r12
+   mov rbp, rsp
+   sub rsp, 16
+   mov r12, rsp
+   mov QWORD [r12 + 0], rdi
+   mov byte [r12 + 8], sil
+   mov rax, QWORD [r12 + 8]
+   push rax
+   mov rax, 'c'
+   mov rbx, rax
+   pop rax
+   cmp rax, rbx
+   jne .L0
+   mov rax, 5
+   mov rsp, rbp
+   pop r12
+   pop rbp
+   ret
+.L0:
+   mov rax, 9
+   mov rsp, rbp
+   pop r12
+   pop rbp
+   ret
 main:
    push rbp
    push r12

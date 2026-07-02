@@ -5,7 +5,7 @@
 #include <vector>
 #include "lexer/Tokens.h"
 
-enum class DataType { NONE, INT, CHAR, STR, BOOL };
+enum class DataType { NONE, INT, CHAR, STR, BOOL, FLOAT };
 
 struct TypeInfo {
    DataType base = DataType::NONE;
@@ -123,6 +123,9 @@ struct NodeExpr {
    std::variant<NodeExprIntLit*, NodeExprCharLit*, NodeExprStrLit*,
                 NodeExprIdent*, NodeExprIndex*, NodeExprRead*,
                 NodeExprIncDec*, NodeBinExpr*, NodeExprCall*, NodeExprArrayLit*> var;
+
+   TypeInfo resolved;
+   bool is_resolved = false;
 };
 
 
@@ -179,7 +182,7 @@ struct NodeStmtFor {
 
 
 struct NodeParam {
-   Token type;
+   TypeInfo type; // was: Token type. Allows for more flexible type passing.
    Token name;
 };
 

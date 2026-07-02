@@ -39,7 +39,7 @@ void ASTPrinter::print_function(const NodeFunction* func, int depth) {
       std::cout << pad(depth + 1) << "Params:\n";
       for (const NodeParam& p : func->params)
          std::cout << pad(depth + 2)
-                   << to_string(p.type.type) << " "
+                   << Symbols::dt_str(p.type.base) << " "
                    << p.name.value.value() << "\n";
    }
 

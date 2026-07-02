@@ -1,3 +1,14 @@
+func foo(char b) -> char {
+   return 'a';
+}
+
+
+func bar(int a, char b) -> int {
+   if (b == 'c') { return 5; }
+   return 9;
+}
+
+
 func main() ->int {
    have s: str = "hello";
    println(s);
@@ -6,6 +17,6 @@ func main() ->int {
    println(b);
    b = "goodbye";
    println(b);
-   
+
    return 0;
 }

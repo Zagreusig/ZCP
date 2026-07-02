@@ -6,6 +6,7 @@
 #include "lexer/lexer.h"
 #include "parser/parser.h"
 #include "type_checker.h"
+#include "utils/msc.h"
 #include <sstream>
 #include <map>
 
@@ -56,8 +57,8 @@ private:
    int count_locals(const std::vector<NodeStmt*>&);
    int compute_frame_size(const NodeScopeBlock*);
    int compute_frame_size(const std::vector<NodeStmt*>&);
-   int compute_frame_bytes(const std::vector<NodeStmt*>&);
    int have_byte_size(const NodeStmtHave*);
+   int param_reg_count(const TypeInfo&);
 
    TypeInfo resolve_have_type(NodeStmtHave*);
 

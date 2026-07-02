@@ -30,7 +30,7 @@ private:
 
    // BinExprType comp_to_binop(const TokenType&);
    bool is_compound_assign(const TokenType&);
-
+   static bool is_type(const TokenType&);
    static bool valid_for_increment(const NodeStmt*);
    static bool is_init_stmt(const NodeStmt*);
    static bool is_lval(const NodeExpr*);

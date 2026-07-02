@@ -10,6 +10,7 @@ static const std::unordered_map<std::string, TokenType> KEYWORDS = {
    { "have", TokenType::HAVE },
    { "void", TokenType::VOID },
    { "int", TokenType::INT }, { "char", TokenType::CHAR }, { "bool", TokenType::BOOL }, { "str", TokenType::STR },
+   { "float", TokenType::NONE },
    { "and", TokenType::OPERATOR_LOGICAL_AND }, { "or", TokenType::OPERATOR_LOGICAL_OR },
    { "is", TokenType::IS }, { "kinda", TokenType::KINDA }, // ignore these for now - I might not use them
    { "print", TokenType::PRINT }, { "println", TokenType::PRINTLN },

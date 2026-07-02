@@ -8,6 +8,11 @@
 #include <unordered_map>
 #include <vector>
 
+struct FuncSig {
+   std::vector<TypeInfo> param_types;
+   TypeInfo ret_type;
+};
+
 class Analyzer {
 public:
    Analyzer(NodeProg& prog, Diagnostics& diag)
@@ -19,7 +24,8 @@ private:
    void analyze_function(NodeFunction*);
    void analyze_stmt(NodeStmt*);
    void analyze_have(NodeStmtHave*);
-   TypeInfo type_of(const NodeExpr*); // resolving expression types
+   TypeInfo type_of(NodeExpr*);
+   TypeInfo compute_type_of(const NodeExpr*); // resolving expression types
 
    void push_scope();
    void pop_scope();
@@ -30,7 +36,7 @@ private:
 
    NodeProg& m_prog;
    Diagnostics& m_diag;
-   std::unordered_map<std::string, TypeInfo> m_func_ret;
+   std::unordered_map<std::string, FuncSig> m_func_sigs;
    std::vector<std::pair<std::string, TypeInfo>> m_vars;
    std::vector<size_t> m_scopes;
 };

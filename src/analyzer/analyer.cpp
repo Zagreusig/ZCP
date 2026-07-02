@@ -5,10 +5,13 @@
 
 void Analyzer::analyze() {
    for (const NodeFunction* f : m_prog.funcs) {
-      TypeInfo ret;
+      FuncSig sig;
       if (f->has_ret_type)
-         ret.base = Symbols::tok_dt(f->ret_type.type);
-      m_func_ret[f->name.value.value()] = ret;
+         sig.ret_type.base = Symbols::tok_dt(f->ret_type.type);
+   
+      for (const NodeParam& p : f->params)
+         sig.param_types.push_back(p.type);
+      m_func_sigs[f->name.value.value()] = sig;
    }
    
    for (NodeFunction* f : m_prog.funcs)
@@ -91,11 +94,8 @@ void Analyzer::analyze_have(NodeStmtHave* h) {
 
 void Analyzer::analyze_function(NodeFunction* f) {
    push_scope();
-   for (const NodeParam& p : f->params) {
-      TypeInfo pt;
-      pt.base = Symbols::tok_dt(p.type.type);
-      declare(p.name.value.value(), pt);
-   }
+   for (const NodeParam& p : f->params)
+      declare(p.name.value.value(), p.type);
 
    for (auto* stmt : f->body->stmts)
       analyze_stmt(stmt);
@@ -201,7 +201,16 @@ void Analyzer::declare(const std::string& ident, const TypeInfo& t) {
 }
 
 
-TypeInfo Analyzer::type_of(const NodeExpr* expr) {
+TypeInfo Analyzer::type_of(NodeExpr* expr) {
+   if (!expr) return {};
+   TypeInfo t = compute_type_of(expr);
+   expr->resolved = t;
+   expr->is_resolved = true;
+   return t;
+}
+
+
+TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
    if (!expr) return {};
 
    return std::visit([this](auto* node) -> TypeInfo {
@@ -228,8 +237,38 @@ TypeInfo Analyzer::type_of(const NodeExpr* expr) {
          return type_of(node->left);
       
       else if constexpr (std::is_same_v<T, NodeExprCall>) {
-         auto it = m_func_ret.find(node->name.value.value());
-         return it != m_func_ret.end() ? it->second : TypeInfo {};
+         for (auto* arg : node->args)
+            type_of(arg); // stamping the arg as resolved; no return needed here
+         auto it = m_func_sigs.find(node->name.value.value());
+         
+         if (it == m_func_sigs.end()) {
+            m_diag.error(CompPhase::Analysis, node->name.line, node->name.col,
+                         "Call made to undeclared function '" + node->name.value.value() + "'.");
+         
+            for (auto* arg : node->args) type_of(arg); // still walk args to grab extra problems
+            return {};
+         }
+      
+         const FuncSig& sig = it->second;
+
+         // arg count check
+         if (node->args.size() != sig.param_types.size()) {
+            m_diag.error(CompPhase::Analysis, node->name.line, node->name.col,
+                         std::to_string(sig.param_types.size()) + " argument(s) expected, got " + 
+                         std::to_string(node->args.size()) + ".");
+         }
+
+         // arg type check.
+         for (size_t i = 0; i < node->args.size(); i++) {
+            TypeInfo at = type_of(node->args[i]);
+            if (i < sig.param_types.size() && !types_match(sig.param_types[i], at)) {
+               m_diag.error(CompPhase::Analysis, node->name.line, node->name.col,
+                            "Argument " + std::to_string(i + 1) + " to '" + node->name.value.value() + 
+                            "' has mismatched type.");
+            }
+         }
+
+         return sig.ret_type;
       }
 
       else if constexpr (std::is_same_v<T, NodeExprIncDec>)

@@ -1,4 +1,5 @@
 #include "ErrorHandler.h"
+#include <iostream>
 
 void report(const std::string& src, const std::string& file, const CompilerError& e) {
    fprintf(stderr, "\x1b[1m%s:%d:%d: \x1b[31merror: \x1b[0m %s\n",
@@ -27,11 +28,16 @@ std::string fetch_line(const std::string& src, int line) {
 
 
 void Diagnostics::report_all(const std::string& src, const std::string& file) const {
-   for (const auto& item : m_list)
-      report_one(src, file, item);
-   if (!m_list.empty())
-      fprintf(stderr, "\n%zu error%s generated.\n",
-              m_list.size(), m_list.size() == 1 ? "" : "s");
+   for (const auto& phase : m_errors) {
+      std::cerr << "In phase " << str(phase.first) << ":" << std::endl;
+      for (const auto& item : phase.second) {
+         report_one(src, file, item);
+      }
+   }
+   
+   if (!m_errors.empty())
+      fprintf(stderr, "\n%d error%s generated.\n",
+              err_count, err_count == 1 ? "" : "s");
 }
 
 

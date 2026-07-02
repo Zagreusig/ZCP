@@ -20,6 +20,12 @@ bool Parser::is_next(TokenType type, int offset = 0) {
 }
 
 
+bool Parser::is_type(const TokenType& t) {
+   return t == TokenType::INT || t == TokenType::CHAR ||
+          t == TokenType::STR /* || t == TokenType::BOOL || t == TokenType::FLOAT */;
+}
+
+
 bool Parser::is_compound_assign(const TokenType& t) {
    switch (t) {
       case TokenType::OPERATOR_ADD_EQ:
@@ -656,14 +662,14 @@ std::optional<NodeFunction*> Parser::parse_func() {
    func->name = name.value();
 
    if (!is_next(TokenType::CLOSE_PAREN)) {
-      while (is_next(TokenType::INT)) {
+      while (peek().has_value() && is_type(peek().value().type)) {
          if (func->params.size() >= 6) {
             fail("Functions are capped at 6 params for now.");
             return {};
          }
 
          NodeParam param;
-         if (auto t = try_consume(TokenType::INT)) param.type = t.value();
+         if (auto t = parse_type()) param.type = t.value();
          else { fail("Expected parameter type."); return {}; }
          if (auto n = try_consume(TokenType::IDENTIFIER)) param.name = n.value();
          else { fail("Expected parameter name."); return {};}
@@ -677,13 +683,15 @@ std::optional<NodeFunction*> Parser::parse_func() {
 
    // Optional return type: either ': type' or '-> type'
    if (try_consume(TokenType::COLON) || try_consume(TokenType::OPERATOR_ARROW)) {
-      auto type = try_consume(TokenType::INT);
-      if (!type.has_value()) { fail("Expected return type."); return {}; }
-      func->ret_type = type.value();
-      func->has_ret_type = true;
-   } else {
-      func->has_ret_type = false;
-   }
+      if (peek().has_value() && is_type(peek().value().type)) {
+         func->ret_type = consume();
+         func->has_ret_type = true;
+      }
+      else {
+         fail("Expected return type.");
+         return {};
+      }
+   } else func->has_ret_type = false;
 
    if (auto body = parse_scope())
       func->body = body.value();
