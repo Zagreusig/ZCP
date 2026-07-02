@@ -121,11 +121,36 @@ read_char:
    movzx rax, byte [chr]
    ret
 
-greet:
+test:
+   push rbp
+   mov rbp, rsp
+   lea rax, [str_0]
+   mov rdx, 17
+   pop rbp
+   ret
+main:
    push rbp
    push r12
    mov rbp, rsp
    sub rsp, 16
    mov r12, rsp
-   mov QWORD [r12 + 0], rdi
-   mov QWORD [r12 + 8], rsi
+   call test
+   mov QWORD [r12 + 0], rax
+   mov QWORD [r12 + 8], rdx
+   mov rsi, QWORD [r12 + 0]
+   mov rdx, QWORD [r12 + 8]
+   mov rax, SYS_write
+   mov rdi, STDOUT
+   syscall
+   mov byte [print_buf], LF
+   mov rax, SYS_write
+   mov rdi, STDOUT
+   mov rsi, print_buf
+   mov rdx, 1
+   syscall
+   mov byte [print_buf], LF
+   mov rax, SYS_write
+   mov rdi, STDOUT
+   mov rsi, print_buf
+   mov rdx, 1
+   syscall

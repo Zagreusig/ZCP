@@ -6,7 +6,6 @@
 #include <sstream>
 #include <utility>
 #include "ast/Nodes.h"
-#include "type_checker.h"
 #include "generation.h"
 #include "lexer/Tokens.h"
 #include "symbols/SymbolTable.h"
@@ -59,6 +58,16 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
             std::cerr << "Undeclared array: " << idx->ident.value.value() << std::endl;
             gen->total_fail();
          }
+         
+         if (var.value().type.base == DataType::STR) {
+            gen->gen_expr(idx->index);
+            gen->pop("rbx");
+            gen->m_output << "   mov rax, QWORD [r12 + " << var.value().offset << "]\n"
+                          << "   movzx rax, byte [rax + rbx]\n";
+            gen->push("rax");
+            return;
+         }
+
          int esz = var.value().type.elem_size();
 
          // eval expr -> its value on the stack
@@ -178,8 +187,12 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
             reg_idx += regs_used;
          }
          gen->m_output << "   call " << call->name.value.value() << "\n";
-         gen->push("rax"); // ret val
-         /** TODO: Add string returns */
+         
+         auto it = gen->m_funcs.find(call->name.value.value());
+         bool returns_str = (it != gen->m_funcs.end() && it->second.base == DataType::STR);
+         if (!returns_str)
+            gen->push("rax"); // ret val
+         // if returning str, leave rax:rdx alone for caller to deal with.
       }
 
 
@@ -224,11 +237,31 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
             gen->m_current_offset += 16; // fat pointer
          
             if (h->expr) {
-               auto* lit = std::get_if<NodeExprStrLit*>(&h->expr->var);
-               if (!lit) { std::cerr << "String var must be initialized with a str lit (for now).\n"; gen->total_fail(); }
-               const std::string& str = (*lit)->STR_LIT.value.value();
-               std::string label = gen->add_string(str);
-               gen->store_string_literal(base, str);
+               if (auto* lit = std::get_if<NodeExprStrLit*>(&h->expr->var))
+                  gen->store_string_literal(base, (*lit)->STR_LIT.value.value());
+               else if (auto* call = std::get_if<NodeExprCall*>(&h->expr->var)) {
+                  // call returns a string in rax:rdx; stor into the slot.
+                  gen->gen_expr(h->expr);
+                  gen->m_output << "   mov QWORD [r12 + " << base << "], rax\n"
+                                << "   mov QWORD [r12 + " << (base + 8) << "], rdx\n";
+               }
+               else if (auto* var = std::get_if<NodeExprIdent*>(&h->expr->var)) {
+                  if (h->expr->resolved.base != DataType::STR) {
+                     std::cerr << "Cannot initialize type string with other type.\n";
+                     gen->total_fail();
+                  }
+
+                  auto id = gen->get_var((*var)->ident.value.value());
+                  if (!id.has_value()) {
+                     std::cerr << "Undefined identifier '" << (*var)->ident.value.value() << "'\n";
+                     gen->total_fail();
+                  }
+                  int ref_off = id.value().offset;
+                  gen->m_output << "   mov rax, QWORD [r12 + " << ref_off << "]\n"         // load other's ptr
+                                << "   mov QWORD [r12 + " << base << "], rax\n"            // store to target's ptr  
+                                << "   mov rax, QWORD [r12 + " << (ref_off + 8) << "]\n"   // load other's len
+                                << "   mov QWORD [r12 + " << (base + 8) << "], rax\n";     // store to target's len
+               }
             } else {
                // uninit: nullptr, len 0
                gen->m_output << "   mov QWORD [r12 + " << base << "], 0\n"
@@ -421,9 +454,44 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
 
 
       void operator()(const NodeStmtReturn* _return) const {
-         gen->gen_expr(_return->expr);
-         gen->pop("rax");
-         gen->emit_epilogue();
+         if (gen->m_curr_ret_type.base == DataType::STR) {
+            // str ret ptr rax, len rdx
+            if (auto* lit = std::get_if<NodeExprStrLit*>(&_return->expr->var)) {
+               const std::string& str = (*lit)->STR_LIT.value.value();
+               std::string label = gen->add_string(str);
+               gen->m_output << "   lea rax, [" << label << "]\n"
+                             << "   mov rdx, " << str.size() << "\n";
+            }
+            else if (auto* id = std::get_if<NodeExprIdent*>(&_return->expr->var)) {
+                  auto var = gen->get_var((*id)->ident.value.value());
+                  int off = var.value().offset;
+                  gen->m_output << "   mov rax, QWORD [r12 + " << off << "]\n"
+                                << "   mov rdx, QWORD [r12 + " << (off + 8) << "]\n";
+            }
+            else {
+               std::cerr << "Unsupported str return expr.\n";
+               gen->total_fail();
+            }
+
+         } 
+         else if (gen->m_curr_ret_type.base == DataType::CHAR) {
+            if (auto* lit = std::get_if<NodeExprCharLit*>(&_return->expr->var))
+               gen->m_output << "   mov al, '" << (*lit)->CHAR_LIT.value.value() << "'\n";
+            else if (auto* id = std::get_if<NodeExprIdent*>(&_return->expr->var)) {
+               auto var = gen->get_var((*id)->ident.value.value());
+               int off = var.value().offset;
+               gen->m_output << "   movzx al, byte [r12 + " << off << "]\n";
+            }
+            else {
+               std::cerr << "Unsupported char return expr.\n";
+               gen->total_fail();
+            }
+         }
+         else {
+            // scalar return
+            gen->gen_expr(_return->expr);
+            gen->pop("rax");
+         }
       }
 
 
@@ -628,6 +696,8 @@ void ASMGenerator::gen_function(const NodeFunction* func) {
    frame_size = (frame_size + 15) & ~15;
    m_uses_frame_base = (frame_size > 0 || !func->params.empty());
 
+   if (func->has_ret_type) m_curr_ret_type.base = Symbols::tok_dt(func->ret_type.type); /** TODO: Fix parsing of function ret type to look for arrays */
+   else m_curr_ret_type = TypeInfo {};
 
    m_output << func->name.value.value() << ":\n"
             << "   push rbp\n";
@@ -699,6 +769,12 @@ void ASMGenerator::gen_function(const NodeFunction* func) {
    emit_read_int();
    emit_read_char();
    
+   for (const NodeFunction* f : m_prog.funcs) {
+      TypeInfo ret;
+      if(f->has_ret_type) ret.base = Symbols::tok_dt(f->ret_type.type);
+      m_funcs[f->name.value.value()] = ret;
+   }
+
    for (const NodeFunction* func : m_prog.funcs)
       gen_function(func);
 

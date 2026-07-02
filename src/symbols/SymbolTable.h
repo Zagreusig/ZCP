@@ -2,7 +2,6 @@
 #define SYMBOLTABLE_H
 
 #include "ast/Nodes.h"
-#include "codegen/type_checker.h"
 #include "lexer/Tokens.h"
 #include <string>
 

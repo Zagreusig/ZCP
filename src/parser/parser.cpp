@@ -517,7 +517,11 @@ std::optional<NodeStmt*> Parser::parse_print() {
    stmt_print->nwln = with_nl;
 
    if (auto expr = parse_expr()) stmt_print->expr = expr.value();
-   else return {};
+   else {
+      NodeExprStrLit* def = m_allocator.alloc<NodeExprStrLit>();
+      def->STR_LIT.value.value() = "";
+      stmt_print->expr = wrap(def);
+   }
 
    if (!try_consume(TokenType::CLOSE_PAREN)) { fail("Expected ')'."); return {}; }
 

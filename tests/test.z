@@ -1,30 +1,16 @@
-fn greet(str s) {
-   println(s);
+fn test() -> str {
+   return "This is a string!";
 }
 
-fn foo(str a, str b) {
-   println(a);
-   println(b);
-}
+fn main() {
+   have z = test();
+   println(z);
 
-fn bar(int a, str b) {
-   println(a);
-   println(b);
-}
-
-fn third(int a, char b, str c) {
-   println(a);
-   println(b);
-   println(c);
-}
-
-func main() ->int {
-   have s: str = "Hello there";
-   foo("hi", "yuh");
-   foo(s, "hi");
-   bar(5, "hello");
-   bar((5 + 6) * 2, "bar!");
-   third(1, 'a', s);
-
+   for (have i = 0; i < 17; i++) {
+      print("'");
+      print(z[i]);
+      print("' ");
+   }
+   println();
    return 0;
 }

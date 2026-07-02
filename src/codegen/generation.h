@@ -5,10 +5,9 @@
 #include "lexer/Tokens.h"
 #include "lexer/lexer.h"
 #include "parser/parser.h"
-#include "type_checker.h"
 #include "utils/msc.h"
 #include <sstream>
-#include <map>
+#include <unordered_map>
 
 
 class ASMGenerator {
@@ -75,8 +74,10 @@ private:
    std::stringstream _data;
    std::stringstream m_output;
    size_t m_stack_size = 0;
-   std::vector<Var> m_vars           {};
+   std::vector<Var> m_vars {};
+   TypeInfo m_curr_ret_type {};
 
+   std::unordered_map<std::string, TypeInfo> m_funcs {};
    std::vector<std::pair<std::string, std::string>> m_strings {};
    int m_str_count = 0;
 

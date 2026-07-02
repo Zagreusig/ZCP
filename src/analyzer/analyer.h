@@ -11,6 +11,7 @@
 struct FuncSig {
    std::vector<TypeInfo> param_types;
    TypeInfo ret_type;
+   Token ident;
 };
 
 class Analyzer {
@@ -39,6 +40,8 @@ private:
    std::unordered_map<std::string, FuncSig> m_func_sigs;
    std::vector<std::pair<std::string, TypeInfo>> m_vars;
    std::vector<size_t> m_scopes;
+
+   FuncSig m_curr_func;
 };
 
 #endif // ANALYER_H

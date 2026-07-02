@@ -9,6 +9,9 @@ enum class DataType { NONE, INT, CHAR, STR, BOOL, FLOAT };
 
 struct TypeInfo {
    DataType base = DataType::NONE;
+
+   bool is_ptr   = false;
+
    bool is_array = false;
    int array_len = 0;
 

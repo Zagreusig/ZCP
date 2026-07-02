@@ -44,9 +44,13 @@ ptr going into rax, len going into rdx
 str params (by val, 2 regs) -> reags 2 arg regs into param's 16byte slot                CHECK
 str ret (rax:rdx) func returning str puts ptr in rax, len in rdx, caller reads both.
 
+strs as ret val: CHECK
+   step 0.5 analyzer & generator need to keep track of return type and ensure the value being returned matches
+   intercept ret visitor, str can't go through gen_expr().
+
+
+
+
 retrofitting for char param/ret. Chars 1 byte. param/ret put into al..                  CHECK
 array params (reference) Arr pass by ptr. Gets arr's base addr, can index through it. <- last
 array param wont be at r12 + offset, its at ptr + i*esz
-
-
--> come back to address loading literal into rax , then rax -> rdi.

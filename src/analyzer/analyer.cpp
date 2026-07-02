@@ -2,10 +2,12 @@
 #include "symbols/SymbolTable.h"
 #include "utils/msc.h"
 #include <iostream>
+#include <string.h>
 
 void Analyzer::analyze() {
    for (const NodeFunction* f : m_prog.funcs) {
       FuncSig sig;
+      sig.ident = f->name;
       if (f->has_ret_type)
          sig.ret_type.base = Symbols::tok_dt(f->ret_type.type);
    
@@ -14,8 +16,10 @@ void Analyzer::analyze() {
       m_func_sigs[f->name.value.value()] = sig;
    }
    
-   for (NodeFunction* f : m_prog.funcs)
+   for (NodeFunction* f : m_prog.funcs) {
+      m_curr_func = m_func_sigs[f->name.value.value()];
       analyze_function(f);
+   }
 }
 
 
@@ -118,9 +122,13 @@ void Analyzer::analyze_stmt(NodeStmt* s) {
                             "Type mismatch in assignment to '" + s->ident.value.value() + "'.");
       }
       
-      else if constexpr (std::is_same_v<T, NodeStmtReturn>)
-         type_of(s->expr);
-      
+      else if constexpr (std::is_same_v<T, NodeStmtReturn>) {
+         TypeInfo ret = type_of(s->expr);
+         if (m_curr_func.ret_type.base != DataType::NONE && !types_match(ret, m_curr_func.ret_type))
+            m_diag.error(CompPhase::Analysis, m_curr_func.ident.line, m_curr_func.ident.col,
+                         "Return type mismatch.");
+      }
+       
       else if constexpr (std::is_same_v<T, NodeStmtExit>)
          type_of(s->expr);
       
@@ -223,7 +231,7 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
          return TypeInfo { .base = DataType::CHAR };
       
       else if constexpr (std::is_same_v<T, NodeExprStrLit>)
-         return TypeInfo{ .base = DataType::STR };
+         return TypeInfo { .base = DataType::STR };
 
       else if constexpr (std::is_same_v<T, NodeExprIdent>) {
          auto found = lookup(node->ident.value.value());
@@ -291,17 +299,15 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
 
       else if constexpr (std::is_same_v<T, NodeExprIndex>) {
          auto arr = lookup(node->ident.value.value());
-         if (!arr.has_value()) { /** TODO: err msg */ return {}; }
-         if (!arr.value().is_array) 
+         if (!arr.has_value()) { 
+            m_diag.error(CompPhase::Analysis, node->ident.line, node->ident.col,
+                         "This broken...."); return {}; }
+         if (!arr.value().is_array && arr.value().base != DataType::STR) 
             { m_diag.error(CompPhase::Analysis, node->ident.line, node->ident.col,
                            "Cannot index non-array."); return {}; }
          // indexing array yields its ELEMENT type (scalar, not array)
-         return TypeInfo { .base = arr.value().base }; // is_array = false (default)
+         return TypeInfo { .base = (arr.value().base == DataType::STR ? DataType::CHAR : arr.value().base) }; // is_array = false (default)
       }
-
-      else if constexpr (std::is_same_v<T, NodeExprStrLit>)
-         return TypeInfo { .base = DataType::CHAR, .is_array = true,
-                           .array_len = /* strlen */ 0 };
    
       else static_assert(always_false<T>, "Unhandled node.");
    }, expr->var);
