@@ -36,7 +36,7 @@ void Diagnostics::report_all(const std::string& src, const std::string& file) co
    }
    
    if (!m_errors.empty())
-      fprintf(stderr, "\n%d error%s generated.\n",
+      fprintf(stderr, "\n%zu error%s generated.\n",
               err_count, err_count == 1 ? "" : "s");
 }
 
