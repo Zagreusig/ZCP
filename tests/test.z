@@ -1,16 +1,9 @@
-fn test() -> str {
-   return "This is a string!";
-}
-
 fn main() {
-   have z = test();
-   println(z);
+   have s: char = '\n';
+   have t: str = "She said \"hello\".\n";
 
-   for (have i = 0; i < 17; i++) {
-      print("'");
-      print(z[i]);
-      print("' ");
-   }
-   println();
+   println(s);
+   println(t);
+   
    return 0;
 }

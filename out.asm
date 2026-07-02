@@ -119,72 +119,29 @@ read_char:
    syscall
    movzx rax, byte [chr]
    ret
-test:
-   push rbp
-   mov rbp, rsp
-   lea rax, [str_0]
-   mov rdx, 17
-   pop rbp
-   ret
 main:
    push rbp
    push r12
    mov rbp, rsp
-   sub rsp, 16
+   sub rsp, 32
    mov r12, rsp
-   call test
+   mov rax, 10
    mov QWORD [r12 + 0], rax
-   mov QWORD [r12 + 8], rdx
-   mov rsi, QWORD [r12 + 0]
-   mov rdx, QWORD [r12 + 8]
-   mov rax, SYS_write
-   mov rdi, STDOUT
-   syscall
-   mov byte [print_buf], LF
-   mov rax, SYS_write
-   mov rdi, STDOUT
-   mov rsi, print_buf
-   mov rdx, 1
-   syscall
-   xor eax, eax
-   mov QWORD [r12 + 16], rax
-.L0:
-   mov rax, QWORD [r12 + 16]
-   push rax
-   mov rbx, 17
-   pop rax
-   cmp rax, rbx
-   jge .L1
-   mov rax, SYS_write
-   mov rdi, STDOUT
-   mov rsi, str_1
-   mov rdx, str_1_len
-   syscall
-   mov rax, QWORD [r12 + 16]
-   mov rbx, rax
+   lea rax, [str_0]
+   mov QWORD [r12 + 1], rax
+   mov QWORD [r12 + 9], 18
    mov rax, QWORD [r12 + 0]
-   movzx rax, byte [rax + rbx]
    mov byte [print_buf], al
+   mov byte [print_buf + 1], LF
    mov rsi, print_buf
-   mov rdx, 1
-   mov rax, SYS_write
+   mov rdx, 2
    mov rdi, STDOUT
+   mov rax, SYS_write
    syscall
+   mov rsi, QWORD [r12 + 1]
+   mov rdx, QWORD [r12 + 9]
    mov rax, SYS_write
    mov rdi, STDOUT
-   mov rsi, str_2
-   mov rdx, str_2_len
-   syscall
-   mov rax, QWORD [r12 + 16]
-   push rax
-   add QWORD [r12 + 16], 1
-   pop rax
-   jmp .L0
-.L1:
-   mov rax, SYS_write
-   mov rdi, STDOUT
-   mov rsi, str_3
-   mov rdx, str_3_len
    syscall
    mov byte [print_buf], LF
    mov rax, SYS_write
@@ -198,11 +155,5 @@ main:
    pop rbp
    ret
 section .data
-   str_0: db 84, 104, 105, 115, 32, 105, 115, 32, 97, 32, 115, 116, 114, 105, 110, 103, 33
+   str_0: db 83, 104, 101, 32, 115, 97, 105, 100, 32, 34, 104, 101, 108, 108, 111, 34, 46, 10
    str_0_len: equ $ - str_0
-   str_1: db 39
-   str_1_len: equ $ - str_1
-   str_2: db 39, 32
-   str_2_len: equ $ - str_2
-   str_3: db NULL
-   str_3_len: equ $ - str_3

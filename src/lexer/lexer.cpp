@@ -1,4 +1,5 @@
 #include "lexer.h"
+#include "symbols/EscapeChars.h"
 #include <iostream>
 #include <unordered_map>
 
@@ -76,6 +77,11 @@ std::vector<Token> Lexer::tokenize(Diagnostics* diag) {
             exit(EXIT_FAILURE);
          }
          char c = consume();
+         if (c == '\\') {
+            if (!peek().has_value()) { std::cerr << "Unterminated escape.\n"; break; }
+            c = Esc::translate_escape(consume());
+         }
+         if (c == '\'') c = '\0';
          if (!peek().has_value() || peek().value() != '\'') {
             std::cerr << "Expected closing '.\n";
             exit(EXIT_FAILURE);
@@ -85,19 +91,26 @@ std::vector<Token> Lexer::tokenize(Diagnostics* diag) {
                             .line = tok_line, .col = tok_col });
          continue;
       }
-      else if (peek().value() == '\"') {
+      else if (peek().value() == '"') {
          int tok_line = m_line, tok_col = m_col;
          consume();
-         while (peek().has_value() && peek().value() != '\"') {
-            buf.push_back(consume());
-            /** TODO: Escape char logic */
+         while (peek().has_value() && peek().value() != '"') {
+            char c = consume();
+            if (c == '\\') {
+               if (!peek().has_value()) { std::cerr << "Unterminated escape.\n"; break; }
+               char esc = consume(), translated = Esc::translate_escape(esc);
+               if (esc == translated) { buf.push_back(esc); }
+               else { buf.push_back(translated); }
+            } else {
+               buf.push_back(c);
+            }
          }
-         
          if (!peek().has_value()) {
             std::cerr << "Expected closing \"." << std::endl;
             exit(EXIT_FAILURE);
          }
-         
+         if (peek().value() == '"' && buf.length() < 1) buf.push_back('\0'); 
+
          consume();
          tokens.push_back({ .type = TokenType::STR_LIT, .value = buf,
                             .line = tok_line, .col = tok_col });

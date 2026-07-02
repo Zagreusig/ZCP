@@ -13,19 +13,52 @@
  * \e (esc):           27 (0x1B)
  */
 
-// #include "lexer/Tokens.h"
+#include <string>
 
-// class EscpSymbols {
-// public:
-//    EscpSymbols() {}
+namespace Esc {
+   static char translate_escape(char esc) {
+         switch (esc) {
+         case 'n':  return '\n';
+         case 't':  return '\t';
+         case 'r':  return '\r';
+         case '\\': return '\\';
+         case '"':  return '"';
+         case '\'': return '\'';
+         case '0':  return '\0';
+         default:
+            return esc;
+      }
+   }
 
-//    template<typename T>
-//    inline T get_esc_char(const char& ch) {
-//       switch (ch) {
-//          case 't': 
-//       }
-//    }
+   static int asm_code(char esc) {
+      switch (esc) {
+         case '\n': return 10;
+         case '\t': return 9;
+         case '\r': return 13;
+         case '\0': return 0;
+         default:   return 0;
+      }
+   }
 
-// };
+   static bool is_esc_char(char esc) {
+      switch (esc) {
+         case '\n':
+         case '\t':
+         case '\r':
+         case '\0': return true;
+         default:   return false;
+      }
+   }
+
+   static std::string esc_str(char esc) {
+      switch (esc) {
+         case '\n': return "'\\n'";
+         case '\t': return "'\\t'";
+         case '\r': return "'\\r'";
+         case '\0': return "'\\0'";
+         default:   return "null";
+      }
+   }
+}
 
 #endif // ESCAPECHARS_H

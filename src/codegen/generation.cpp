@@ -8,6 +8,7 @@
 #include "ast/Nodes.h"
 #include "generation.h"
 #include "lexer/Tokens.h"
+#include "symbols/EscapeChars.h"
 #include "symbols/SymbolTable.h"
 #include "utils/msc.h"
 
@@ -24,7 +25,11 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
 
 
       void operator()(const NodeExprCharLit* _char) {
-         gen->m_output << "   mov rax, '" << _char->CHAR_LIT.value.value() << "'\n";
+         const char* ch = _char->CHAR_LIT.value.value().c_str();
+         if (Esc::is_esc_char(ch[0]))
+            gen->m_output << "   mov rax, " << Esc::asm_code(ch[0]) << "\n";
+         else
+            gen->m_output << "   mov rax, '" << _char->CHAR_LIT.value.value() << "'\n";
          gen->push("rax");         
       }
 

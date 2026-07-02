@@ -1,4 +1,5 @@
 #include "ASTPrinter.h"
+#include "symbols/EscapeChars.h"
 #include "symbols/SymbolTable.h"
 
 std::string ASTPrinter::cmp_name(CmpExprType op) {
@@ -160,7 +161,10 @@ void ASTPrinter::print_expr(const NodeExpr* expr, int depth) {
             p->print_expr(arg, depth + 1);
       }
       void operator()(const NodeExprCharLit* e) {
-         std::cout << pad(depth) << "CharLit: " << e->CHAR_LIT.value.value() << "\n";
+         if (Esc::is_esc_char(e->CHAR_LIT.value.value().at(0)))
+            std::cout << pad(depth) << "CharLit: " << Esc::esc_str(e->CHAR_LIT.value.value().at(0)) << "\n";
+         else
+            std::cout << pad(depth) << "CharLit: " << e->CHAR_LIT.value.value() << "\n";
       }
 
       void operator()(const NodeExprStrLit* str) {
