@@ -39,6 +39,7 @@ std::string Optimizer::peephole() {
       }
       else if (is_noop(cur) && (!next || !is_cond(*next))) continue;
       else if (try_to_xor(cur, creg) && (!next || !is_cond(*next))) { output.push_back(creg); continue; }
+      else if (same_xor(cur, creg)) { output.push_back(creg); continue; }
       else if (is_ret(cur)) {
          output.push_back(cur);
          while (i + 1 < lines.size() && !is_boundary(lines[i + 1])) i++;
@@ -51,6 +52,30 @@ std::string Optimizer::peephole() {
    for (auto& line : output) end_res += line + "\n";
 
    return end_res;
+}
+
+
+bool Optimizer::same_xor(const std::string& line, std::string& out) {
+   std::string t = line;
+   trim(t);
+   size_t c = t.find(';');
+   if (c != std::string::npos) { t = t.substr(0, c); trim(t); }
+
+   if (!t.starts_with("xor ")) return false;
+   std::string rest = t.substr(4);
+   size_t comma = rest.find(',');
+   if (comma == std::string::npos) return false;
+
+   std::string reg = rest.substr(0, comma);
+   trim(reg);
+   std::string val = rest.substr(comma + 1);
+   trim(val);
+
+   if (val != reg) return false;
+   if (!is_register(reg) || !is_register(val)) return false;
+   auto tbl = reg_map.find(reg);
+   out = "   xor " + (*tbl).second._32_Bit + ", " + (*tbl).second._32_Bit;
+   return true;
 }
 
 

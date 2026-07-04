@@ -2,7 +2,7 @@ fn main() {
    have s: char = '\n';
    have t: str = "She said \"hello\".\n";
 
-   println(s);
+   print(s);
    println(t);
    
    return 0;

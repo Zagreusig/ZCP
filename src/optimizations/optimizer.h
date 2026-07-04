@@ -23,6 +23,7 @@ private:
    bool is_ret(const std::string&);
    bool is_boundary(const std::string&);
    bool try_to_xor(const std::string&, std::string&);
+   bool same_xor(const std::string&, std::string&);
 
    void trim(std::string&);
 
