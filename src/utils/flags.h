@@ -1,12 +1,17 @@
 #ifndef FLAGS_H
 #define FLAGS_H
 
+#include "msc.h"
 #include <stdint.h>
 #include <string>
 #include <vector>
+   
+// ===========================================================================
+// Program flags!
+// ===========================================================================
 
-#define BIT(x) (1 << x)   
-
+// Flags enum are bitmasked to be able to combine multiple flags
+// into a single variable.
 enum class Flags {
    NONE            = 0,
    USER_NAME       = BIT(0),   // -o  
@@ -31,14 +36,15 @@ inline Flags combine_flags(std::vector<Flags> flags) {
 
 inline std::string to_str(Flags flag) {
    switch (flag) {
-      case Flags::NONE:         return "NONE";
-      case Flags::USER_NAME:    return "USER_NAME";
-      case Flags::PRINT_TOKENS: return "PRINT_TOKENS";
-      case Flags::PRINT_FLAGS:  return "PRINT_FLAGS";
-      case Flags::PRINT_AST:    return "PRINT_AST";
-      case Flags::LEAVE_ASM:    return "LEAVE_ASM";
-      case Flags::LEAVE_OBJ:    return "LEAVE_OBJ";
-      default:                  return "ERR_FLAG";
+      case Flags::NONE:            return "NONE";
+      case Flags::USER_NAME:       return "USER_NAME";
+      case Flags::PRINT_TOKENS:    return "PRINT_TOKENS";
+      case Flags::PRINT_FLAGS:     return "PRINT_FLAGS";
+      case Flags::PRINT_AST:       return "PRINT_AST";
+      case Flags::LEAVE_ASM:       return "LEAVE_ASM";
+      case Flags::LEAVE_OBJ:       return "LEAVE_OBJ";
+      case Flags::PRESERVE_PRE_OP: return "PRESERVE_PRE_OP";
+      default:                     return "ERR_FLAG";
    }
 }
 

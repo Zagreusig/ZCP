@@ -7,6 +7,8 @@ template <class> inline constexpr bool always_false = false;
 #include <unordered_map>
 #include <vector>
 
+#define BIT(x) (1 << x)
+
 struct _8_Bits {
    std::string high;
    std::string low;
