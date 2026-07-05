@@ -279,7 +279,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
             return;
          }
          if (type.is_array) {
-            int esz   = type.elem_size(); // array base size
+            int element_size   = type.elem_size(); // array base size
             int base  = gen->m_current_offset; // this array's element 0
             gen->m_vars.push_back(Var { .name = h->ident.text(), .offset = base, 
                                         .type = type });
@@ -290,13 +290,13 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
                for (size_t i = 0; i < elems.size(); i++) {
                   gen->gen_expr(elems[i]);
                   gen->pop("rax");
-                  int off = base + (int)i * esz;
-                  if (esz == 8) gen->m_output << "   mov QWORD [r12 + " << off  << "], rax\n";
+                  int off = base + (int)i * element_size;
+                  if (element_size == 8) gen->m_output << "   mov QWORD [r12 + " << off  << "], rax\n";
                   else          gen->m_output << "   mov byte [r12 + " << off << "], al\n";
                }
             } else {
                // sized, uninit: zero entire region of mem
-               const char* store_op = (esz == 8) ? "rep stosq" : "rep stosb";
+               const char* store_op = (element_size == 8) ? "rep stosq" : "rep stosb";
                gen->m_output << "   lea rdi, [r12 + " << base << "]\n"
                               << "   mov rcx, " << type.array_len << "\n"
                               << "   xor rax, rax\n"
@@ -758,7 +758,7 @@ void ASMGenerator::gen_function(const NodeFunction* func) {
       } 
       else if (pt.base == DataType::CHAR)
          // byte-width spill, storw in low byte of arg reg
-         m_output << "   mov byte [r12 + " << off << "], " << reg_map.at(param_regs[reg_idx])._8_Bits.second << "\n";
+         m_output << "   mov byte [r12 + " << off << "], " << reg_map.at(param_regs[reg_idx])._8_bits.low << "\n";
       else
          // int / bool
          m_output << "   mov QWORD [r12 + " << off << "], " << param_regs[reg_idx] << "\n";

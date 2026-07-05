@@ -7,12 +7,17 @@ template <class> inline constexpr bool always_false = false;
 #include <unordered_map>
 #include <vector>
 
+struct _8_Bits {
+   std::string high;
+   std::string low;
+};
+
 
 struct Reg {
    std::string _64_Bit;
    std::string _32_Bit;
    std::string _16_Bit;
-   std::pair<std::string, std::string> _8_Bits;
+   _8_Bits _8_bits;
 };
 
 /**
