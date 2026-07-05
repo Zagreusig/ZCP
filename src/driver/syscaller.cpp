@@ -1,7 +1,6 @@
-#include "flags.h"
+#include "utils/flags.h"
 #include "syscaller.h"
-#include <fstream>
-#include <iostream>
+#include <cstdlib>
 
 bool Syscaller::nasm() {
    std::string call = "nasm -felf64 " + m_asm;

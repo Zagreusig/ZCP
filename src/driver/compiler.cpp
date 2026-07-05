@@ -1,6 +1,12 @@
 #include "compiler.h"
+#include "frontend/lexer/lexer.h"
+#include "frontend/parser/parser.h"
+#include "frontend/analyzer/analyer.h"
+#include "backend/codegen/generation.h"
+#include "backend/optimizations/optimizer.h"
+#include "syscaller.h"
 #include "utils/flags.h"
-#include "ast/ASTPrinter.h"
+#include "debug/ASTPrinter.h"
 #include <fstream>
 #include <iostream>
 
@@ -56,11 +62,16 @@ int Compiler::run() {
 
 
 void Compiler::print_tokens(std::vector<Token> toks) {
-   for (auto& t : toks)   
-         std::cout << "{ " << to_string(t.type) << ", " 
-                   << (!t.value.value().empty() ? t.value.value().c_str() : "") 
-                   << (!t.value.value().empty() ? ", " : "") << t.line << ':' << t.col << " } "; 
-      std::cout << std::endl; 
+   for (auto& t : toks) {
+      std::cout << "{ " << to_string(t.type);
+
+      if (t.is_text())      std::cout << ", " << t.text();
+      else if (t.is_int())  std::cout << ", " << t.int_val();
+      else if (t.is_char()) std::cout << ", " << t.char_val();
+
+      std::cout << " " << t.line << ':' << t.col << " }\n";
+   }
+   std::cout << std::endl;
 }
 
 

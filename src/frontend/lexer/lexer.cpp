@@ -1,6 +1,6 @@
 #include "lexer.h"
 #include "driver/compiler.h"
-#include "symbols/EscapeChars.h"
+#include "Core/EscapeChars.h"
 #include <iostream>
 #include <unordered_map>
 
@@ -14,7 +14,6 @@ const std::unordered_map<std::string, TokenType> KEYWORDS = {
    { "int", TokenType::INT }, { "char", TokenType::CHAR }, { "bool", TokenType::BOOL }, { "str", TokenType::STR },
    { "float", TokenType::NONE },
    { "and", TokenType::OPERATOR_LOGICAL_AND }, { "or", TokenType::OPERATOR_LOGICAL_OR },
-   { "is", TokenType::IS }, { "kinda", TokenType::KINDA }, // ignore these for now - I might not use them
    { "print", TokenType::PRINT }, { "println", TokenType::PRINTLN },
    { "readc", TokenType::READC }, { "readln", TokenType::READS }, { "reads", TokenType::READS},
    { "readi", TokenType::READI }, { "readf", TokenType::READF },
@@ -45,7 +44,6 @@ std::vector<Token> Lexer::lex() {
 
 std::vector<Token> Lexer::tokenize() {
    std::string buf {};
-   // std::vector<Token> tokens {};
    m_src = m_ctx.get_src();
 
    while (peek().has_value()) {
@@ -64,11 +62,9 @@ std::vector<Token> Lexer::tokenize() {
          
          auto it = KEYWORDS.find(buf);
          if (it != KEYWORDS.end())
-            tokens.push_back({ .type = it->second, .line = tok_line, .col = tok_col });
+            tokens.push_back(tok::make(it->second, tok_line, tok_col));
          else
-            tokens.push_back({ .type = TokenType::IDENTIFIER, .value = buf,
-                               .line = tok_line, .col = tok_col });
-         
+            tokens.push_back(tok::make_ident(buf, tok_line, tok_col));
          buf.clear(); continue;
       }
       else if (std::isspace(peek().value())) { consume(); continue; }
@@ -77,8 +73,12 @@ std::vector<Token> Lexer::tokenize() {
          buf.push_back(consume());
          while (peek().has_value() && std::isdigit(peek().value()))
             buf.push_back(consume());
-         tokens.push_back({.type = TokenType::INT_LIT, .value = buf,
-                           .line = tok_line, .col = tok_col });
+         try {
+            tokens.push_back(tok::make_int(std::stoll(buf), tok_line, tok_col));
+         } catch (const std::out_of_range&) {
+            m_ctx.diag.fatal(CompPhase::Lexing, tok_line, tok_col, "Int literal too large.");
+         }
+         
          buf.clear(); continue;
       }
       else if (peek().value() == '\'') {
@@ -97,8 +97,7 @@ std::vector<Token> Lexer::tokenize() {
          if (!peek().has_value() || peek().value() != '\'')
             m_ctx.diag.fatal(CompPhase::Lexing, tok_line, tok_col, "Expected closing '.");
          consume();
-         tokens.push_back({ .type = TokenType::CHAR_LIT, .value = std::string(1, c),
-                            .line = tok_line, .col = tok_col });
+         tokens.push_back(tok::make_char(c, tok_line, tok_col));
          continue;
       }
       else if (peek().value() == '"') {
@@ -120,8 +119,7 @@ std::vector<Token> Lexer::tokenize() {
          if (peek().value() == '"' && buf.length() < 1) buf.push_back('\0'); 
 
          consume();
-         tokens.push_back({ .type = TokenType::STR_LIT, .value = buf,
-                            .line = tok_line, .col = tok_col });
+         tokens.push_back(tok::make_str(buf, tok_line, tok_col));
          buf.clear(); continue;
       }
       else {
@@ -138,116 +136,117 @@ std::vector<Token> Lexer::tokenize() {
 
 inline Token Lexer::resolveSymbol(char symbol) {
    switch (symbol) {
-   case  ';': return Token { .type = TokenType::SEMICOLON         };
-   case  ':': return Token { .type = TokenType::COLON             };
-   case  '?': return Token { .type = TokenType::QUESTION          };
+   case  ';': return tok::make(TokenType::SEMICOLON, m_line, m_col);
+   case  ':': return tok::make(TokenType::COLON,     m_line, m_col);
+   case  '?': return tok::make(TokenType::QUESTION,  m_line, m_col);
    case  '!': 
       if (peek_eval('=')) {
          consume();
-         return Token { .type = TokenType::OPERATOR_NOT_EQUAL     };
+         return tok::make(TokenType::OPERATOR_NOT_EQUAL, m_line, m_col);
       }
-      return Token { .type = TokenType::OPERATOR_BANG             };
-   case  '.': return Token { .type = TokenType::FULL_STOP         };
-   case  ',': return Token { .type = TokenType::COMMA             };
-   case '\'': return Token { .type = TokenType::APOSTRAPHE        };
-   case '\"': return Token { .type = TokenType::DOUBLE_QUOTE      };
-   case  '(': return Token { .type = TokenType::OPEN_PAREN        };
-   case  ')': return Token { .type = TokenType::CLOSE_PAREN       };
-   case  '[': return Token { .type = TokenType::OPEN_BRACKET      };
-   case  ']': return Token { .type = TokenType::CLOSE_BRACKET     };
-   case  '{': return Token { .type = TokenType::OPEN_BRACE        };
-   case  '}': return Token { .type = TokenType::CLOSE_BRACE       };
+      return tok::make(TokenType::OPERATOR_BANG,         m_line, m_col);
+   case  '.': return tok::make(TokenType::FULL_STOP,     m_line, m_col);
+   case  ',': return tok::make(TokenType::COMMA,         m_line, m_col);
+   case '\'': return tok::make(TokenType::APOSTRAPHE,    m_line, m_col);
+   case '\"': return tok::make(TokenType::DOUBLE_QUOTE,  m_line, m_col);
+   case  '(': return tok::make(TokenType::OPEN_PAREN,    m_line, m_col);
+   case  ')': return tok::make(TokenType::CLOSE_PAREN,   m_line, m_col);
+   case  '[': return tok::make(TokenType::OPEN_BRACKET,  m_line, m_col);
+   case  ']': return tok::make(TokenType::CLOSE_BRACKET, m_line, m_col);
+   case  '{': return tok::make(TokenType::OPEN_BRACE,    m_line, m_col);
+   case  '}': return tok::make(TokenType::CLOSE_BRACE,   m_line, m_col);
    case  '=': 
       if (peek_eval('=')) {
          consume();
-         return Token { .type = TokenType::OPERATOR_EQUAL_EQUAL   };
+         return tok::make(TokenType::OPERATOR_EQUAL_EQUAL, m_line, m_col);
       }
-      return Token { .type = TokenType::OPERATOR_EQUALS           };
+      return tok::make(TokenType::OPERATOR_EQUALS, m_line, m_col);
    
       case  '+': 
       if (peek_eval('+')) {
          consume();
-         return Token { .type = TokenType::OPERATOR_INCR          };
+         return tok::make(TokenType::OPERATOR_INCR, m_line, m_col);
       }
       else if (peek_eval('=')) {
          consume();
-         return Token { .type = TokenType::OPERATOR_ADD_EQ        };
+         return tok::make(TokenType::OPERATOR_ADD_EQ, m_line, m_col);
       }
-      return Token { .type = TokenType::OPERATOR_PLUS             };
+      return tok::make(TokenType::OPERATOR_PLUS, m_line, m_col);
    
       case  '*':
       if (peek_eval('=')) {
          consume();
-         return Token { .type = TokenType::OPERATOR_MUL_EQ        };
+         return tok::make(TokenType::OPERATOR_MUL_EQ, m_line, m_col);
       }
       else if (peek_eval('/')) {
          consume();
-         return Token { .type = TokenType::END_COMMENT_BLOCK      };
+         return tok::make(TokenType::END_COMMENT_BLOCK, m_line, m_col);
       }
-      return Token { .type = TokenType::OPERATOR_ASTERISK         };
+      return tok::make(TokenType::OPERATOR_ASTERISK, m_line, m_col);
    
       case  '/':
       if (peek_eval('=')) {
          consume();
-         return Token { .type = TokenType::OPERATOR_DIV_EQ        };
+         return tok::make(TokenType::OPERATOR_DIV_EQ, m_line, m_col);
       }
       else if (peek_eval('/')) {
          consume();
-         return Token { .type = TokenType::COMMENT                };
+         return tok::make(TokenType::COMMENT, m_line, m_col);
       }
       else if (peek_eval('*')) {
          consume();
-         return Token { .type = TokenType::START_COMMENT_BLOCK    };
+         return tok::make(TokenType::START_COMMENT_BLOCK, m_line, m_col);
       }
-      return Token { .type = TokenType::OPERATOR_SLASH            };
+      return tok::make(TokenType::OPERATOR_ASTERISK, m_line, m_col);
    
-   case  '%': return Token { .type = TokenType::OPERATOR_PERCENT  };
+   case  '%': return tok::make(TokenType::OPERATOR_PERCENT, m_line, m_col);
    
    case  '-': 
       if (peek_eval('>')) {
          consume();
-         return Token { .type = TokenType::OPERATOR_ARROW         };
+         return tok::make(TokenType::OPERATOR_ARROW, m_line, m_col);
       }
       else if (peek_eval('-')) {
          consume();
-         return Token { .type = TokenType::OPERATOR_DECR          };
+         return tok::make(TokenType::OPERATOR_DECR, m_line, m_col);
       }
       else if (peek_eval('=')) {
          consume();
-         return Token {.type = TokenType::OPERATOR_SUB_EQ         };
+         return tok::make(TokenType::OPERATOR_SUB_EQ, m_line, m_col);
       }
-      return Token { .type = TokenType::OPERATOR_DASH             };
+      return tok::make(TokenType::OPERATOR_DASH, m_line, m_col);
    
-   case  '^': return Token { .type = TokenType::OPERATOR_CARET    };
+   case  '^': return tok::make(TokenType::OPERATOR_CARET, m_line, m_col);
    
    case  '>': 
       if (peek_eval('=')) {
          consume();
-         return Token { .type = TokenType::OPERATOR_GREATER_EQUAL };
+         return tok::make(TokenType::OPERATOR_GREATER_EQUAL, m_line, m_col);
       }
-      return Token { .type = TokenType::OPERATOR_GT               };
+      return tok::make(TokenType::OPERATOR_GT, m_line, m_col);
    
    case  '<': 
       if (peek_eval('=') ) {
          consume();
-         return Token { .type = TokenType::OPERATOR_LESS_EQUAL    };
+         return tok::make(TokenType::OPERATOR_LESS_EQUAL, m_line, m_col);
       }
-      return Token { .type = TokenType::OPERATOR_LT               };
+      return tok::make(TokenType::OPERATOR_LT, m_line, m_col);
    
    case  '|':
       if (peek_eval('|')) {
          consume();
-         return Token { .type = TokenType::OPERATOR_LOGICAL_OR    };
+         return tok::make(TokenType::OPERATOR_LOGICAL_OR, m_line, m_col);
       }
-      return Token { .type = TokenType::PIPE                      };
+      return tok::make(TokenType::PIPE, m_line, m_col);
    
    case '&':
       if (peek_eval('&')) {
          consume();
-         return Token { .type = TokenType::OPERATOR_LOGICAL_AND   };
+         return tok::make(TokenType::OPERATOR_LOGICAL_AND, m_line, m_col);
       }
-      return Token { .type = TokenType::AMPERSAND                 };
-   default:  m_ctx.diag.error(CompPhase::Lexing, m_line, m_col, "Unknown symbol."); return {};
+      return tok::make(TokenType::AMPERSAND, m_line, m_col);
+   default:  m_ctx.diag.error(CompPhase::Lexing, m_line, m_col, "Unknown symbol."); 
+             return tok::make(TokenType::INVALID, m_line, m_col);
    }
 }
 

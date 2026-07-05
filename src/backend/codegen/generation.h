@@ -1,11 +1,8 @@
 #ifndef GENERATION_H
 #define GENERATION_H
 
-#include "ast/Nodes.h"
-#include "lexer/Tokens.h"
-#include "lexer/lexer.h"
-#include "parser/parser.h"
-#include "utils/msc.h"
+#include "Core/Nodes.h"
+#include "Core/Tokens.h"
 #include <sstream>
 #include <unordered_map>
 
@@ -40,7 +37,6 @@ private:
       m_output << "   pop " << reg << "\n";
       m_stack_size--;
    }
-   void clear(const std::string& reg) { m_output << "   xor " << reg << ", " << reg << "\n"; }
 
    void emit_consts();
    void emit_print_int();
@@ -59,9 +55,7 @@ private:
    TypeInfo resolve_have_type(NodeStmtHave*);
 
    std::string add_string(const std::string&);
-   void store_string_literal(int, const std::string&);
-
-   int console_write(const std::string&);   
+   void store_string_literal(int, const std::string&);   
 
    bool try_load_simple(const NodeExpr*, const std::string&);
 

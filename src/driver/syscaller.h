@@ -1,15 +1,7 @@
 #ifndef SYSCALLER_H
 #define SYSCALLER_H
 
-#include <iostream>
-#include <stdint.h>
 #include <string>
-#include <sstream>
-#include <vector>
-#include "ast/ASTPrinter.h"
-#include "flags.h"
-#include "lexer/Tokens.h"
-#include "parser/parser.h"
 
 class Syscaller {
 public:

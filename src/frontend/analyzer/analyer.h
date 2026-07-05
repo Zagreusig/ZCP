@@ -1,8 +1,8 @@
 #ifndef ANALYER_H
 #define ANALYER_H
 
-#include "ast/Nodes.h"
-#include "ErrAndRep/ErrorHandler.h"
+#include "Core/Nodes.h"
+#include "Core/ErrorHandler.h"
 #include <optional>
 #include <string>
 #include <unordered_map>

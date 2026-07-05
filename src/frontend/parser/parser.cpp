@@ -1,13 +1,13 @@
 #include <iostream>
 #include <optional>
 #include <vector>
-#include "ast/arena.h"
-#include "ast/ASTPrinter.h"
-#include "ast/Nodes.h"
+#include "Core/arena.h"
+#include "debug/ASTPrinter.h"
+#include "Core/Nodes.h"
 #include "driver/compiler.h"
 #include "parser.h"
-#include "lexer/Tokens.h"
-#include "symbols/SymbolTable.h"
+#include "Core/Tokens.h"
+#include "Core/SymbolTable.h"
 
 
 [[nodiscard]] inline std::optional<Token> Parser::peek(int offset = 0) const {
@@ -81,7 +81,7 @@ std::optional<TypeInfo> Parser::parse_type() {
       auto len_tok = try_consume(TokenType::INT_LIT);
       if (!len_tok) { fail("Expected array size inside '[ ]'."); return {}; }
       info.is_array = true;
-      info.array_len = std::stoi(len_tok.value().value.value());
+      info.array_len = len_tok.value().int_val();
       if (info.array_len <= 0) { fail("Array size must be positive."); return {}; }
       if (!try_consume(TokenType::CLOSE_BRACKET)) { fail("Expected ']'."); return {}; }
    }
@@ -433,7 +433,7 @@ std::optional<NodeStmt*> Parser::parse_have() {
    }
    
    if (!stmt_have->has_type && stmt_have->expr == nullptr) {
-      fail("Declaration of '" + stmt_have->ident.value.value() +
+      fail("Declaration of '" + stmt_have->ident.text() +
            "' needs type annotation or initializer value.");
       return {};
    }
@@ -518,12 +518,8 @@ std::optional<NodeStmt*> Parser::parse_print() {
    stmt_print->nwln = with_nl;
 
    if (auto expr = parse_expr()) stmt_print->expr = expr.value();
-   else {
-      NodeExprStrLit* def = m_ctx.arena.alloc<NodeExprStrLit>();
-      def->STR_LIT.value.value() = "";
-      stmt_print->expr = wrap(def);
-   }
-
+   else stmt_print->expr = nullptr;
+   
    if (!try_consume(TokenType::CLOSE_PAREN)) { fail("Expected ')'."); return {}; }
 
    NodeStmt* stmt = m_ctx.arena.alloc<NodeStmt>();

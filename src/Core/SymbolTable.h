@@ -1,8 +1,7 @@
 #ifndef SYMBOLTABLE_H
 #define SYMBOLTABLE_H
 
-#include "ast/Nodes.h"
-#include "lexer/Tokens.h"
+#include "Nodes.h"
 #include <string>
 
 namespace Symbols {

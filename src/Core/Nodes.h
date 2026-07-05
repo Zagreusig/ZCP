@@ -3,7 +3,7 @@
 
 #include <variant>
 #include <vector>
-#include "lexer/Tokens.h"
+#include "Tokens.h"
 
 enum class DataType { NONE, INT, CHAR, STR, BOOL, FLOAT };
 
@@ -29,29 +29,6 @@ struct TypeInfo {
       if (base == DataType::STR) return 16; // fat pointer: ptr(8) + len(8)
       return is_array ? array_len * elem_size() : elem_size();
    }
-};
-
-enum BinExprType {
-   NONE             = 0,
-   ADDITION         = 1,
-   SUBTRACTION      = 2,
-   MULTIPLICATION   = 3,
-   DIVISION         = 4,
-   EXPONENT         = 5,
-   MODULUS          = 6,
-   PARENS           = 7
-};
-
-enum class CmpExprType {
-   NONE,
-   EQUAL,
-   AND,
-   OR,
-   NOT_EQUAL,
-   LESS_THAN,
-   GREATER_THAN,
-   LESS_EQUAL,
-   GREATER_EQUAL
 };
 
 enum class ReadKind { None, Char, Int, Float, Line }; // Line = String
@@ -185,7 +162,7 @@ struct NodeStmtFor {
 
 
 struct NodeParam {
-   TypeInfo type; // was: Token type. Allows for more flexible type passing.
+   TypeInfo type;
    Token name;
 };
 

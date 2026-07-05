@@ -5,11 +5,11 @@
 #include <string>
 #include <sstream>
 #include <utility>
-#include "ast/Nodes.h"
+#include "Core/Nodes.h"
 #include "generation.h"
-#include "lexer/Tokens.h"
-#include "symbols/EscapeChars.h"
-#include "symbols/SymbolTable.h"
+#include "Core/Tokens.h"
+#include "Core/EscapeChars.h"
+#include "Core/SymbolTable.h"
 #include "utils/msc.h"
 
 
@@ -19,27 +19,27 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
 
       void operator()(const NodeExprIntLit* expr_int_lit) {
          gen->m_output << "   mov rax, " 
-                       << expr_int_lit->INT_LIT.value.value() << '\n';
+                       << expr_int_lit->INT_LIT.int_val() << '\n';
          gen->push("rax");
       }
 
 
       void operator()(const NodeExprCharLit* _char) {
-         const char* ch = _char->CHAR_LIT.value.value().c_str();
-         if (Esc::is_esc_char(ch[0]))
-            gen->m_output << "   mov rax, " << Esc::asm_code(ch[0]) << "\n";
+         const char ch = _char->CHAR_LIT.char_val();
+         if (Esc::is_esc_char(ch))
+            gen->m_output << "   mov rax, " << Esc::asm_code(ch) << "\n";
          else {
             gen->m_output << "   mov rax, '";
-            if (_char->CHAR_LIT.value.value() == "'")
+            if (ch == '\'')
                gen->m_output << "\\";
-            gen->m_output << _char->CHAR_LIT.value.value() << "'\n";
+            gen->m_output << ch << "'\n";
          }
          gen->push("rax");         
       }
 
 
       void operator()(const NodeExprStrLit* _str) {
-         std::cerr << "DEBUG: " << _str->STR_LIT.value.value() << std::endl;
+         std::cerr << "DEBUG: " << _str->STR_LIT.text() << std::endl;
          
          std::cerr << "String values currently only work as args." << std::endl;
          gen->total_fail();
@@ -47,9 +47,9 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
 
 
       void operator()(const NodeExprIdent* expr_ident) {
-         auto var = gen->get_var(expr_ident->ident.value.value());
+         auto var = gen->get_var(expr_ident->ident.text());
          if (!var.has_value()) {
-            std::cerr << "Undeclared identifier visiting during gen_expr: " << expr_ident->ident.value.value() << std::endl;
+            std::cerr << "Undeclared identifier visiting during gen_expr: " << expr_ident->ident.text() << std::endl;
             gen->total_fail();
          }
 
@@ -62,9 +62,9 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
       // rax holds base_offset + index*esz
       // [r12 + rax] = element's address
       void operator()(const NodeExprIndex* idx) {
-         auto var = gen->get_var(idx->ident.value.value());
+         auto var = gen->get_var(idx->ident.text());
          if (!var.has_value()) {
-            std::cerr << "Undeclared array: " << idx->ident.value.value() << std::endl;
+            std::cerr << "Undeclared array: " << idx->ident.text() << std::endl;
             gen->total_fail();
          }
          
@@ -113,9 +113,9 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
 
 
       void operator()(const NodeExprIncDec* node) {
-         auto var = gen->get_var(node->ident.value.value());
+         auto var = gen->get_var(node->ident.text());
          if (!var.has_value()) {
-            std::cerr << "Undeclared Identifier IncDec: " << node->ident.value.value() << std::endl;
+            std::cerr << "Undeclared Identifier IncDec: " << node->ident.text() << std::endl;
             gen->total_fail();
          }
          std::string slot = "QWORD [r12 + " + std::to_string(var.value().offset) + "]";
@@ -177,13 +177,13 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
             if (at.base == DataType::STR) {
                // load ptr & len in 2 consec regs
                if (auto* id = std::get_if<NodeExprIdent*>(&arg->var)) {
-                  auto var = gen->get_var((*id)->ident.value.value());
+                  auto var = gen->get_var((*id)->ident.text());
                   int off = var.value().offset;
                   gen->m_output << "   mov " << param_regs[reg_idx] << ", QWORD [r12 + " << off << "]\n"
                                 << "   mov " << param_regs[reg_idx + 1] << ", QWORD [r12 + " << (off + 8) << "]\n";
                }
                else if (auto* lit = std::get_if<NodeExprStrLit*>(&arg->var)) {
-                  const std::string& str = (*lit)->STR_LIT.value.value();
+                  const std::string& str = (*lit)->STR_LIT.text();
                   std::string label = gen->add_string(str);
                   gen->m_output << "   lea " << param_regs[reg_idx] << ", [" << label << "]\n"
                                 << "   mov " << param_regs[reg_idx + 1] << ", " << str.size() << "\n";
@@ -195,9 +195,9 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
             }
             reg_idx += regs_used;
          }
-         gen->m_output << "   call " << call->name.value.value() << "\n";
+         gen->m_output << "   call " << call->name.text() << "\n";
          
-         auto it = gen->m_funcs.find(call->name.value.value());
+         auto it = gen->m_funcs.find(call->name.text());
          bool returns_str = (it != gen->m_funcs.end() && it->second.base == DataType::STR);
          if (!returns_str)
             gen->push("rax"); // ret val
@@ -233,21 +233,21 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
       
       
       void operator()(const NodeStmtHave* h) {
-         if (gen->get_var(h->ident.value.value()).has_value()) {
+         if (gen->get_var(h->ident.text()).has_value()) {
             std::cerr << "Identifier aleady used (have): " 
-                      << h->ident.value.value() << std::endl;
+                      << h->ident.text() << std::endl;
             gen->total_fail();
          }
          
          const TypeInfo& type = h->resolved;
          if (type.base == DataType::STR) {
             int base = gen->m_current_offset;
-            gen->m_vars.push_back(Var{ .name = h->ident.value.value(), .offset = base, .type = type });
+            gen->m_vars.push_back(Var{ .name = h->ident.text(), .offset = base, .type = type });
             gen->m_current_offset += 16; // fat pointer
          
             if (h->expr) {
                if (auto* lit = std::get_if<NodeExprStrLit*>(&h->expr->var))
-                  gen->store_string_literal(base, (*lit)->STR_LIT.value.value());
+                  gen->store_string_literal(base, (*lit)->STR_LIT.text());
                else if (auto* call = std::get_if<NodeExprCall*>(&h->expr->var)) {
                   // call returns a string in rax:rdx; stor into the slot.
                   gen->gen_expr(h->expr);
@@ -260,9 +260,9 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
                      gen->total_fail();
                   }
 
-                  auto id = gen->get_var((*var)->ident.value.value());
+                  auto id = gen->get_var((*var)->ident.text());
                   if (!id.has_value()) {
-                     std::cerr << "Undefined identifier '" << (*var)->ident.value.value() << "'\n";
+                     std::cerr << "Undefined identifier '" << (*var)->ident.text() << "'\n";
                      gen->total_fail();
                   }
                   int ref_off = id.value().offset;
@@ -281,7 +281,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
          if (type.is_array) {
             int esz   = type.elem_size(); // array base size
             int base  = gen->m_current_offset; // this array's element 0
-            gen->m_vars.push_back(Var { .name = h->ident.value.value(), .offset = base, 
+            gen->m_vars.push_back(Var { .name = h->ident.text(), .offset = base, 
                                         .type = type });
             gen->m_current_offset += type.byte_size();
             if (h->expr) {
@@ -309,7 +309,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
          // Scalar
          int off = gen->m_current_offset;
          gen->m_vars.push_back(Var { 
-            .name = h->ident.value.value(), 
+            .name = h->ident.text(), 
             .offset = off, .type = type 
          });
          
@@ -378,9 +378,9 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
 
          // Regular assignment 
          if (auto* id = std::get_if<NodeExprIdent*>(&assign->target->var)) {
-            auto var = gen->get_var((*id)->ident.value.value());
+            auto var = gen->get_var((*id)->ident.text());
             if (!var.has_value()) {
-               std::cerr << "Undeclared identifier assign: " << assign->ident.value.value() << std::endl;
+               std::cerr << "Undeclared identifier assign: " << assign->ident.text() << std::endl;
                gen->total_fail();
             }
             int off = var.value().offset;
@@ -388,12 +388,12 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
             if (var.value().type.base == DataType::STR) {
               
                if (auto* lit = std::get_if<NodeExprStrLit*>(&assign->expr->var)) {
-                  gen->store_string_literal(off, (*lit)->STR_LIT.value.value());
+                  gen->store_string_literal(off, (*lit)->STR_LIT.text());
                }
                else if (auto* rhs_id = std::get_if<NodeExprIdent*>(&assign->expr->var)) {
-                  auto rhs_var = gen->get_var((*rhs_id)->ident.value.value());
+                  auto rhs_var = gen->get_var((*rhs_id)->ident.text());
                   if (!rhs_var.has_value()) { 
-                     std::cerr << "Undeclared ident: " << (*rhs_id)->ident.value.value() << std::endl; 
+                     std::cerr << "Undeclared ident: " << (*rhs_id)->ident.text() << std::endl; 
                      gen->total_fail(); 
                   }
                
@@ -417,9 +417,9 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
          else if (auto* idx = std::get_if<NodeExprIndex*>(&assign->target->var)) {
             gen->gen_expr(assign->expr);
             gen->pop("rax");
-            auto var = gen->get_var((*idx)->ident.value.value());
+            auto var = gen->get_var((*idx)->ident.text());
             if (!var.has_value()) {
-               std::cerr << "Undeclared identifier index assign: " << assign->ident.value.value() << std::endl;
+               std::cerr << "Undeclared identifier index assign: " << assign->ident.text() << std::endl;
                gen->total_fail();
             }
             int esz = var.value().type.elem_size();
@@ -466,13 +466,13 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
          if (gen->m_curr_ret_type.base == DataType::STR) {
             // str ret ptr rax, len rdx
             if (auto* lit = std::get_if<NodeExprStrLit*>(&_return->expr->var)) {
-               const std::string& str = (*lit)->STR_LIT.value.value();
+               const std::string& str = (*lit)->STR_LIT.text();
                std::string label = gen->add_string(str);
                gen->m_output << "   lea rax, [" << label << "]\n"
                              << "   mov rdx, " << str.size() << "\n";
             }
             else if (auto* id = std::get_if<NodeExprIdent*>(&_return->expr->var)) {
-                  auto var = gen->get_var((*id)->ident.value.value());
+                  auto var = gen->get_var((*id)->ident.text());
                   int off = var.value().offset;
                   gen->m_output << "   mov rax, QWORD [r12 + " << off << "]\n"
                                 << "   mov rdx, QWORD [r12 + " << (off + 8) << "]\n";
@@ -484,10 +484,14 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
 
          } 
          else if (gen->m_curr_ret_type.base == DataType::CHAR) {
-            if (auto* lit = std::get_if<NodeExprCharLit*>(&_return->expr->var))
-               gen->m_output << "   mov al, '" << (*lit)->CHAR_LIT.value.value() << "'\n";
+            if (auto* lit = std::get_if<NodeExprCharLit*>(&_return->expr->var)) {
+               char ch = (*lit)->CHAR_LIT.char_val();
+               gen->m_output << "   mov al, '";
+               if (ch == '\'') gen->m_output << "\\";
+               gen->m_output << ch << "'\n";
+            }
             else if (auto* id = std::get_if<NodeExprIdent*>(&_return->expr->var)) {
-               auto var = gen->get_var((*id)->ident.value.value());
+               auto var = gen->get_var((*id)->ident.text());
                int off = var.value().offset;
                gen->m_output << "   mov al, byte [r12 + " << off << "]\n";
             }
@@ -529,8 +533,18 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
                gen->m_output << "   call print_int\n";
                break;
             case DataType::STR: {
-               if (auto* lit = std::get_if<NodeExprStrLit*>(&p->expr->var)) {
-                  const std::string& bytes = (*lit)->STR_LIT.value.value();
+               if (!p->expr) {
+                  if (p->nwln) {
+                     gen->m_output << "   mov byte [print_buf], LF\n"
+                                   << "   mov rax, SYS_write\n"
+                                   << "   mov rdi, STDOUT\n"
+                                   << "   mov rsi, print_buf\n"
+                                   << "   mov rdx, 1\n"
+                                   << "   syscall\n";
+                  }
+               }
+               else if (auto* lit = std::get_if<NodeExprStrLit*>(&p->expr->var)) {
+                  const std::string& bytes = (*lit)->STR_LIT.text();
                   std::string label = gen->add_string(bytes);
 
                   gen->m_output << "   mov rax, SYS_write\n"
@@ -540,8 +554,8 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
                                 << "   syscall\n";
                }
                else if (auto* id = std::get_if<NodeExprIdent*>(&p->expr->var)) {
-                  auto var = gen->get_var((*id)->ident.value.value());
-                  if (!var.has_value()) { std::cerr << "Undeclared identifier: " << (*id)->ident.value.value() << std::endl; gen->total_fail(); }
+                  auto var = gen->get_var((*id)->ident.text());
+                  if (!var.has_value()) { std::cerr << "Undeclared identifier: " << (*id)->ident.text() << std::endl; gen->total_fail(); }
                   int off = var.value().offset;
                   gen->m_output << "   mov rsi, QWORD [r12 + " << off << "]\n"
                                 << "   mov rdx, QWORD [r12 + " << (off + 8) << "]\n"
@@ -708,7 +722,7 @@ void ASMGenerator::gen_function(const NodeFunction* func) {
    if (func->has_ret_type) m_curr_ret_type.base = Symbols::tok_dt(func->ret_type.type); /** TODO: Fix parsing of function ret type to look for arrays */
    else m_curr_ret_type = TypeInfo {};
 
-   m_output << func->name.value.value() << ":\n"
+   m_output << func->name.text() << ":\n"
             << "   push rbp\n";
 
    if (m_uses_frame_base) m_output << "   push r12\n";
@@ -726,7 +740,7 @@ void ASMGenerator::gen_function(const NodeFunction* func) {
       const TypeInfo& pt = p.type;
       int off = m_current_offset;
       m_vars.push_back(Var {
-         .name = p.name.value.value(),
+         .name = p.name.text(),
          .offset = off,
          .type = pt
       });
@@ -781,7 +795,7 @@ void ASMGenerator::gen_function(const NodeFunction* func) {
    for (const NodeFunction* f : m_prog.funcs) {
       TypeInfo ret;
       if(f->has_ret_type) ret.base = Symbols::tok_dt(f->ret_type.type);
-      m_funcs[f->name.value.value()] = ret;
+      m_funcs[f->name.text()] = ret;
    }
 
    for (const NodeFunction* func : m_prog.funcs)
@@ -1012,11 +1026,11 @@ TypeInfo ASMGenerator::resolve_have_type(NodeStmtHave* h) {
 
 bool ASMGenerator::try_load_simple(const NodeExpr* e, const std::string& reg) {
    if (auto* lit = std::get_if<NodeExprIntLit*>(&e->var)) {
-      m_output << "   mov " << reg << ", " << (*lit)->INT_LIT.value.value() << "\n";
+      m_output << "   mov " << reg << ", " << (*lit)->INT_LIT.int_val() << "\n";
       return true;
    }
    if (auto* id = std::get_if<NodeExprIdent*>(&e->var)) {
-      auto var = get_var((*id)->ident.value.value());
+      auto var = get_var((*id)->ident.text());
       if (var.has_value()) {
          m_output << "   mov " << reg << ", QWORD [r12 + " << var.value().offset << "]\n";
          return true;

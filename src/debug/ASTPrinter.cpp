@@ -1,6 +1,6 @@
 #include "ASTPrinter.h"
-#include "symbols/EscapeChars.h"
-#include "symbols/SymbolTable.h"
+#include "Core/EscapeChars.h"
+#include "Core/SymbolTable.h"
 
 std::string ASTPrinter::cmp_name(CmpExprType op) {
    switch (op) {
@@ -31,7 +31,7 @@ std::string ASTPrinter::bin_name(BinExprType op) {
 
 void ASTPrinter::print_function(const NodeFunction* func, int depth) {
    if (func == nullptr) { std::cout << pad(depth) << "<null func>\n"; return; }
-   std::cout << pad(depth) << "Function: " << func->name.value.value();
+   std::cout << pad(depth) << "Function: " << func->name.text();
    if (func->has_ret_type)
       std::cout << " -> " << to_string(func->ret_type.type);
    std::cout << "\n";
@@ -41,7 +41,7 @@ void ASTPrinter::print_function(const NodeFunction* func, int depth) {
       for (const NodeParam& p : func->params)
          std::cout << pad(depth + 2)
                    << Symbols::dt_str(p.type.base) << " "
-                   << p.name.value.value() << "\n";
+                   << p.name.text() << "\n";
    }
 
    std::cout << pad(depth + 1) << "Body:\n";
@@ -67,7 +67,7 @@ void ASTPrinter::print_stmt(const NodeStmt* stmt, int depth) {
          p->print_expr(s->expr, depth + 1);
       }
       void operator()(const NodeStmtHave* s) {
-         std::cout << pad(depth) << "Have: " << s->ident.value.value();
+         std::cout << pad(depth) << "Have: " << s->ident.text();
          if (s->resolved.is_array) { 
             std::cout << "     Array type: " 
                       << to_string(Symbols::dt_tok(s->resolved.base)) << std::endl;
@@ -112,7 +112,7 @@ void ASTPrinter::print_stmt(const NodeStmt* stmt, int depth) {
          p->print_expr(s->expr, depth + 1);
       }
       void operator()(const NodeStmtAssign* s) {
-         std::cout << pad(depth) << "Assign: " << s->ident.value.value() << "\n";
+         std::cout << pad(depth) << "Assign: " << s->ident.text() << "\n";
          p->print_expr(s->expr, depth + 1);
       }
       void operator()(const NodeStmtReturn* s) {
@@ -139,10 +139,10 @@ void ASTPrinter::print_expr(const NodeExpr* expr, int depth) {
       int depth;
 
       void operator()(const NodeExprIntLit* e) {
-         std::cout << pad(depth) << "IntLit: " << e->INT_LIT.value.value() << "\n";
+         std::cout << pad(depth) << "IntLit: " << e->INT_LIT.int_val() << "\n";
       }
       void operator()(const NodeExprIdent* e) {
-         std::cout << pad(depth) << "Ident: " << e->ident.value.value() << "\n";
+         std::cout << pad(depth) << "Ident: " << e->ident.text() << "\n";
       }
       void operator()(const NodeBinExpr* e) {
          std::cout << pad(depth) << "BinExpr: " << bin_name(e->operation) << "\n";
@@ -151,24 +151,24 @@ void ASTPrinter::print_expr(const NodeExpr* expr, int depth) {
       }
       void operator()(const NodeExprIncDec* e) {
          std::cout << pad(depth) << "IncDec:\n" 
-                   << pad(depth + 1) << "Ident:  " << e->ident.value.value() << "\n"
+                   << pad(depth + 1) << "Ident:  " << e->ident.text() << "\n"
                    << pad(depth + 1) << "Mode:   " << (e->is_increment ? "ADD\n" : "SUB\n")
                    << pad(depth + 1) << "Prefix: " << (e->is_prefix ? "True\n" : "False\n");
       }
       void operator()(const NodeExprCall* e) {
-         std::cout << pad(depth) << "Call: " << e->name.value.value() << "\n";
+         std::cout << pad(depth) << "Call: " << e->name.text() << "\n";
          for (const NodeExpr* arg : e->args)
             p->print_expr(arg, depth + 1);
       }
       void operator()(const NodeExprCharLit* e) {
-         if (Esc::is_esc_char(e->CHAR_LIT.value.value().at(0)))
-            std::cout << pad(depth) << "CharLit: " << Esc::esc_str(e->CHAR_LIT.value.value().at(0)) << "\n";
+         if (Esc::is_esc_char(e->CHAR_LIT.char_val()))
+            std::cout << pad(depth) << "CharLit: " << Esc::esc_str(e->CHAR_LIT.char_val()) << "\n";
          else
-            std::cout << pad(depth) << "CharLit: " << e->CHAR_LIT.value.value() << "\n";
+            std::cout << pad(depth) << "CharLit: " << e->CHAR_LIT.char_val() << "\n";
       }
 
       void operator()(const NodeExprStrLit* str) {
-         std::cout << pad(depth) << "StrLit: " << str->STR_LIT.value.value() << "\n";
+         std::cout << pad(depth) << "StrLit: " << str->STR_LIT.text() << "\n";
       }
 
       void operator()(const NodeExprRead* r) {
@@ -192,7 +192,7 @@ void ASTPrinter::print_expr(const NodeExpr* expr, int depth) {
 
       void operator()(const NodeExprIndex* i) {
          std::cout << pad(depth) << "Index Expr:\n";
-         std::cout << pad(depth + 1) << "Ident: " << i->ident.value.value() << "\n";
+         std::cout << pad(depth + 1) << "Ident: " << i->ident.text() << "\n";
          p->print_expr(i->index, depth + 2);
       }
    };

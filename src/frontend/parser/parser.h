@@ -1,10 +1,8 @@
 #ifndef PARSER_H
 #define PARSER_H
 
-#include "ast/arena.h"
-#include "ast/Nodes.h"
-#include "ErrAndRep/ErrorHandler.h"
-#include "lexer/Tokens.h"
+#include "Core/Nodes.h"
+#include "Core/Tokens.h"
 #include <variant>
 
 // enum class UnaryExprType { NEGATIVE };
@@ -76,7 +74,6 @@ private:
    size_t m_index = 0;
    
    Compiler& m_ctx;
-   
 };
 
 int cond_precidence(CmpExprType);

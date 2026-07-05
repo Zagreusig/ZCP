@@ -66,21 +66,12 @@ println(readi());
 ```
 
 # Planned Features:
-1. Strings
-2. If / while / for not requiring a {} pair
+1. If / while / for not requiring a {} pair
+2. Float & bool types
 3. #define
 4. #include & headers
 5. structs -> later classes
 6. Ternary operators
-
-# NOTE:  
-I'm planning to implement an optimization pass after the assembly code generates. I'm using the stack to move things between calls and such,
-which internally always has the evaluator push and the caller pop. This will (often times) generate useless instruction blocks. Such as a function doing:
-"mov rax, rbx
- push rax
- pop rax
- mov rbx, rax"
-This will use a technique called a "peephole" pass. It will look at 2-3 adjacent instructions to rewrite or remove wasteful patterns / instructions.
 
 
 # Compiler Flags:
@@ -90,6 +81,7 @@ You are able to combine multiple flags into one, or keep them as separate statem
 ```
 - `-h` Displays help (there needs to be a file ending in .z at the moment).
 - `-a` Leaves the generated assembly file.
+- `-p` Leaves the original, pre-optimization assembly file.
 - `-j` Leaves the generated object file.
 - `-t` Prints the lexer's tokens `{ TOKENTYPE, \<value>, line:col }
 - `-s` Prints a visual representation of the parser's AST

@@ -1,13 +1,13 @@
 #ifndef ASTPRINTER_H
 #define ASTPRINTER_H
 
-#include "Nodes.h"
+#include "Core/Nodes.h"
 #include <iostream>
 #include <string>
 
 class ASTPrinter {
 public:
-   explicit ASTPrinter(const NodeProg prog) : m_prog(prog) {} 
+   explicit ASTPrinter(const NodeProg& prog) : m_prog(prog) {} 
 
    void print() {
       std::cout << "Program\n";
@@ -19,7 +19,7 @@ public:
    static std::string bin_name(BinExprType);
 
 private:
-   const NodeProg m_prog;
+   const NodeProg& m_prog;
 
    void print_function(const NodeFunction*, int);
    void print_stmt(const NodeStmt*, int);

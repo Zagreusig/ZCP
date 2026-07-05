@@ -1,16 +1,10 @@
 #ifndef COMPILER_H
 #define COMPILER_H
 
-#include "lexer/lexer.h"
-#include "parser/parser.h"
-#include "analyzer/analyer.h"
-#include "codegen/generation.h"
-#include "optimizations/optimizer.h"
-#include "ast/arena.h"
-#include "ErrAndRep/ErrorHandler.h"
-#include "utils/syscaller.h"
+#include "Core/Nodes.h"
+#include "Core/arena.h"
+#include "Core/ErrorHandler.h"
 #include "utils/flags.h"
-#include <iostream>
 #include <string>
 #include <vector>
 

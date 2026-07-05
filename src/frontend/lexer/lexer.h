@@ -1,9 +1,8 @@
 #ifndef LEXER_H
 #define LEXER_H
 
-#include "ErrAndRep/ErrorHandler.h"
-#include "Tokens.h"
-#include <iostream>
+#include "Core/ErrorHandler.h"
+#include "Core/Tokens.h"
 #include <optional>
 #include <string>
 #include <vector>
@@ -26,7 +25,6 @@ private:
       return c;
    }
    inline Token resolveSymbol(char);
-   void synchronize();
 
    Compiler& m_ctx;
 

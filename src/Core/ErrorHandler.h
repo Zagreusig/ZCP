@@ -21,7 +21,7 @@ inline std::string str(CompPhase phase) {
 class CompilerError : public std::runtime_error {
 public:
    CompilerError(CompPhase phase, int line, int col, const std::string& msg)
-      : std::runtime_error(msg), m_line(line), m_col(col), m_phase(phase) {}
+      : std::runtime_error(msg), m_phase(phase), m_line(line), m_col(col) {}
    CompPhase phase() const { return m_phase; }
    inline int line() const { return m_line; }
    inline int col()  const { return m_col; }

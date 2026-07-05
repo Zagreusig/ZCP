@@ -1,6 +1,6 @@
 #include "analyer.h"
 #include "driver/compiler.h"
-#include "symbols/SymbolTable.h"
+#include "Core/SymbolTable.h"
 #include "utils/msc.h"
 #include <iostream>
 #include <string.h>
@@ -14,11 +14,11 @@ void Analyzer::analyze() {
    
       for (const NodeParam& p : f->params)
          sig.param_types.push_back(p.type);
-      m_func_sigs[f->name.value.value()] = sig;
+      m_func_sigs[f->name.text()] = sig;
    }
    
    for (NodeFunction* f : m_prog.funcs) {
-      m_curr_func = m_func_sigs[f->name.value.value()];
+      m_curr_func = m_func_sigs[f->name.text()];
       analyze_function(f);
    }
 }
@@ -93,14 +93,14 @@ void Analyzer::analyze_have(NodeStmtHave* h) {
 
    h->resolved = info;
    h->is_resolved = true;
-   declare(h->ident.value.value(), info);
+   declare(h->ident.text(), info);
 }
 
 
 void Analyzer::analyze_function(NodeFunction* f) {
    push_scope();
    for (const NodeParam& p : f->params)
-      declare(p.name.value.value(), p.type);
+      declare(p.name.text(), p.type);
 
    for (auto* stmt : f->body->stmts)
       analyze_stmt(stmt);
@@ -120,7 +120,7 @@ void Analyzer::analyze_stmt(NodeStmt* s) {
          TypeInfo rhs_t    = type_of(s->expr);
          if (!types_match(target_t, rhs_t))
             m_ctx.diag.error(CompPhase::Analysis, s->ident.line, s->ident.col,
-                            "Type mismatch in assignment to '" + s->ident.value.value() + "'.");
+                            "Type mismatch in assignment to '" + s->ident.text() + "'.");
       }
       
       else if constexpr (std::is_same_v<T, NodeStmtReturn>) {
@@ -235,10 +235,10 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
          return TypeInfo { .base = DataType::STR };
 
       else if constexpr (std::is_same_v<T, NodeExprIdent>) {
-         auto found = lookup(node->ident.value.value());
+         auto found = lookup(node->ident.text());
          if (found.has_value()) return found.value();
          m_ctx.diag.error(CompPhase::Analysis, node->ident.line, node->ident.col,
-                      "Use of undeclared identifier '" + node->ident.value.value() + "'.");
+                      "Use of undeclared identifier '" + node->ident.text() + "'.");
          return {};
       }
 
@@ -248,11 +248,11 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
       else if constexpr (std::is_same_v<T, NodeExprCall>) {
          for (auto* arg : node->args)
             type_of(arg); // stamping the arg as resolved; no return needed here
-         auto it = m_func_sigs.find(node->name.value.value());
+         auto it = m_func_sigs.find(node->name.text());
          
          if (it == m_func_sigs.end()) {
             m_ctx.diag.error(CompPhase::Analysis, node->name.line, node->name.col,
-                         "Call made to undeclared function '" + node->name.value.value() + "'.");
+                         "Call made to undeclared function '" + node->name.text() + "'.");
          
             for (auto* arg : node->args) type_of(arg); // still walk args to grab extra problems
             return {};
@@ -272,7 +272,7 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
             TypeInfo at = type_of(node->args[i]);
             if (i < sig.param_types.size() && !types_match(sig.param_types[i], at)) {
                m_ctx.diag.error(CompPhase::Analysis, node->name.line, node->name.col,
-                            "Argument " + std::to_string(i + 1) + " to '" + node->name.value.value() + 
+                            "Argument " + std::to_string(i + 1) + " to '" + node->name.text() + 
                             "' has mismatched type.");
             }
          }
@@ -281,7 +281,7 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
       }
 
       else if constexpr (std::is_same_v<T, NodeExprIncDec>)
-         return lookup(node->ident.value.value()).value_or(TypeInfo{});
+         return lookup(node->ident.text()).value_or(TypeInfo{});
       
       else if constexpr (std::is_same_v<T, NodeExprRead>) {
          switch (node->kind) {
@@ -299,7 +299,7 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
       }
 
       else if constexpr (std::is_same_v<T, NodeExprIndex>) {
-         auto arr = lookup(node->ident.value.value());
+         auto arr = lookup(node->ident.text());
          if (!arr.has_value()) { 
             m_ctx.diag.error(CompPhase::Analysis, node->ident.line, node->ident.col,
                          "This broken...."); return {}; }
