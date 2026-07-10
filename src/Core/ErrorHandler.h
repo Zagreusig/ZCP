@@ -1,55 +1,29 @@
 #ifndef ERRORHANDLER_H
 #define ERRORHANDLER_H
 
+#include "utils/phase.h"
+#include "debug/Logger.h"
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-enum class CompPhase { Lexing, Parsing, Analysis, CodeGen };
-
-inline std::string str(CompPhase phase) {
-   switch (phase) {
-      case CompPhase::Lexing:   return "Lexing";
-      case CompPhase::Parsing:  return "Parsing";
-      case CompPhase::Analysis: return "Analysis";
-      case CompPhase::CodeGen:  return "CodeGen";
-      default:                  return "Null";
-   }
-}
-
-class CompilerError : public std::runtime_error {
-public:
-   CompilerError(CompPhase phase, int line, int col, const std::string& msg)
-      : std::runtime_error(msg), m_phase(phase), m_line(line), m_col(col) {}
-   CompPhase phase() const { return m_phase; }
-   inline int line() const { return m_line; }
-   inline int col()  const { return m_col; }
-
-private:
-   CompPhase m_phase;
-   int m_line = 0;
-   int m_col = 0;
-};
-
 void report(const std::string&, const std::string&, const CompilerError&);
 std::string fetch_line(const std::string&, int);
 
-struct Diagnostic {
-   CompPhase phase;
-   int line, col;
-   std::string msg;
-};
-
 class Diagnostics {
 public:
+   void attach_logger(Logger* log) { m_log = log; }
+
    void error (CompPhase phase, int line, int col, const std::string& msg) {
       m_errors[phase].push_back({ phase, line, col, msg });
       err_count++;
+      if (m_log) m_log->error(phase, msg, line, col);
    }
 
    [[noreturn]] void fatal (CompPhase phase, int line, int col, const std::string& msg) {
       error(phase, line, col, msg);
+      if (m_log) m_log->mark_failed(phase);
       throw CompilerError(phase, line, col, msg);
    }
    bool has_errors() const { return !m_errors.empty(); }
@@ -61,6 +35,8 @@ private:
 
    std::unordered_map<CompPhase, std::vector<Diagnostic>> m_errors;
    long unsigned int err_count = 0;
+
+   Logger* m_log = nullptr;
 };
 
 

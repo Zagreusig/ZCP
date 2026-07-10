@@ -9,9 +9,13 @@
          "type": "cppdbg",
          "request": "launch",
          "name": "Launch Program",
-         "program": "${workspaceFolder}/RXRCOMPILER",
+         "program": "${workspaceFolder}/zcp-dev",
          "cwd": ".",
-         "args": [ "./tests/test.rx" ]
+         "args": [ "./tests/test.z" ],
+         "setupCommands": [
+            { "text": "set startup-with-shell off" },
+            { "text": "set debuginfod enabled off" }
+         ]
       }
    ]
 }

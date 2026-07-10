@@ -7,37 +7,85 @@
 #include "syscaller.h"
 #include "utils/flags.h"
 #include "debug/ASTPrinter.h"
+#include <chrono>
 #include <fstream>
 #include <iostream>
 
 
 int Compiler::run() {
-   if (has_flag(Flags::PRINT_FLAGS))
-      print_flags(flag_arr);
+   if (opts.log || opts.flags) {
+      std::ostringstream ss;
+      print_flags(ss, flag_arr);
+      if (opts.flags) std::cout << ss.str();
+      if (log.enabled()) log.set_flags(ss.str());
+   }
 
    Lexer lexer(*this);
-   auto tokens = lexer.lex();
-   if (has_flag(Flags::PRINT_TOKENS)) print_tokens(tokens);
-   if (diag.has_errors()) { diag.report_all(source, filename); return 1; }
+   std::vector<Token> tokens;
+   log.mark_phase(CompPhase::Lexing);
+   {
+      ScopedPhaseTimer t(log, CompPhase::Parsing);
+      tokens = lexer.lex();
+      if (opts.log || opts.toks) {
+         std::ostringstream ss;
+         print_tokens(ss, tokens);
+         if (opts.toks) std::cout << ss.str();
+         if (log.enabled()) log.set_tokens(ss.str());
+      }
+   }
+   if (errors(source, filename)) return 1;
+
 
    Parser parser(*this, tokens);
-   auto prog = parser.parse_prog();
-   if (has_flag(Flags::PRINT_AST) && prog) print_ast(*prog);
-   if (diag.has_errors()) { diag.report_all(source, filename); return 1; }
+   log.mark_phase(CompPhase::Parsing);
+
+   std::optional<NodeProg> prog;
+   {  
+      ScopedPhaseTimer t(log, CompPhase::Parsing);
+      prog = parser.parse_prog();
+   }
+   if ((opts.log || opts.ast) && prog) {
+      std::ostringstream ss;
+      print_ast(ss, *prog);
+      if (opts.ast) std::cout << ss.str();
+      if (log.enabled()) log.set_ast(ss.str());
+   } 
+   if (errors(source, filename)) return 1;
 
    Analyzer analyzer(*this, *prog);
-   analyzer.analyze();
-   if (diag.has_errors()) { diag.report_all(source, filename); return 1; }
+   log.mark_phase(CompPhase::Analysis);
+   {   
+      ScopedPhaseTimer t(log, CompPhase::Analysis);
+      analyzer.analyze();
+   }
+
+   if (errors(source, filename)) return 1;
 
    ASMGenerator gen(*this, *prog);
-   m_orig = gen.build();
-   if (diag.has_errors()) { diag.report_all(source, filename); return 1; }
+   log.mark_phase(CompPhase::CodeGen);
+   {
+      ScopedPhaseTimer t(log, CompPhase::CodeGen);
+      m_orig = gen.build();
+   }
+   if (log.enabled()) log.set_orig_asm(m_orig);
+   if (errors(source, filename)) return 1;
 
    Optimizer optimizer(m_orig);
-   optimizer.optimize();
+   log.mark_phase(CompPhase::Optimization);
+   {
+      ScopedPhaseTimer t(log, CompPhase::Optimization);
+      optimizer.optimize();
+   }
    m_asm_out = optimizer.finish();
 
-   // if (diag.has_errors()) { diag.report_all(source, filename); return 1; }
+   if (log.enabled()) {
+      log.record_passes(optimizer.passes());
+      log.set_opt_asm(optimizer.finish());
+
+      std::fstream _log("compilation_log.txt", std::ios::out);
+      log.flush(_log);
+   }
+
    {
       std::fstream _asm; _asm.open(prog_name + ".asm", std::ios::out);
       std::fstream _orig; _orig.open(prog_name + "_preop.asm", std::ios::out);
@@ -61,27 +109,26 @@ int Compiler::run() {
 }
 
 
-void Compiler::print_tokens(std::vector<Token> toks) {
+void Compiler::print_tokens(std::ostringstream& ss, std::vector<Token> toks) {
    for (auto& t : toks) {
-      std::cout << "{ " << to_string(t.type);
-
-      if (t.is_text())      std::cout << ", " << t.text();
-      else if (t.is_int())  std::cout << ", " << t.int_val();
-      else if (t.is_char()) std::cout << ", " << t.char_val();
-
-      std::cout << " " << t.line << ':' << t.col << " }\n";
+      ss << "{ " << to_string(t.type);
+      if (t.is_text())      ss << ", " << t.text();
+      else if (t.is_int())  ss << ", " << t.int_val();
+      else if (t.is_char()) ss << ", " << t.char_val();
+   
+      ss << " " << t.line << ':' << t.col << " }\n";
    }
-   std::cout << std::endl;
+   ss << std::endl;
+} 
+
+
+void Compiler::print_flags(std::ostringstream& ss, std::vector<Flags> flags) {
+   for (auto& flag : flags) ss << to_str(flag) << " ";
+   ss << std::endl;
 }
 
 
-void Compiler::print_flags(std::vector<Flags> flags) {
-   for (auto& flag : flags) std::cout << to_str(flag) << " ";
-   std::cout << std::endl;
-}
-
-
-void Compiler::print_ast(const NodeProg prog) {
-   ASTPrinter p(prog);
+void Compiler::print_ast(std::ostringstream& ss, const NodeProg prog) {
+   ASTPrinter p(prog, ss);
    p.print();
 }

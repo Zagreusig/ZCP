@@ -21,6 +21,9 @@ INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
 COMMON_FLAGS := $(INC_FLAGS) -MMD -MP -O2 -std=c++23
 
+IWYU := include-what-you-use
+IWYU_FLAGS := $(INC_FLAGS) -std=c++23
+
 ifeq ($(BUILD_MODE),live)
 	CPPFLAGS := $(COMMON_FLAGS)
 else
@@ -45,6 +48,18 @@ $(TARGET_EXEC): $(OBJS)
 $(BUILD_DIR)/%.cpp.o: %.cpp
 	@mkdir -p $(dir $@)
 	@$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+
+
+.PHONY: iwyu
+iwyu:
+	@for src in $(SRCS); do\
+		echo "== $$src =="; \
+		$(IWYU) $(IWYU_FLAGS) -Xiwyu --error_always $$src 2>&1 | grep -v "^$$"; \
+	done
+
+.PHONY: iwyu-fix
+iwyu-fix:
+	@$(IWYU) $(IWYU_FLAGS) $(SRCS) 2>&1 | fix_includes.py
 
 
 clean:

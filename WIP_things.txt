@@ -1,0 +1,4 @@
+array params (reference) Arr pass by ptr. Gets arr's base addr, can index through it.
+
+working on includes
+   -> per-file instance difficult, start with a merge style.

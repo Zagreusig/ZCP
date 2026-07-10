@@ -30,29 +30,29 @@ std::string ASTPrinter::bin_name(BinExprType op) {
 }
 
 void ASTPrinter::print_function(const NodeFunction* func, int depth) {
-   if (func == nullptr) { std::cout << pad(depth) << "<null func>\n"; return; }
-   std::cout << pad(depth) << "Function: " << func->name.text();
+   if (func == nullptr) { m_out << pad(depth) << "<null func>\n"; return; }
+   m_out << pad(depth) << "Function: " << func->name.text();
    if (func->has_ret_type)
-      std::cout << " -> " << to_string(func->ret_type.type);
-   std::cout << "\n";
+      m_out << " -> " << to_string(func->ret_type.type);
+   m_out << "\n";
 
    if (!func->params.empty()) {
-      std::cout << pad(depth + 1) << "Params:\n";
+      m_out << pad(depth + 1) << "Params:\n";
       for (const NodeParam& p : func->params)
-         std::cout << pad(depth + 2)
+         m_out << pad(depth + 2)
                    << Symbols::dt_str(p.type.base) << " "
                    << p.name.text() << "\n";
    }
 
-   std::cout << pad(depth + 1) << "Body:\n";
-   if (func->body == nullptr) { std::cout << pad(depth + 2) << "<null body>\n"; return; }
+   m_out << pad(depth + 1) << "Body:\n";
+   if (func->body == nullptr) { m_out << pad(depth + 2) << "<null body>\n"; return; }
    print_scope(func->body, depth + 2);
 }
 
 void ASTPrinter::print_scope(const NodeScopeBlock* scope, int depth) {
-   if (scope == nullptr) { std::cout << pad(depth) << "<null scope>\n"; return; }
+   if (scope == nullptr) { m_out << pad(depth) << "<null scope>\n"; return; }
    for (const NodeStmt* stmt : scope->stmts) {
-      if (stmt == nullptr) { std::cout << pad(depth) << "<null stmt>\n"; continue; }
+      if (stmt == nullptr) { m_out << pad(depth) << "<null stmt>\n"; continue; }
       print_stmt(stmt, depth);
    }
 }
@@ -63,68 +63,68 @@ void ASTPrinter::print_stmt(const NodeStmt* stmt, int depth) {
       int depth;
 
       void operator()(const NodeStmtExit* s) {
-         std::cout << pad(depth) << "Exit\n";
+         p->m_out << pad(depth) << "Exit\n";
          p->print_expr(s->expr, depth + 1);
       }
       void operator()(const NodeStmtHave* s) {
-         std::cout << pad(depth) << "Have: " << s->ident.text();
+         p->m_out << pad(depth) << "Have: " << s->ident.text();
          if (s->resolved.is_array) { 
-            std::cout << "     Array type: " 
+            p->m_out << "     Array type: " 
                       << to_string(Symbols::dt_tok(s->resolved.base)) << std::endl;
          }
          p->print_expr(s->expr, depth + 1);
       }
       void operator()(const NodeScopeBlock* s) {
-         std::cout << pad(depth) << "Scope\n";
+         p->m_out << pad(depth) << "Scope\n";
          p->print_scope(s, depth + 1);
       }
       void operator()(const NodeStmtIf* s) {
-         std::cout << pad(depth) << "If\n";
-         std::cout << pad(depth + 1) << "Condition:\n";
+         p->m_out << pad(depth) << "If\n";
+         p->m_out << pad(depth + 1) << "Condition:\n";
          p->print_condition(s->condition, depth + 2);
-         std::cout << pad(depth + 1) << "Then:\n";
+         p->m_out << pad(depth + 1) << "Then:\n";
          p->print_scope(s->body, depth + 2);
          if (s->else_body) {
-            std::cout << pad(depth + 1) << "Else:\n";
+            p->m_out << pad(depth + 1) << "Else:\n";
             p->print_scope(s->else_body, depth + 2);
          }
       }
       void operator()(const NodeStmtWhile* s) {
-         std::cout << pad(depth) << "While\n";
-         std::cout << pad(depth + 1) << "Condition:\n";
+         p->m_out << pad(depth) << "While\n";
+         p->m_out << pad(depth + 1) << "Condition:\n";
          p->print_condition(s->condition, depth + 2);
-         std::cout << pad(depth + 1) << "Body:\n";
+         p->m_out << pad(depth + 1) << "Body:\n";
          p->print_scope(s->body, depth + 2);
       }
       void operator()(const NodeStmtFor* s) {
-         std::cout << pad(depth) << "For\n";
-         std::cout << pad(depth + 1) << "Init:\n";
+         p->m_out << pad(depth) << "For\n";
+         p->m_out << pad(depth + 1) << "Init:\n";
          p->print_stmt(s->init, depth + 2);
-         std::cout << pad(depth + 1) << "Condition:\n";
+         p->m_out << pad(depth + 1) << "Condition:\n";
          p->print_condition(s->condition, depth + 2);
-         std::cout << pad(depth + 1) << "Increment:\n";
+         p->m_out << pad(depth + 1) << "Increment:\n";
          p->print_stmt(s->increment, depth + 2);
-         std::cout << pad(depth + 1) << "Body:\n";
+         p->m_out << pad(depth + 1) << "Body:\n";
          p->print_scope(s->body, depth + 2);
       }
       void operator()(const NodeStmtPrint* s) {
-         std::cout << pad(depth) << (s->nwln ? "Println:\n" : "Print:\n");
+         p->m_out << pad(depth) << (s->nwln ? "Println:\n" : "Print:\n");
          p->print_expr(s->expr, depth + 1);
       }
       void operator()(const NodeStmtAssign* s) {
-         std::cout << pad(depth) << "Assign: " << s->ident.text() << "\n";
+         p->m_out << pad(depth) << "Assign: " << s->ident.text() << "\n";
          p->print_expr(s->expr, depth + 1);
       }
       void operator()(const NodeStmtReturn* s) {
-         std::cout << pad(depth) << "Return\n";
+         p->m_out << pad(depth) << "Return\n";
          p->print_expr(s->expr, depth + 1);
       }
       void operator()(const NodeStmtExpr* s) {
-         std::cout << pad(depth) << "StmtExpr:\n";
+         p->m_out << pad(depth) << "StmtExpr:\n";
          p->print_expr(s->expr, depth + 1);
       }
       void operator()(const NodeStmtScope* s) {
-         std::cout << pad(depth) << "Scope:\n";
+         p->m_out << pad(depth) << "Scope:\n";
          p->print_scope(s->scope, depth + 1);
       }
    };
@@ -132,67 +132,67 @@ void ASTPrinter::print_stmt(const NodeStmt* stmt, int depth) {
 }
 
 void ASTPrinter::print_expr(const NodeExpr* expr, int depth) {
-   if (expr == nullptr) { std::cout << pad(depth) << "<null>\n"; return; }
+   if (expr == nullptr) { m_out << pad(depth) << "<null>\n"; return; }
 
    struct Visitor {
       ASTPrinter* p;
       int depth;
 
       void operator()(const NodeExprIntLit* e) {
-         std::cout << pad(depth) << "IntLit: " << e->INT_LIT.int_val() << "\n";
+         p->m_out << pad(depth) << "IntLit: " << e->INT_LIT.int_val() << "\n";
       }
       void operator()(const NodeExprIdent* e) {
-         std::cout << pad(depth) << "Ident: " << e->ident.text() << "\n";
+         p->m_out << pad(depth) << "Ident: " << e->ident.text() << "\n";
       }
       void operator()(const NodeBinExpr* e) {
-         std::cout << pad(depth) << "BinExpr: " << bin_name(e->operation) << "\n";
+         p->m_out << pad(depth) << "BinExpr: " << bin_name(e->operation) << "\n";
          p->print_expr(e->left,  depth + 1);
          p->print_expr(e->right, depth + 1);
       }
       void operator()(const NodeExprIncDec* e) {
-         std::cout << pad(depth) << "IncDec:\n" 
+         p->m_out << pad(depth) << "IncDec:\n" 
                    << pad(depth + 1) << "Ident:  " << e->ident.text() << "\n"
                    << pad(depth + 1) << "Mode:   " << (e->is_increment ? "ADD\n" : "SUB\n")
                    << pad(depth + 1) << "Prefix: " << (e->is_prefix ? "True\n" : "False\n");
       }
       void operator()(const NodeExprCall* e) {
-         std::cout << pad(depth) << "Call: " << e->name.text() << "\n";
+         p->m_out << pad(depth) << "Call: " << e->name.text() << "\n";
          for (const NodeExpr* arg : e->args)
             p->print_expr(arg, depth + 1);
       }
       void operator()(const NodeExprCharLit* e) {
          if (Esc::is_esc_char(e->CHAR_LIT.char_val()))
-            std::cout << pad(depth) << "CharLit: " << Esc::esc_str(e->CHAR_LIT.char_val()) << "\n";
+            p->m_out << pad(depth) << "CharLit: " << Esc::esc_str(e->CHAR_LIT.char_val()) << "\n";
          else
-            std::cout << pad(depth) << "CharLit: " << e->CHAR_LIT.char_val() << "\n";
+            p->m_out << pad(depth) << "CharLit: " << e->CHAR_LIT.char_val() << "\n";
       }
 
       void operator()(const NodeExprStrLit* str) {
-         std::cout << pad(depth) << "StrLit: " << str->STR_LIT.text() << "\n";
+         p->m_out << pad(depth) << "StrLit: " << str->STR_LIT.text() << "\n";
       }
 
       void operator()(const NodeExprRead* r) {
-         std::cout << pad(depth);
+         p->m_out << pad(depth);
          switch (r->kind) {
-            case ReadKind::Char:  std::cout << "Readc\n"; break;
-            case ReadKind::Int:   std::cout << "Readi\n"; break;
-            case ReadKind::Float: std::cout << "Readf\n"; break;
-            case ReadKind::Line:  std::cout << "Reads\n"; break;
-            default:              std::cout << "Read<NULL>\n"; break;
+            case ReadKind::Char:  p->m_out << "Readc\n"; break;
+            case ReadKind::Int:   p->m_out << "Readi\n"; break;
+            case ReadKind::Float: p->m_out << "Readf\n"; break;
+            case ReadKind::Line:  p->m_out << "Reads\n"; break;
+            default:              p->m_out << "Read<NULL>\n"; break;
          }
       }
 
       void operator()(const NodeExprArrayLit* a) {
-         std::cout << pad(depth) << "Elements:\n";
+         p->m_out << pad(depth) << "Elements:\n";
          for (size_t i = 0; i < a->elements.size(); i++) {
-            std::cout << pad(depth) << i << ": ";
+            p->m_out << pad(depth) << i << ": ";
             p->print_expr(a->elements.at(i), depth + 1);
          }
       }
 
       void operator()(const NodeExprIndex* i) {
-         std::cout << pad(depth) << "Index Expr:\n";
-         std::cout << pad(depth + 1) << "Ident: " << i->ident.text() << "\n";
+         p->m_out << pad(depth) << "Index Expr:\n";
+         p->m_out << pad(depth + 1) << "Ident: " << i->ident.text() << "\n";
          p->print_expr(i->index, depth + 2);
       }
    };
@@ -200,7 +200,7 @@ void ASTPrinter::print_expr(const NodeExpr* expr, int depth) {
 }
 
 void ASTPrinter::print_condition(const NodeCondition* cond, int depth) {
-   if (cond == nullptr) { std::cout << pad(depth) << "<null cond>\n"; return; }
+   if (cond == nullptr) { m_out << pad(depth) << "<null cond>\n"; return; }
 
    struct Visitor {
       ASTPrinter* p;
@@ -208,16 +208,16 @@ void ASTPrinter::print_condition(const NodeCondition* cond, int depth) {
 
       void operator()(const NodeCmpCondition* c) {
          if (c->operation == CmpExprType::NONE) {
-            std::cout << pad(depth) << "Cmp: (bare expr, truthy)\n";
+            p->m_out << pad(depth) << "Cmp: (bare expr, truthy)\n";
             p->print_expr(c->left, depth + 1);
          } else {
-            std::cout << pad(depth) << "Cmp: " << cmp_name(c->operation) << "\n";
+            p->m_out << pad(depth) << "Cmp: " << cmp_name(c->operation) << "\n";
             p->print_expr(c->left,  depth + 1);
             p->print_expr(c->right, depth + 1);
          }
       }
       void operator()(const NodeLogicCondition* c) {
-         std::cout << pad(depth) << "Logic: " << cmp_name(c->operation) << "\n";
+         p->m_out << pad(depth) << "Logic: " << cmp_name(c->operation) << "\n";
          p->print_condition(c->left,  depth + 1);
          p->print_condition(c->right, depth + 1);
       }

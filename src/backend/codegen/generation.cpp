@@ -791,7 +791,6 @@ void ASMGenerator::gen_function(const NodeFunction* func) {
    emit_print_int();
    emit_read_int();
    emit_read_char();
-   
    for (const NodeFunction* f : m_prog.funcs) {
       TypeInfo ret;
       if(f->has_ret_type) ret.base = Symbols::tok_dt(f->ret_type.type);
@@ -984,7 +983,6 @@ void ASMGenerator::emit_read_int() {
             << "   pop r12\n"
             << "   pop rbx\n"
             << "   ret\n\n";
-
 }
 
 

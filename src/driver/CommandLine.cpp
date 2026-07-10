@@ -15,6 +15,7 @@ namespace {
       { 'p', "keep-preop", Flags::PRESERVE_PRE_OP, false, "Keep the pre-optimization .asm" },
       { 'o', "output",     Flags::USER_NAME,       true,  "Set the output program name (-o <name>)" },
       { 'h', "help",       Flags::HALLLLLPUH,      false, "Print this help and exit." },
+      { 'd', "debug",      Flags::DEBUG,           false, "Logs every action for debugging." },
    };
 
 

@@ -12,8 +12,10 @@ public:
    std::string peephole();
 
    // DEBUG
-   std::string orig() { return m_orig; }
+   std::string orig()   { return m_orig; }
    std::string finish() { return m_optimized; }
+   int passes()         { return m_passes; }
+
 private:
    bool is_push(const std::string&, std::string&);
    bool is_pop(const std::string&, std::string&);
@@ -27,6 +29,7 @@ private:
 
    void trim(std::string&);
 
+   int         m_passes = 0;
    std::string m_orig;
    std::string m_optimized;
 };

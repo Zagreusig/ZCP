@@ -761,14 +761,17 @@ inline std::optional<Token> Parser::try_consume(TokenType type) {
 
 // Something went wrong and now we try to recover parsing to report multiple errors at once.
 void Parser::synchronize() {
+   m_ctx.log.trace(CompPhase::Parsing, "Synchronizing...");
    while (peek().has_value()) {
       if (peek().value().type == TokenType::SEMICOLON) { consume(); return; }
       TokenType t = peek().value().type;
       if (t == TokenType::CLOSE_BRACE || t == TokenType::IF || t == TokenType::WHILE ||
           t == TokenType::FOR || t == TokenType::HAVE || t == TokenType::RETURN ||
           t == TokenType::PRINT || t == TokenType::PRINTLN || t == TokenType::READC ||
-          t == TokenType::READF || t == TokenType::READI || t == TokenType::READS)
+          t == TokenType::READF || t == TokenType::READI || t == TokenType::READS) {
+         
          return;
+      }
       consume();
    }
 }

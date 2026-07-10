@@ -7,10 +7,11 @@
 
 class ASTPrinter {
 public:
-   explicit ASTPrinter(const NodeProg& prog) : m_prog(prog) {} 
+   explicit ASTPrinter(const NodeProg& prog, std::ostream& out) 
+      : m_prog(prog), m_out(out) {} 
 
    void print() {
-      std::cout << "Program\n";
+      m_out << "Program\n";
       for (const NodeFunction* func : m_prog.funcs)
          print_function(func, 1);
    }
@@ -20,6 +21,7 @@ public:
 
 private:
    const NodeProg& m_prog;
+   std::ostream& m_out;
 
    void print_function(const NodeFunction*, int);
    void print_stmt(const NodeStmt*, int);
