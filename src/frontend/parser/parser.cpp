@@ -1,13 +1,17 @@
-#include <iostream>
 #include <optional>
 #include <vector>
+#include <variant>
+
 #include "Core/arena.h"
-#include "debug/ASTPrinter.h"
 #include "Core/Nodes.h"
 #include "driver/compiler.h"
 #include "parser.h"
 #include "Core/Tokens.h"
 #include "Core/SymbolTable.h"
+#include "ErrorHandler.h"
+#include "Logger.h"
+#include "TokenTable.h"
+#include "phase.h"
 
 
 [[nodiscard]] inline std::optional<Token> Parser::peek(int offset = 0) const {

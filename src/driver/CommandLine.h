@@ -1,11 +1,13 @@
 #ifndef COMMAND_LINE_H
 #define COMMAND_LINE_H
 
-#include "utils/flags.h"
-
 #include <optional>
 #include <string>
 #include <vector>
+
+#include "utils/flags.h"
+
+enum class Flags;
 
 struct FlagSpec {
    char        short_name;  // -a

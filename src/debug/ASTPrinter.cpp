@@ -1,6 +1,14 @@
 #include "ASTPrinter.h"
+
+#include <stddef.h>
+#include <string_view>
+#include <variant>
+
 #include "Core/EscapeChars.h"
 #include "Core/SymbolTable.h"
+#include "Nodes.h"
+#include "TokenTable.h"
+#include "Tokens.h"
 
 std::string ASTPrinter::cmp_name(CmpExprType op) {
    switch (op) {

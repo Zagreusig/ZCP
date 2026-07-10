@@ -1,4 +1,11 @@
 #include "compiler.h"
+
+#include <fstream>
+#include <iostream>
+#include <optional>
+#include <sstream>
+#include <string_view>
+
 #include "frontend/lexer/lexer.h"
 #include "frontend/parser/parser.h"
 #include "frontend/analyzer/analyer.h"
@@ -7,9 +14,11 @@
 #include "syscaller.h"
 #include "utils/flags.h"
 #include "debug/ASTPrinter.h"
-#include <chrono>
-#include <fstream>
-#include <iostream>
+#include "Logger.h"
+#include "Nodes.h"
+#include "TokenTable.h"
+#include "Tokens.h"
+#include "phase.h"
 
 
 int Compiler::run() {

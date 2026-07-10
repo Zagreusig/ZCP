@@ -1,7 +1,11 @@
+#include <cstdlib>
+#include <optional>
+#include <string>
+#include <vector>
+
 #include "utils/file_util.h"
 #include "driver/CommandLine.h"
 #include "driver/compiler.h"
-#include <cstdlib>
 
 int main(int argc, char* argv[]) {
    auto args = CommandLine::parse(argc, argv);

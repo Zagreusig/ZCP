@@ -1,6 +1,10 @@
 #include "ErrorHandler.h"
+
+#include <stdio.h>
 #include <iostream>
-#include <sstream>
+#include <utility>
+
+#include "phase.h"
 
 void report(const std::string& src, const std::string& file, const CompilerError& e) {
    fprintf(stderr, "\x1b[1m%s:%d:%d: \x1b[31merror: \x1b[0m %s\n",

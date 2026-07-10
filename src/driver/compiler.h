@@ -1,13 +1,19 @@
 #ifndef COMPILER_H
 #define COMPILER_H
 
+#include <stdint.h>
+#include <string>
+#include <vector>
+#include <iosfwd>
+
 #include "Core/Nodes.h"
 #include "Core/arena.h"
 #include "Core/ErrorHandler.h"
 #include "utils/flags.h"
 #include "debug/Logger.h"
-#include <string>
-#include <vector>
+
+struct NodeProg;
+struct Token;
 
 struct Options {
    bool log;

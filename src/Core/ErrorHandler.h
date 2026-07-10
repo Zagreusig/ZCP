@@ -1,12 +1,14 @@
 #ifndef ERRORHANDLER_H
 #define ERRORHANDLER_H
 
-#include "utils/phase.h"
-#include "debug/Logger.h"
+#include <stddef.h>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#include "utils/phase.h"
+#include "debug/Logger.h"
 
 void report(const std::string&, const std::string&, const CompilerError&);
 std::string fetch_line(const std::string&, int);

@@ -1,10 +1,16 @@
 #ifndef GENERATION_H
 #define GENERATION_H
 
-#include "Core/Nodes.h"
-#include "Core/Tokens.h"
+#include <stddef.h>
 #include <sstream>
 #include <unordered_map>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "Core/Nodes.h"
+#include "Core/Tokens.h"
 
 class Compiler;
 

@@ -1,9 +1,18 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+#include <stddef.h>
+#include <variant>
+#include <optional>
+#include <string>
+#include <vector>
+
 #include "Core/Nodes.h"
 #include "Core/Tokens.h"
-#include <variant>
+
+enum class BinExprType;
+enum class CmpExprType;
+enum class TokenType;
 
 // enum class UnaryExprType { NEGATIVE };
 

@@ -2,6 +2,7 @@
 #define OPTIMIZER_H
 
 #include <sstream>
+#include <string>
 
 class Optimizer {
 public:

@@ -1,9 +1,10 @@
 #include "CommandLine.h"
 
 #include <cstdio>
-#include <cstring>
 #include <iostream>
 #include <string>
+
+#include "flags.h"
 
 namespace {
    const FlagSpec FLAG_SPECS[] = {

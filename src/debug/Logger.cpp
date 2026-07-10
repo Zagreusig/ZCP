@@ -1,8 +1,11 @@
 #include "Logger.h"
 
+#include <stddef.h>
 #include <fstream>
 #include <iomanip>
 #include <sstream>
+
+#include "phase.h"
 
 void Logger::trace(CompPhase p, std::string m, int l, int c) {
    log(p, Severity::Trace, std::move(m), l, c);

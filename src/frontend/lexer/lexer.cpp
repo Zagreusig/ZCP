@@ -1,8 +1,17 @@
 #include "lexer.h"
-#include "driver/compiler.h"
-#include "Core/EscapeChars.h"
+
 #include <iostream>
 #include <unordered_map>
+#include <cctype>
+#include <stdexcept>
+#include <utility>
+
+#include "driver/compiler.h"
+#include "Core/EscapeChars.h"
+#include "ErrorHandler.h"
+#include "TokenTable.h"
+#include "Tokens.h"
+#include "phase.h"
 
 const std::unordered_map<std::string, TokenType> KEYWORDS = {
    { "exit", TokenType::_EXIT }, { "return", TokenType::RETURN },

@@ -1,9 +1,14 @@
 #include "analyer.h"
+
+#include <type_traits>
+#include <variant>
+
 #include "driver/compiler.h"
 #include "Core/SymbolTable.h"
 #include "utils/msc.h"
-#include <iostream>
-#include <string.h>
+#include "ErrorHandler.h"
+#include "Nodes.h"
+#include "phase.h"
 
 void Analyzer::analyze() {
    for (const NodeFunction* f : m_prog.funcs) {

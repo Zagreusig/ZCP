@@ -1,16 +1,19 @@
-#include <algorithm>
-#include <cassert>
+#include <stdlib.h>
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <sstream>
 #include <utility>
+#include <type_traits>
+#include <variant>
+
 #include "Core/Nodes.h"
 #include "generation.h"
 #include "Core/Tokens.h"
 #include "Core/EscapeChars.h"
 #include "Core/SymbolTable.h"
 #include "utils/msc.h"
+#include "TokenTable.h"
 
 
 void ASMGenerator::gen_expr(const NodeExpr* expr) {

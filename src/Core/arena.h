@@ -1,9 +1,10 @@
 #ifndef ARENA_H
 #define ARENA_H
 
+#include <stdlib.h>
 #include <algorithm>
 #include <cstddef>
-#include <stdlib.h>
+#include <new>
 
 class ArenaAllocator {
    struct MemChunk {

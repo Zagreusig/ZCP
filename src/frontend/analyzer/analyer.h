@@ -1,12 +1,16 @@
 #ifndef ANALYER_H
 #define ANALYER_H
 
-#include "Core/Nodes.h"
-#include "Core/ErrorHandler.h"
+#include <stddef.h>
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <utility>
+
+#include "Core/Nodes.h"
+#include "Core/ErrorHandler.h"
+#include "Tokens.h"
 
 struct FuncSig {
    std::vector<TypeInfo> param_types;

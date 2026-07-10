@@ -1,9 +1,14 @@
 #ifndef ASTPRINTER_H
 #define ASTPRINTER_H
 
-#include "Core/Nodes.h"
 #include <iostream>
 #include <string>
+#include <vector>
+
+#include "Core/Nodes.h"
+
+enum class BinExprType;
+enum class CmpExprType;
 
 class ASTPrinter {
 public:

@@ -1,11 +1,14 @@
 #ifndef LOGGER_H
 #define LOGGER_H
 
-#include "utils/phase.h"
 #include <string>
 #include <vector>
 #include <chrono>
 #include <unordered_map>
+#include <iosfwd>
+#include <utility>
+
+#include "utils/phase.h"
 
 enum class Severity { Trace, Info, Warn, Error };
 

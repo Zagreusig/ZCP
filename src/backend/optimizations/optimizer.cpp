@@ -1,9 +1,14 @@
 #include "optimizer.h"
-#include "utils/msc.h"
-#include <fstream>
-#include <iostream>
+
+#include <stddef.h>
 #include <set>
 #include <vector>
+#include <cctype>
+#include <sstream>
+#include <unordered_map>
+#include <utility>
+
+#include "utils/msc.h"
 
 void Optimizer::optimize() {
    m_optimized = m_orig;

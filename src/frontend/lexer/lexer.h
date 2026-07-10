@@ -1,11 +1,13 @@
 #ifndef LEXER_H
 #define LEXER_H
 
-#include "Core/ErrorHandler.h"
-#include "Core/Tokens.h"
+#include <stddef.h>
 #include <optional>
 #include <string>
 #include <vector>
+
+#include "Core/ErrorHandler.h"
+#include "Core/Tokens.h"
 
 class Compiler;
 
