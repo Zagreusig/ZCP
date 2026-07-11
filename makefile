@@ -110,6 +110,7 @@ clean:
 	@$(MAKE) deldir -i -s
 	@$(MAKE) rmExecs -i -s
 	@$(MAKE) rmFiles -i -s
+	@rm compile_commands.json
 	clear
 
 
