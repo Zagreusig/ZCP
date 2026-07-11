@@ -108,7 +108,8 @@ int Compiler::run() {
    Syscaller::Options topts {
       .keep_asm   = has_flag(Flags::LEAVE_ASM),
       .keep_obj   = has_flag(Flags::LEAVE_OBJ),
-      .keep_preop = has_flag(Flags::PRESERVE_PRE_OP)
+      .keep_preop = has_flag(Flags::PRESERVE_PRE_OP),
+      .debug_enbl = log.enabled()
    };
    Syscaller sys(prog_name, topts);
    int e = sys.assemble_and_link();

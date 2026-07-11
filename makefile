@@ -128,7 +128,7 @@ val:
 	@valgrind --leak-check=full ./$(TARGET_EXEC) -d tests/test.z
 
 test:
-	@./$(TARGET_EXEC) -ast ./tests/test.z
+	@./$(TARGET_EXEC) -d ./tests/test.z
 	@./out
 
 -include $(DEPS)

@@ -4,6 +4,9 @@ fn main() -> int {
    have z = 'y';
    have nwln = 'n';
 
+   println("Inside the program");
+   println(z);
+
    while (z == 'y' || z == 'Y') {
       println("Enter a number: ");
       x = readi();

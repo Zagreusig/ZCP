@@ -58,9 +58,9 @@ public:
    }
 
    void set_bools() {
-      if (has_flag(Flags::PRINT_FLAGS)) opts.flags = true;
-      if (has_flag(Flags::PRINT_AST)) opts.ast = true;
-      if (has_flag(Flags::PRINT_TOKENS)) opts.toks = true;
+      opts.flags = has_flag(Flags::PRINT_FLAGS);
+      opts.ast   = has_flag(Flags::PRINT_AST);
+      opts.toks  = has_flag(Flags::PRINT_TOKENS);
    }
 
    // driver func
