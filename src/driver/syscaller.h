@@ -1,7 +1,6 @@
 #ifndef SYSCALLER_H
 #define SYSCALLER_H
 
-#include <iostream>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -20,9 +19,6 @@ public:
       : m_name(std::move(prog_name)), m_opts(opts) {
          m_asm = m_name + ".asm";
          m_obj = m_name + ".o";
-
-         std::cerr << m_asm << std::endl;
-         std::cerr << m_obj << std::endl;
       }
 
    int assemble_and_link() {

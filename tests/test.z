@@ -4,6 +4,10 @@ fn main() {
 
    print(s);
    println(t);
-   
+
+   have arr: str = "Hello";
+   s = arr[1];
+   println(s);
+
    return 0;
 }

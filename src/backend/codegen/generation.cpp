@@ -56,7 +56,11 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
             gen->total_fail();
          }
 
-         gen->m_output << "   mov rax, QWORD [r12 + " << var.value().offset << "]\n";
+         const auto& v = var.value();
+         if (v.type.base == DataType::CHAR)
+            gen->m_output << gen->load_scalar(v.offset, "movzx", "rax", "byte");
+         else
+            gen->m_output << gen->load_scalar(v.offset, "mov", "rax", "QWORD");
          gen->push("rax");
       }
 
@@ -317,13 +321,15 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
          });
          
          gen->m_current_offset += type.byte_size();
-
+         bool is_char = type.base == DataType::CHAR;
+         
          if (h->expr) {
             gen->gen_expr(h->expr);
             gen->pop("rax");
-            gen->m_output << "   mov QWORD [r12 + " << off << "], rax\n";
+            gen->m_output << (is_char ? gen->store_scalar(off, "al", "byte") :
+                                        gen->store_scalar(off, "rax", "QWORD"));
          } else {
-            gen->m_output << "   mov QWORD [r12 + " << off << "], 0\n";
+            gen->m_output << gen->store_scalar(off, "0", (is_char ? "byte" : "QWORD" ));
          }
       }
       
@@ -410,6 +416,11 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
                   std::cerr << "String assignment RHS must be a str lit or str var (for now).\n";
                   gen->total_fail();
                }
+            }
+            else if (var.value().type.base == DataType::CHAR) {
+               gen->gen_expr(assign->expr);
+               gen->pop("rax");
+               gen->m_output << "   mov byte [r12 + " << off << "], al\n";
             }            
             else {
                gen->gen_expr(assign->expr);
@@ -1074,4 +1085,20 @@ int ASMGenerator::param_reg_count(const TypeInfo& t) {
    if (t.base == DataType::STR) return 2;
    return 1;
    // later for struct: ceil(size/8) for <= 16 bytes, else push to stack.
+}
+
+
+std::string ASMGenerator::store_scalar(int offset, const std::string& reg = "rax", const std::string& op = "QWORD") {
+   std::stringstream output;
+   output << "   mov " << op << " [r12 + " << offset << "], " << reg << "\n";
+   return output.str();
+}
+
+
+std::string ASMGenerator::load_scalar(int offset, const std::string& mv = "mov", 
+                                                  const std::string& reg = "rax", 
+                                                  const std::string& op = "QWORD") {
+   std::stringstream output;
+   output << "   " << mv << " " << reg << ", " << op << " [r12 + " << offset << "]\n";
+   return output.str(); 
 }

@@ -62,6 +62,8 @@ private:
 
    std::string add_string(const std::string&);
    void store_string_literal(int, const std::string&);   
+   std::string store_scalar(int, const std::string&, const std::string&);
+   std::string load_scalar(int, const std::string&, const std::string&, const std::string&);
 
    bool try_load_simple(const NodeExpr*, const std::string&);
 
