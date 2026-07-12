@@ -102,7 +102,7 @@ struct NodeExprRead {
 struct NodeExpr {
    std::variant<NodeExprIntLit*, NodeExprCharLit*, NodeExprStrLit*,
                 NodeExprIdent*, NodeExprIndex*, NodeExprRead*,
-                NodeExprIncDec*, NodeBinExpr*, NodeExprCall*, NodeExprArrayLit*> var;
+                NodeExprIncDec*, NodeBinExpr*, NodeExprCall*, NodeExprArrayLit*> variant;
 
    TypeInfo resolved;
    bool is_resolved = false;
@@ -190,7 +190,7 @@ struct NodeStmtExpr {
 struct NodeStmt {
    std::variant<NodeStmtExit*, NodeStmtExpr*, NodeStmtHave*, NodeScopeBlock*, NodeStmtIf*, 
                 NodeStmtWhile*, NodeStmtAssign*, NodeStmtFor*, NodeStmtReturn*,  
-                NodeStmtScope*, NodeStmtPrint*> var;
+                NodeStmtScope*, NodeStmtPrint*> variant;
 };
 
 struct NodeProg {

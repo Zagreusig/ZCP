@@ -183,13 +183,13 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
 
             if (at.base == DataType::STR) {
                // load ptr & len in 2 consec regs
-               if (auto* id = std::get_if<NodeExprIdent*>(&arg->var)) {
+               if (auto* id = std::get_if<NodeExprIdent*>(&arg->variant)) {
                   auto var = gen->get_var((*id)->ident.text());
                   int off = var.value().offset;
                   gen->m_output << "   mov " << param_regs[reg_idx] << ", QWORD [r12 + " << off << "]\n"
                                 << "   mov " << param_regs[reg_idx + 1] << ", QWORD [r12 + " << (off + 8) << "]\n";
                }
-               else if (auto* lit = std::get_if<NodeExprStrLit*>(&arg->var)) {
+               else if (auto* lit = std::get_if<NodeExprStrLit*>(&arg->variant)) {
                   const std::string& str = (*lit)->STR_LIT.text();
                   std::string label = gen->add_string(str);
                   gen->m_output << "   lea " << param_regs[reg_idx] << ", [" << label << "]\n"
@@ -218,7 +218,7 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
    };
 
    ExprVisitor visitor({ .gen = this });
-   std::visit(visitor, expr->var);
+   std::visit(visitor, expr->variant);
 }
 
 
@@ -253,15 +253,15 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
             gen->m_current_offset += 16; // fat pointer
          
             if (h->expr) {
-               if (auto* lit = std::get_if<NodeExprStrLit*>(&h->expr->var))
+               if (auto* lit = std::get_if<NodeExprStrLit*>(&h->expr->variant))
                   gen->store_string_literal(base, (*lit)->STR_LIT.text());
-               else if (auto* call = std::get_if<NodeExprCall*>(&h->expr->var)) {
+               else if (auto* call = std::get_if<NodeExprCall*>(&h->expr->variant)) {
                   // call returns a string in rax:rdx; stor into the slot.
                   gen->gen_expr(h->expr);
                   gen->m_output << "   mov QWORD [r12 + " << base << "], rax\n"
                                 << "   mov QWORD [r12 + " << (base + 8) << "], rdx\n";
                }
-               else if (auto* var = std::get_if<NodeExprIdent*>(&h->expr->var)) {
+               else if (auto* var = std::get_if<NodeExprIdent*>(&h->expr->variant)) {
                   if (h->expr->resolved.base != DataType::STR) {
                      std::cerr << "Cannot initialize type string with other type.\n";
                      gen->total_fail();
@@ -292,7 +292,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
                                         .type = type });
             gen->m_current_offset += type.byte_size();
             if (h->expr) {
-               auto* lit = std::get_if<NodeExprArrayLit*>(&h->expr->var);
+               auto* lit = std::get_if<NodeExprArrayLit*>(&h->expr->variant);
                const auto& elems = (*lit)->elements;
                for (size_t i = 0; i < elems.size(); i++) {
                   gen->gen_expr(elems[i]);
@@ -386,7 +386,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
       void operator()(const NodeStmtAssign* assign) const {
 
          // Regular assignment 
-         if (auto* id = std::get_if<NodeExprIdent*>(&assign->target->var)) {
+         if (auto* id = std::get_if<NodeExprIdent*>(&assign->target->variant)) {
             auto var = gen->get_var((*id)->ident.text());
             if (!var.has_value()) {
                std::cerr << "Undeclared identifier assign: " << assign->ident.text() << std::endl;
@@ -396,10 +396,10 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
             
             if (var.value().type.base == DataType::STR) {
               
-               if (auto* lit = std::get_if<NodeExprStrLit*>(&assign->expr->var)) {
+               if (auto* lit = std::get_if<NodeExprStrLit*>(&assign->expr->variant)) {
                   gen->store_string_literal(off, (*lit)->STR_LIT.text());
                }
-               else if (auto* rhs_id = std::get_if<NodeExprIdent*>(&assign->expr->var)) {
+               else if (auto* rhs_id = std::get_if<NodeExprIdent*>(&assign->expr->variant)) {
                   auto rhs_var = gen->get_var((*rhs_id)->ident.text());
                   if (!rhs_var.has_value()) { 
                      std::cerr << "Undeclared ident: " << (*rhs_id)->ident.text() << std::endl; 
@@ -428,7 +428,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
                gen->m_output << "   mov QWORD [r12 + " << off << "], rax\n";
             }
          }
-         else if (auto* idx = std::get_if<NodeExprIndex*>(&assign->target->var)) {
+         else if (auto* idx = std::get_if<NodeExprIndex*>(&assign->target->variant)) {
             gen->gen_expr(assign->expr);
             gen->pop("rax");
             auto var = gen->get_var((*idx)->ident.text());
@@ -479,13 +479,13 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
       void operator()(const NodeStmtReturn* _return) const {
          if (gen->m_curr_ret_type.base == DataType::STR) {
             // str ret ptr rax, len rdx
-            if (auto* lit = std::get_if<NodeExprStrLit*>(&_return->expr->var)) {
+            if (auto* lit = std::get_if<NodeExprStrLit*>(&_return->expr->variant)) {
                const std::string& str = (*lit)->STR_LIT.text();
                std::string label = gen->add_string(str);
                gen->m_output << "   lea rax, [" << label << "]\n"
                              << "   mov rdx, " << str.size() << "\n";
             }
-            else if (auto* id = std::get_if<NodeExprIdent*>(&_return->expr->var)) {
+            else if (auto* id = std::get_if<NodeExprIdent*>(&_return->expr->variant)) {
                   auto var = gen->get_var((*id)->ident.text());
                   int off = var.value().offset;
                   gen->m_output << "   mov rax, QWORD [r12 + " << off << "]\n"
@@ -498,13 +498,13 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
 
          } 
          else if (gen->m_curr_ret_type.base == DataType::CHAR) {
-            if (auto* lit = std::get_if<NodeExprCharLit*>(&_return->expr->var)) {
+            if (auto* lit = std::get_if<NodeExprCharLit*>(&_return->expr->variant)) {
                char ch = (*lit)->CHAR_LIT.char_val();
                gen->m_output << "   mov al, '";
                if (ch == '\'') gen->m_output << "\\";
                gen->m_output << ch << "'\n";
             }
-            else if (auto* id = std::get_if<NodeExprIdent*>(&_return->expr->var)) {
+            else if (auto* id = std::get_if<NodeExprIdent*>(&_return->expr->variant)) {
                auto var = gen->get_var((*id)->ident.text());
                int off = var.value().offset;
                gen->m_output << "   mov al, byte [r12 + " << off << "]\n";
@@ -557,7 +557,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
                                    << "   syscall\n";
                   }
                }
-               else if (auto* lit = std::get_if<NodeExprStrLit*>(&p->expr->var)) {
+               else if (auto* lit = std::get_if<NodeExprStrLit*>(&p->expr->variant)) {
                   const std::string& bytes = (*lit)->STR_LIT.text();
                   std::string label = gen->add_string(bytes);
 
@@ -567,7 +567,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
                                 << "   mov rdx, " << label << "_len\n"
                                 << "   syscall\n";
                }
-               else if (auto* id = std::get_if<NodeExprIdent*>(&p->expr->var)) {
+               else if (auto* id = std::get_if<NodeExprIdent*>(&p->expr->variant)) {
                   auto var = gen->get_var((*id)->ident.text());
                   if (!var.has_value()) { std::cerr << "Undeclared identifier: " << (*id)->ident.text() << std::endl; gen->total_fail(); }
                   int off = var.value().offset;
@@ -617,7 +617,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
    };
 
    StmtVisitor visitor { .gen = this };
-   std::visit(visitor, stmt->var);
+   std::visit(visitor, stmt->variant);
 }
 
 void ASMGenerator::gen_cond(const NodeCondition* cond, const std::string& false_label) {
@@ -873,7 +873,7 @@ int ASMGenerator::compute_frame_size(const std::vector<NodeStmt*>& stmts) {
          }
          else if constexpr (std::is_same_v<T, NodeScopeBlock>)
             bytes += compute_frame_size(s->stmts);
-      }, stmt->var);
+      }, stmt->variant);
    }
    return bytes;
 }
@@ -1013,7 +1013,7 @@ TypeInfo ASMGenerator::resolve_have_type(NodeStmtHave* h) {
    TypeInfo info;
    if (h->has_type)
       info = h->decl_type;
-   else if (auto* lit = std::get_if<NodeExprArrayLit*>(&h->expr->var)) {
+   else if (auto* lit = std::get_if<NodeExprArrayLit*>(&h->expr->variant)) {
       const auto& elems = (*lit)->elements;
       if (elems.empty()) { std::cerr << "Elements are empty.\n"; total_fail(); }
       DataType et = elems[0]->resolved.base;
@@ -1037,11 +1037,11 @@ TypeInfo ASMGenerator::resolve_have_type(NodeStmtHave* h) {
 
 
 bool ASMGenerator::try_load_simple(const NodeExpr* e, const std::string& reg) {
-   if (auto* lit = std::get_if<NodeExprIntLit*>(&e->var)) {
+   if (auto* lit = std::get_if<NodeExprIntLit*>(&e->variant)) {
       m_output << "   mov " << reg << ", " << (*lit)->INT_LIT.int_val() << "\n";
       return true;
    }
-   if (auto* id = std::get_if<NodeExprIdent*>(&e->var)) {
+   if (auto* id = std::get_if<NodeExprIdent*>(&e->variant)) {
       auto var = get_var((*id)->ident.text());
       if (var.has_value()) {
          m_output << "   mov " << reg << ", QWORD [r12 + " << var.value().offset << "]\n";

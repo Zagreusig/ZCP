@@ -25,9 +25,16 @@
 * #define BANG(x) !x
 * SYMBOLS = {
 *  { "this header": { list, of, definitions, here, lol }},
-*  { "preproc.h": { {"Preprocessor", PREPROC::CLASS, false}, {"BIT", PREPROC::MACRO, false}, { "BANG", PREPROC::MACRO, true}}}
+*  { "preproc.h": { {"Preprocessor", PREPROC::CLASS, <obj>}, {"BIT", PREPROC::MACRO, <obj>}, { "BANG", PREPROC::MACRO, <obj>}}}
 * }
+*
+*
+* IFNDEF THIS_H <- macro
+* Find the matching .z file, 
 */
+
+enum class PreprocessorDirectives { INCLUDE, IFNDEF, DEF, UNDEF, PRAGMA, IF, ELIF, FI, STRTOK, CATTOK, ERR, WARN };
+
 class Preprocessor {
 public:
    Preprocessor() {}

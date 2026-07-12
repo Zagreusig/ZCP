@@ -42,7 +42,7 @@ void Analyzer::analyze_have(NodeStmtHave* h) {
       info = h->decl_type; // { base=INT, is_array=false }
       if (h->expr) {
          // is this array lit?
-         if (auto* lit = std::get_if<NodeExprArrayLit*>(&h->expr->var)) {
+         if (auto* lit = std::get_if<NodeExprArrayLit*>(&h->expr->variant)) {
             const auto& elems = (*lit)->elements;
             for (size_t i = 0; i < elems.size(); i++) {
                TypeInfo et = type_of(elems[i]);
@@ -73,7 +73,7 @@ void Analyzer::analyze_have(NodeStmtHave* h) {
       // else: annotated, no init
    }
    // ---- no annotation, infer from init -----
-   else if (auto* lit = std::get_if<NodeExprArrayLit*>(&h->expr->var)) {
+   else if (auto* lit = std::get_if<NodeExprArrayLit*>(&h->expr->variant)) {
       const auto& elems = (*lit)->elements;
       if (elems.empty()) {
          m_ctx.diag.error(CompPhase::Analysis, h->ident.line, h->ident.col,
@@ -178,7 +178,7 @@ void Analyzer::analyze_stmt(NodeStmt* s) {
          pop_scope();
       }
       else return;
-   }, s->var);
+   }, s->variant);
 }
 
 
@@ -316,7 +316,7 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
       }
    
       else static_assert(always_false<T>, "Unhandled node.");
-   }, expr->var);
+   }, expr->variant);
 }
 
 

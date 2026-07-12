@@ -71,7 +71,8 @@ private:
    std::optional<NodeExpr*>       parse_call(Token);
 
    std::optional<NodeFunction*>   parse_func();
-   NodeExpr* wrap(auto*);
+   NodeExpr* wrap_expr(auto*);
+   NodeStmt* wrap_stmt(auto*);
    size_t mark() const    { return m_index; }
    void   reset(size_t m) { m_index = m;    }
    

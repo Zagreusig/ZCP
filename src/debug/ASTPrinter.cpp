@@ -136,7 +136,7 @@ void ASTPrinter::print_stmt(const NodeStmt* stmt, int depth) {
          p->print_scope(s->scope, depth + 1);
       }
    };
-   std::visit(Visitor{ this, depth }, stmt->var);
+   std::visit(Visitor{ this, depth }, stmt->variant);
 }
 
 void ASTPrinter::print_expr(const NodeExpr* expr, int depth) {
@@ -204,7 +204,7 @@ void ASTPrinter::print_expr(const NodeExpr* expr, int depth) {
          p->print_expr(i->index, depth + 2);
       }
    };
-   std::visit(Visitor{ this, depth }, expr->var);
+   std::visit(Visitor{ this, depth }, expr->variant);
 }
 
 void ASTPrinter::print_condition(const NodeCondition* cond, int depth) {
