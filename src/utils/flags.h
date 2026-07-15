@@ -22,7 +22,8 @@ enum class Flags {
    LEAVE_OBJ       = BIT(5),   // -j
    HALLLLLPUH      = BIT(6),   // -h
    PRESERVE_PRE_OP = BIT(7),   // -p
-   DEBUG           = BIT(8)    // -d
+   DEBUG           = BIT(8),   // -d
+   RAW_TOKENS      = BIT(9)    // -r
 };
 
 inline Flags operator|(Flags a, Flags b) {
@@ -46,6 +47,7 @@ inline std::string to_str(Flags flag) {
       case Flags::LEAVE_OBJ:       return "LEAVE_OBJ";
       case Flags::PRESERVE_PRE_OP: return "PRESERVE_PRE_OP";
       case Flags::DEBUG:           return "DEBUG";
+      case Flags::RAW_TOKENS:      return "RAW_TOKENS";
       default:                     return "ERR_FLAG";
    }
 }

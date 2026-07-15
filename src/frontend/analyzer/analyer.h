@@ -16,6 +16,8 @@ struct FuncSig {
    std::vector<TypeInfo> param_types;
    TypeInfo ret_type;
    Token ident;
+   int origin_file = 0;
+   bool has_definition = false;
 };
 
 class Compiler;
@@ -23,7 +25,7 @@ class Compiler;
 class Analyzer {
 public:
    Analyzer(Compiler& cmp, NodeProg& prog)
-      : m_prog(prog), m_ctx(cmp) {}
+      : m_prog(prog), m_compiler(cmp) {}
    void analyze(); // walks AST for any issues.
 
 private:
@@ -42,7 +44,7 @@ private:
    bool types_match(TypeInfo, TypeInfo);
 
    NodeProg& m_prog;
-   Compiler& m_ctx;
+   Compiler& m_compiler;
    std::unordered_map<std::string, FuncSig> m_func_sigs;
    std::vector<std::pair<std::string, TypeInfo>> m_vars;
    std::vector<size_t> m_scopes;

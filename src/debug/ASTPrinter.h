@@ -17,7 +17,7 @@ public:
 
    void print() {
       m_out << "Program\n";
-      for (const NodeFunction* func : m_prog.funcs)
+      for (const NodeFunction* func : m_prog.functions)
          print_function(func, 1);
    }
 

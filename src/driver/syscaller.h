@@ -21,7 +21,7 @@ public:
          m_obj = m_name + ".o";
       }
 
-   int assemble_and_link() {
+   int create_executable() {
       if (!nasm())   throw std::runtime_error("Nasm failure");
       if (!linker()) throw std::runtime_error("ld failure.");
       cleanup();

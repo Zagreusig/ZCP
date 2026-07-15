@@ -4,16 +4,17 @@
 #include <stdexcept>
 #include <string>
 
-enum class CompPhase { Lexing, Parsing, Analysis, CodeGen, Optimization };
+enum class CompPhase { Lexing, Preprocessing, Parsing, Analysis, CodeGen, Optimization };
 
 inline std::string phase_str(CompPhase phase) {
    switch (phase) {
-      case CompPhase::Lexing:       return "Lexing";
-      case CompPhase::Parsing:      return "Parsing";
-      case CompPhase::Analysis:     return "Analysis";
-      case CompPhase::CodeGen:      return "CodeGen";
-      case CompPhase::Optimization: return "Optimization";
-      default:                      return "Null";
+      case CompPhase::Lexing:        return "Lexing";
+      case CompPhase::Preprocessing: return "Preprocessing";
+      case CompPhase::Parsing:       return "Parsing";
+      case CompPhase::Analysis:      return "Analysis";
+      case CompPhase::CodeGen:       return "CodeGen";
+      case CompPhase::Optimization:  return "Optimization";
+      default:                       return "Null";
    }
 }
 
@@ -33,6 +34,7 @@ private:
 
 struct Diagnostic {
    CompPhase phase;
+   std::string file_name;
    int line, col;
    std::string msg;
 };

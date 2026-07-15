@@ -7,23 +7,23 @@
 
 #include "phase.h"
 
-void Logger::trace(CompPhase p, std::string m, int l, int c) {
-   log(p, Severity::Trace, std::move(m), l, c);
+void Logger::trace(CompPhase p, std::string m, std::string fn = "", int l, int c) {
+   log(p, Severity::Trace, std::move(m), fn, l, c);
 }
 
 
-void Logger::info(CompPhase p, std::string m, int l, int c) {
-   log(p, Severity::Info, m, l, c);
+void Logger::info(CompPhase p, std::string m, std::string fn = "", int l, int c) {
+   log(p, Severity::Info, m, fn, l, c);
 }
 
 
-void Logger::warn(CompPhase p, std::string m, int l, int c) {
-   log(p, Severity::Warn, m, l, c);
+void Logger::warn(CompPhase p, std::string m, std::string fn = "", int l, int c) {
+   log(p, Severity::Warn, m, fn, l, c);
 }
 
 
-void Logger::error(CompPhase p, std::string m, int l, int c) {
-   log(p, Severity::Error, m, l, c);
+void Logger::error(CompPhase p, std::string m, std::string fn = "", int l, int c) {
+   log(p, Severity::Error, m, fn, l, c);
 }
 
 namespace {
@@ -61,7 +61,7 @@ void Logger::flush(std::ostream& out) const {
       // pad for message lineup
       for (size_t i = phase_str(e.phase).size(); i < 11; i++) out << ' ';
       out << "[" << to_string(e.severity) << "] " << e.message;
-      if (e.line > 0) out << "  " << e.line << ':' << e.col; 
+      if (e.line > 0) out << "  " << e.file_name << ":" << e.line << ':' << e.col; 
       out << '\n';
    }
 
@@ -100,8 +100,8 @@ void Logger::flush(std::ostream& out) const {
 
    // Print in pipeline order, not hash order
    const CompPhase order[] = {
-      CompPhase::Lexing, CompPhase::Parsing, CompPhase::Analysis,
-      CompPhase::CodeGen, CompPhase::Optimization
+      CompPhase::Lexing, CompPhase::Preprocessing, CompPhase::Parsing, 
+      CompPhase::Analysis, CompPhase::CodeGen, CompPhase::Optimization
    };
 
    Duration total(0);
@@ -127,8 +127,8 @@ void Logger::flush(std::ostream& out) const {
 
 bool Logger::flush_to_file(const std::string& path) const {
    if (!m_enabled) return true; // nothing to write, not error
-   std::ofstream f(path);
-   if (!f.is_open()) return false;
-   flush(f);
+   std::ofstream file(path);
+   if (!file.is_open()) return false;
+   flush(file);
    return true;
 }

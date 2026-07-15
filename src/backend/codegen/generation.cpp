@@ -16,6 +16,48 @@
 #include "TokenTable.h"
 
 
+[[nodiscard]] std::string ASMGenerator::build() {   
+   emit_consts();
+   m_output << "section .bss\n"
+            << "   print_buf resb 32\n"
+            << "   read_buf  resb 64\n"
+            << "   chr       resb 1\n\n"
+            << "section .text\n"
+            << "global _start\n_start:\n"
+            << "   call main\n   mov rdi, rax\n"
+            << "   mov rax, SYS_exit\n   syscall\n\n";
+
+   emit_print_int();
+   emit_read_int();
+   emit_read_char();
+   for (const NodeFunction* f : m_prog.functions) {
+      TypeInfo ret;
+      if(f->has_ret_type) ret.base = Symbols::token_to_datatype(f->ret_type.type);
+      m_funcs[f->name.text()] = ret;
+   }
+
+   for (const NodeFunction* func : m_prog.functions)
+      gen_function(func);
+
+   if (m_strings.empty()) return m_output.str();
+
+   m_output << "\n\nsection .data\n";
+   for (const auto& [label, bytes]: m_strings) {
+      m_output << "   " << label << ": db ";
+      for (size_t i = 0; i < bytes.size(); i++) {
+         if (i) m_output << ", ";
+         m_output << (int)(unsigned char)bytes[i];
+      }
+
+      if (bytes.empty()) m_output << "NULL";
+      m_output << "\n"
+               << "   " << label << "_len: equ $ - " << label << "\n";
+   }
+
+   return m_output.str();
+}
+
+
 void ASMGenerator::gen_expr(const NodeExpr* expr) {
    struct ExprVisitor {
       ASMGenerator* gen;
@@ -84,7 +126,7 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
             return;
          }
 
-         int esz = var.value().type.elem_size();
+         int esz = var.value().type.element_size();
 
          // eval expr -> its value on the stack
          gen->gen_expr(idx->index);
@@ -286,7 +328,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
             return;
          }
          if (type.is_array) {
-            int element_size   = type.elem_size(); // array base size
+            int element_size   = type.element_size(); // array base size
             int base  = gen->m_current_offset; // this array's element 0
             gen->m_vars.push_back(Var { .name = h->ident.text(), .offset = base, 
                                         .type = type });
@@ -436,7 +478,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
                std::cerr << "Undeclared identifier index assign: " << assign->ident.text() << std::endl;
                gen->total_fail();
             }
-            int esz = var.value().type.elem_size();
+            int esz = var.value().type.element_size();
             // comp index into rbx
             gen->push("rax");             // save value
             gen->gen_expr((*idx)->index); // evaluate index
@@ -669,7 +711,7 @@ void ASMGenerator::gen_cond(const NodeCondition* cond, const std::string& false_
       }
    };
    
-   std::visit(CondVisitor { .gen = this, .false_label = false_label }, cond->var);
+   std::visit(CondVisitor { .gen = this, .false_label = false_label }, cond->variant);
 }
 
 
@@ -721,7 +763,7 @@ void ASMGenerator::gen_cond_true(const NodeCondition* cond, const std::string& t
       }
    };
 
-   std::visit(CondVisitor { .gen = this, .true_label = true_label }, cond->var);
+   std::visit(CondVisitor { .gen = this, .true_label = true_label }, cond->variant);
 }
 
 
@@ -733,7 +775,7 @@ void ASMGenerator::gen_function(const NodeFunction* func) {
    frame_size = (frame_size + 15) & ~15;
    m_uses_frame_base = (frame_size > 0 || !func->params.empty());
 
-   if (func->has_ret_type) m_curr_ret_type.base = Symbols::tok_dt(func->ret_type.type); /** TODO: Fix parsing of function ret type to look for arrays */
+   if (func->has_ret_type) m_curr_ret_type.base = Symbols::token_to_datatype(func->ret_type.type); /** TODO: Fix parsing of function ret type to look for arrays */
    else m_curr_ret_type = TypeInfo {};
 
    m_output << func->name.text() << ":\n"
@@ -787,49 +829,6 @@ void ASMGenerator::gen_function(const NodeFunction* func) {
    end_scope();
 
    emit_epilogue();
-}
-
-
-
-[[nodiscard]] std::string ASMGenerator::build() {   
-   emit_consts();
-   m_output << "section .bss\n"
-            << "   print_buf resb 32\n"
-            << "   read_buf  resb 64\n"
-            << "   chr       resb 1\n\n"
-            << "section .text\n"
-            << "global _start\n_start:\n"
-            << "   call main\n   mov rdi, rax\n"
-            << "   mov rax, SYS_exit\n   syscall\n\n";
-
-   emit_print_int();
-   emit_read_int();
-   emit_read_char();
-   for (const NodeFunction* f : m_prog.funcs) {
-      TypeInfo ret;
-      if(f->has_ret_type) ret.base = Symbols::tok_dt(f->ret_type.type);
-      m_funcs[f->name.text()] = ret;
-   }
-
-   for (const NodeFunction* func : m_prog.funcs)
-      gen_function(func);
-
-   if (m_strings.empty()) return m_output.str();
-
-   m_output << "\n\nsection .data\n";
-   for (const auto& [label, bytes]: m_strings) {
-      m_output << "   " << label << ": db ";
-      for (size_t i = 0; i < bytes.size(); i++) {
-         if (i) m_output << ", ";
-         m_output << (int)(unsigned char)bytes[i];
-      }
-
-      if (bytes.empty()) m_output << "NULL";
-      m_output << "\n"
-               << "   " << label << "_len: equ $ - " << label << "\n";
-   }
-
-   return m_output.str();
 }
 
 

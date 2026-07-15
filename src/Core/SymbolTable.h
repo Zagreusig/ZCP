@@ -26,7 +26,7 @@ namespace Symbols {
       }
    }
 
-   inline DataType tok_dt(TokenType t) {
+   inline DataType token_to_datatype(TokenType t) {
       switch (t) {
          case TokenType::INT:
          case TokenType::INT_LIT:  return DataType::INT;
@@ -38,7 +38,7 @@ namespace Symbols {
       }
    }
 
-   inline TokenType dt_tok(DataType t) {
+   inline TokenType datatype_to_token(DataType t) {
       switch (t) {
          case DataType::INT:  return TokenType::INT;
          case DataType::CHAR: return TokenType::CHAR;
@@ -48,7 +48,7 @@ namespace Symbols {
       }
    }
 
-   inline std::string dt_str(DataType t) {
+   inline std::string datatype_to_str(DataType t) {
       switch (t) {
          case DataType::INT:  return "INT";
          case DataType::CHAR: return "CHAR";
@@ -58,7 +58,7 @@ namespace Symbols {
       }
    }
 
-   inline ReadKind tok_rk(TokenType t) {
+   inline ReadKind token_to_readkind(TokenType t) {
       switch (t) {
          case TokenType::READC: return ReadKind::Char;
          case TokenType::READI: return ReadKind::Int;
@@ -68,7 +68,7 @@ namespace Symbols {
       }
    }
 
-   inline BinExprType cmpd_binop(TokenType t) {
+   inline BinExprType compound_to_binop(TokenType t) {
       switch (t) {
          case TokenType::OPERATOR_ADD_EQ: return BinExprType::ADDITION;
          case TokenType::OPERATOR_SUB_EQ: return BinExprType::SUBTRACTION;
@@ -78,7 +78,7 @@ namespace Symbols {
       }
    }
 
-   inline BinExprType tok_binop(TokenType t) {
+   inline BinExprType token_to_binop(TokenType t) {
       switch (t) {
          case TokenType::OPERATOR_CARET:    return BinExprType::EXPONENT;
          case TokenType::OPERATOR_ASTERISK: return BinExprType::MULTIPLICATION;
@@ -90,7 +90,7 @@ namespace Symbols {
       }
    }
 
-   inline CmpExprType tok_cmp(TokenType t) {
+   inline CmpExprType token_to_compare(TokenType t) {
       switch (t) {
          case TokenType::OPERATOR_EQUAL_EQUAL:   return CmpExprType::EQUAL;
          case TokenType::OPERATOR_NOT_EQUAL:     return CmpExprType::NOT_EQUAL;
@@ -102,7 +102,7 @@ namespace Symbols {
       }
    }
 
-   inline CmpExprType tok_logop(TokenType t) {
+   inline CmpExprType token_to_logop(TokenType t) {
       switch (t) {
          case TokenType::OPERATOR_LOGICAL_AND: return CmpExprType::AND;
          case TokenType::OPERATOR_LOGICAL_OR:  return CmpExprType::OR;

@@ -1,4 +1,4 @@
-fn main() {
+fn loops() {
    have arr: int[10];
    have st = "Hello!";
    for (have i = 0; i < 10; i++) {

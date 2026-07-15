@@ -14,13 +14,39 @@
 #include "phase.h"
 
 
-[[nodiscard]] inline std::optional<Token> Parser::peek(int offset = 0) const {
+std::optional<NodeProg> Parser::parse_prog() {
+   NodeProg prog;
+   try {
+      while (peek().has_value()) {
+         if (is_next(TokenType::FUNC)){
+            if (auto func = parse_func())
+               prog.functions.push_back(func.value());
+            else
+               sync_next_func();
+         }
+         else {
+            int line = 0, col = 0;
+            if (peek().has_value()) { line = peek().value().line; col = peek().value().col; }
+            m_compiler.diagnostics.error(CompPhase::Parsing, m_compiler.current_filename(), line, col,
+                        "Expected function declaration at top level.");
+            sync_next_func();
+         }
+      }
+      return prog;
+   } catch (const CompilerError&) {
+      return prog;
+   }
+}
+
+
+
+[[nodiscard]] inline std::optional<Token> Parser::peek(int offset) const {
    if (m_index + offset >= m_tokens.size()) return {};
    else return m_tokens.at(m_index + offset);
 }
 
 
-bool Parser::is_next(TokenType type, int offset = 0) {
+bool Parser::is_next(TokenType type, int offset) {
    return peek(offset).has_value() && peek(offset).value().type == type;
 }
 
@@ -76,7 +102,7 @@ bool Parser::is_lval(const NodeExpr* x) {
 
 std::optional<TypeInfo> Parser::parse_type() {
    TypeInfo info;
-   DataType base = Symbols::tok_dt(peek().has_value() ? peek().value().type : TokenType::NONE);
+   DataType base = Symbols::token_to_datatype(peek().has_value() ? peek().value().type : TokenType::NONE);
    if (base == DataType::NONE) { fail("Expected a type."); return {}; }
    consume(); // type tok
    info.base = base;
@@ -98,7 +124,7 @@ std::optional<NodeExpr*> Parser::parse_expr(int min_prec = 0) {
    if (!left.has_value()) return {};
 
    while (peek().has_value()) {
-      BinExprType op = Symbols::tok_binop(peek().value().type);
+      BinExprType op = Symbols::token_to_binop(peek().value().type);
       if (op == BinExprType::NONE) break;
       int prec = get_precidence(op);
       if (prec < min_prec) break;
@@ -108,7 +134,7 @@ std::optional<NodeExpr*> Parser::parse_expr(int min_prec = 0) {
       auto right = parse_expr(next_prec);
       if (!right.has_value()) { return {}; }
 
-      NodeBinExpr* bin = m_ctx.arena.alloc<NodeBinExpr>();
+      NodeBinExpr* bin = m_compiler.allocator.alloc<NodeBinExpr>();
       bin->operation = op; bin->left = left.value(); bin->right = right.value();
       
       left = wrap_expr(bin);
@@ -122,25 +148,25 @@ std::optional<NodeExpr*> Parser::parse_primary() {
       return parse_prefix_incdec();
    
    if (auto val = try_consume(TokenType::INT_LIT)) {
-      NodeExprIntLit* i = m_ctx.arena.alloc<NodeExprIntLit>();
+      NodeExprIntLit* i = m_compiler.allocator.alloc<NodeExprIntLit>();
       i->INT_LIT = val.value();
       return wrap_expr(i);
    }
 
    if (auto val = try_consume(TokenType::CHAR_LIT)) {
-      NodeExprCharLit* ch = m_ctx.arena.alloc<NodeExprCharLit>();
+      NodeExprCharLit* ch = m_compiler.allocator.alloc<NodeExprCharLit>();
       ch->CHAR_LIT = val.value();
       return wrap_expr(ch);
    }
 
    if (auto val = try_consume(TokenType::STR_LIT)) {
-      NodeExprStrLit* str = m_ctx.arena.alloc<NodeExprStrLit>();
+      NodeExprStrLit* str = m_compiler.allocator.alloc<NodeExprStrLit>();
       str->STR_LIT = val.value();
       return wrap_expr(str);
    }
 
    if (try_consume(TokenType::OPEN_BRACKET)) {
-      NodeExprArrayLit* arr = m_ctx.arena.alloc<NodeExprArrayLit>();
+      NodeExprArrayLit* arr = m_compiler.allocator.alloc<NodeExprArrayLit>();
       if (!is_next(TokenType::CLOSE_BRACKET)) {
          while (true) {
             if (auto e = parse_expr()) arr->elements.push_back(e.value());
@@ -154,8 +180,8 @@ std::optional<NodeExpr*> Parser::parse_primary() {
    }
 
    if (peek().has_value() && is_print_stmt(peek().value().type)) {
-      NodeExprRead* read = m_ctx.arena.alloc<NodeExprRead>();
-      read->kind = Symbols::tok_rk(peek().value().type);
+      NodeExprRead* read = m_compiler.allocator.alloc<NodeExprRead>();
+      read->kind = Symbols::token_to_readkind(peek().value().type);
       consume();
       if (!try_consume(TokenType::OPEN_PAREN)) { fail("Expected '('."); return {}; }
       if (read->kind == ReadKind::None) { fail("Invalid read type"); return {}; }
@@ -190,7 +216,7 @@ std::optional<NodeExpr*> Parser::parse_ident_expr() {
       if (!idx.has_value()) { fail("Expected index expression."); return {}; }
       if (!try_consume(TokenType::CLOSE_BRACKET)) { fail("Expected ']'."); return {}; }
 
-      NodeExprIndex* node = m_ctx.arena.alloc<NodeExprIndex>();
+      NodeExprIndex* node = m_compiler.allocator.alloc<NodeExprIndex>();
       node->ident = id;
       node->index = idx.value();
       return wrap_expr(node);
@@ -199,12 +225,12 @@ std::optional<NodeExpr*> Parser::parse_ident_expr() {
    if (is_next(TokenType::OPERATOR_INCR) || is_next(TokenType::OPERATOR_DECR)) {
       bool inc = is_next(TokenType::OPERATOR_INCR);
       consume(); // inc / dec
-      NodeExprIncDec* node = m_ctx.arena.alloc<NodeExprIncDec>();
+      NodeExprIncDec* node = m_compiler.allocator.alloc<NodeExprIncDec>();
       node->ident = id; node->is_increment = inc;
       return wrap_expr(node);
    }
 
-   NodeExprIdent* node = m_ctx.arena.alloc<NodeExprIdent>();
+   NodeExprIdent* node = m_compiler.allocator.alloc<NodeExprIdent>();
    node->ident = id;
    return wrap_expr(node);
 }
@@ -219,7 +245,7 @@ std::optional<NodeExpr*> Parser::parse_prefix_incdec() {
       return {};
    }
    
-   NodeExprIncDec* node = m_ctx.arena.alloc<NodeExprIncDec>();
+   NodeExprIncDec* node = m_compiler.allocator.alloc<NodeExprIncDec>();
    node->ident = id.value(); node->is_increment = inc; node->is_prefix = true;
    return wrap_expr(node);
 }
@@ -227,7 +253,7 @@ std::optional<NodeExpr*> Parser::parse_prefix_incdec() {
 
 std::optional<NodeExpr*> Parser::parse_call(Token name) {
    consume(); // (
-   NodeExprCall* call = m_ctx.arena.alloc<NodeExprCall>();
+   NodeExprCall* call = m_compiler.allocator.alloc<NodeExprCall>();
    call->name = name;
    while (peek().has_value() && peek().value().type != TokenType::CLOSE_PAREN) {
       if (call->args.size() >= 6) {
@@ -247,38 +273,38 @@ std::optional<NodeExpr*> Parser::parse_call(Token name) {
 
 
 std::optional<NodeStmt*> Parser::wrap_expr_stmt(NodeExpr* expr) {
-   NodeStmtExpr* stmt_expr = m_ctx.arena.alloc<NodeStmtExpr>();
+   NodeStmtExpr* stmt_expr = m_compiler.allocator.alloc<NodeStmtExpr>();
    stmt_expr->expr = expr;
    return wrap_stmt(stmt_expr);
 }
 
 
 NodeExpr* Parser::wrap_expr(auto* node) {
-   NodeExpr* expr = m_ctx.arena.alloc<NodeExpr>();
+   NodeExpr* expr = m_compiler.allocator.alloc<NodeExpr>();
    expr->variant = node;
    return expr;
 }
 
 
 NodeStmt* Parser::wrap_stmt(auto* node) {
-   NodeStmt* stmt = m_ctx.arena.alloc<NodeStmt>();
+   NodeStmt* stmt = m_compiler.allocator.alloc<NodeStmt>();
    stmt->variant = node;
    return stmt;
 }
 
 
 std::optional<NodeStmt*> Parser::parse_stmt() {
-   if (is_next(TokenType::IF)) return parse_if();
+   if (is_next(TokenType::IF))    return parse_if();
    if (is_next(TokenType::WHILE)) return parse_while();
-   if (is_next(TokenType::FOR)) return parse_for();
+   if (is_next(TokenType::FOR))   return parse_for();
    if (is_next(TokenType::OPEN_BRACE)) {
       auto scope = parse_scope();
       if (!scope) { fail("Error reading scope."); return {}; }
       
-      NodeStmtScope* sc = m_ctx.arena.alloc<NodeStmtScope>();
+      NodeStmtScope* sc = m_compiler.allocator.alloc<NodeStmtScope>();
       sc->scope = scope.value();
       
-      NodeStmt* stmt = m_ctx.arena.alloc<NodeStmt>();
+      NodeStmt* stmt = m_compiler.allocator.alloc<NodeStmt>();
       stmt->variant = sc;
       return stmt;
    }
@@ -315,9 +341,9 @@ std::optional<NodeStmt*> Parser::parse_simple_stmt() {
 
 
    if (auto expr = parse_expr()) {
-      NodeStmtExpr* stex = m_ctx.arena.alloc<NodeStmtExpr>();
+      NodeStmtExpr* stex = m_compiler.allocator.alloc<NodeStmtExpr>();
       stex->expr = expr.value();
-      NodeStmt* stmt = m_ctx.arena.alloc<NodeStmt>();
+      NodeStmt* stmt = m_compiler.allocator.alloc<NodeStmt>();
       stmt->variant = stex;
       return stmt;
    }
@@ -329,7 +355,7 @@ std::optional<NodeStmt*> Parser::parse_if() {
    consume(); // if
    if (!try_consume(TokenType::OPEN_PAREN)) { fail("Expected '('."); return {}; }
 
-   NodeStmtIf* stmt_if = m_ctx.arena.alloc<NodeStmtIf>();
+   NodeStmtIf* stmt_if = m_compiler.allocator.alloc<NodeStmtIf>();
    if (auto cond = parse_condition()) stmt_if->condition = cond.value();
    else { fail("Expected if condition.\n"); return {}; }
 
@@ -343,7 +369,7 @@ std::optional<NodeStmt*> Parser::parse_if() {
       else { fail("Expected body in else path.\n"); return {}; }
    }
 
-   NodeStmt* stmt = m_ctx.arena.alloc<NodeStmt>();
+   NodeStmt* stmt = m_compiler.allocator.alloc<NodeStmt>();
    stmt->variant = stmt_if;
    return stmt;
 }
@@ -353,7 +379,7 @@ std::optional<NodeStmt*> Parser::parse_while() {
    consume(); // while
    if (!try_consume(TokenType::OPEN_PAREN)) { fail("Expected '('."); return {}; }
 
-   NodeStmtWhile* _while = m_ctx.arena.alloc<NodeStmtWhile>();
+   NodeStmtWhile* _while = m_compiler.allocator.alloc<NodeStmtWhile>();
    if (auto cond = parse_condition()) _while->condition = cond.value();
    else { fail("Expected while condition.\n"); return {}; }
 
@@ -362,7 +388,7 @@ std::optional<NodeStmt*> Parser::parse_while() {
    if (auto body = parse_scope()) _while->body = body.value();
    else { fail("Expected while body.\n"); return {}; }
 
-   NodeStmt* stmt = m_ctx.arena.alloc<NodeStmt>();
+   NodeStmt* stmt = m_compiler.allocator.alloc<NodeStmt>();
    stmt->variant = _while;
    return stmt;
 }
@@ -371,7 +397,7 @@ std::optional<NodeStmt*> Parser::parse_while() {
 std::optional<NodeStmt*> Parser::parse_for() {
    consume(); // for
    if (!try_consume(TokenType::OPEN_PAREN)) { fail("Expected '('."); return {};}
-   NodeStmtFor* _for = m_ctx.arena.alloc<NodeStmtFor>();
+   NodeStmtFor* _for = m_compiler.allocator.alloc<NodeStmtFor>();
 
    if (auto init = parse_simple_stmt()) {
       if (!is_init_stmt(init.value())) { fail("Invalid for loop initializer.\n"); return {}; }
@@ -394,7 +420,7 @@ std::optional<NodeStmt*> Parser::parse_for() {
    if (auto body = parse_scope()) _for->body = body.value();
    else { fail("Expected for body.\n"); return {}; }
 
-   NodeStmt* stmt = m_ctx.arena.alloc<NodeStmt>();
+   NodeStmt* stmt = m_compiler.allocator.alloc<NodeStmt>();
    stmt->variant = _for;
    return stmt;
 }
@@ -403,7 +429,7 @@ std::optional<NodeStmt*> Parser::parse_for() {
 std::optional<NodeStmt*> Parser::parse_exit() {
    consume(2); // exit(
 
-   NodeStmtExit* stmt_exit = m_ctx.arena.alloc<NodeStmtExit>();
+   NodeStmtExit* stmt_exit = m_compiler.allocator.alloc<NodeStmtExit>();
    if (auto node_expr = parse_expr()) stmt_exit->expr = node_expr.value();
    else {
       fail("Invalid exit expression.");
@@ -411,7 +437,7 @@ std::optional<NodeStmt*> Parser::parse_exit() {
    }
    if (!try_consume(TokenType::CLOSE_PAREN)) { fail("Expected ')'."); return {};}
 
-   NodeStmt* stmt = m_ctx.arena.alloc<NodeStmt>();
+   NodeStmt* stmt = m_compiler.allocator.alloc<NodeStmt>();
    stmt->variant = stmt_exit;
    return stmt;
 }
@@ -419,7 +445,7 @@ std::optional<NodeStmt*> Parser::parse_exit() {
 
 std::optional<NodeStmt*> Parser::parse_have() {
    consume(); // have
-   NodeStmtHave* stmt_have = m_ctx.arena.alloc<NodeStmtHave>();
+   NodeStmtHave* stmt_have = m_compiler.allocator.alloc<NodeStmtHave>();
    auto id = try_consume(TokenType::IDENTIFIER);
    if (!id.has_value()) { fail("Invalid identifier."); return {}; }
    stmt_have->ident = id.value();
@@ -445,7 +471,7 @@ std::optional<NodeStmt*> Parser::parse_have() {
       return {};
    }
 
-   NodeStmt* stmt = m_ctx.arena.alloc<NodeStmt>();
+   NodeStmt* stmt = m_compiler.allocator.alloc<NodeStmt>();
    stmt->variant = stmt_have;
    return stmt;
 }
@@ -456,7 +482,7 @@ std::optional<NodeStmt*> Parser::finish_assign(NodeExpr* target) {
    auto rhs = parse_expr();
    if (!rhs.has_value()) { fail("Invalid assignment expression."); return {}; }
 
-   NodeStmtAssign* assign = m_ctx.arena.alloc<NodeStmtAssign>();
+   NodeStmtAssign* assign = m_compiler.allocator.alloc<NodeStmtAssign>();
    assign->target = target;
    assign->expr = rhs.value();
    
@@ -465,7 +491,7 @@ std::optional<NodeStmt*> Parser::finish_assign(NodeExpr* target) {
    else if (auto* idx = std::get_if<NodeExprIndex*>(&target->variant))
       assign->ident = (*idx)->ident;
 
-   NodeStmt* stmt = m_ctx.arena.alloc<NodeStmt>();
+   NodeStmt* stmt = m_compiler.allocator.alloc<NodeStmt>();
    stmt->variant = assign;
    return stmt;
 }
@@ -490,29 +516,29 @@ std::optional<NodeStmt*> Parser::finish_assign(NodeExpr* target) {
 std::optional<NodeStmt*> Parser::parse_cmpd_assign() {
    Token ident = consume(); // Identifier
    TokenType optok = consume().type; // Operation + - / *
-   BinExprType binop = Symbols::cmpd_binop(optok); // BinExprType translation
+   BinExprType binop = Symbols::compound_to_binop(optok); // BinExprType translation
 
    auto rhs = parse_expr();
    if (!rhs.has_value()) { return {}; }
 
-   NodeExprIdent* id_expr = m_ctx.arena.alloc<NodeExprIdent>();
+   NodeExprIdent* id_expr = m_compiler.allocator.alloc<NodeExprIdent>();
    id_expr->ident = ident;
-   NodeExpr* id_wrapped = m_ctx.arena.alloc<NodeExpr>();
+   NodeExpr* id_wrapped = m_compiler.allocator.alloc<NodeExpr>();
    id_wrapped->variant = id_expr;
 
-   NodeBinExpr* bin = m_ctx.arena.alloc<NodeBinExpr>();
+   NodeBinExpr* bin = m_compiler.allocator.alloc<NodeBinExpr>();
    bin->operation = binop;
    bin->left = id_wrapped;
    bin->right = rhs.value();
-   NodeExpr* bin_wrap = m_ctx.arena.alloc<NodeExpr>();
+   NodeExpr* bin_wrap = m_compiler.allocator.alloc<NodeExpr>();
    bin_wrap->variant = bin;
 
-   NodeStmtAssign* assign = m_ctx.arena.alloc<NodeStmtAssign>();
+   NodeStmtAssign* assign = m_compiler.allocator.alloc<NodeStmtAssign>();
    assign->target = id_wrapped;
    assign->expr = bin_wrap;
 
    if (!try_consume(TokenType::SEMICOLON)) { fail("Expected ';'"); return {}; }
-   NodeStmt* stmt = m_ctx.arena.alloc<NodeStmt>();
+   NodeStmt* stmt = m_compiler.allocator.alloc<NodeStmt>();
    stmt->variant = assign;
    return stmt;
 }
@@ -521,7 +547,7 @@ std::optional<NodeStmt*> Parser::parse_cmpd_assign() {
 std::optional<NodeStmt*> Parser::parse_print() {
    bool with_nl = (peek().value().type == TokenType::PRINTLN);
    consume(2);
-   NodeStmtPrint* stmt_print = m_ctx.arena.alloc<NodeStmtPrint>();
+   NodeStmtPrint* stmt_print = m_compiler.allocator.alloc<NodeStmtPrint>();
    stmt_print->nwln = with_nl;
 
    if (auto expr = parse_expr()) stmt_print->expr = expr.value();
@@ -529,7 +555,7 @@ std::optional<NodeStmt*> Parser::parse_print() {
    
    if (!try_consume(TokenType::CLOSE_PAREN)) { fail("Expected ')'."); return {}; }
 
-   NodeStmt* stmt = m_ctx.arena.alloc<NodeStmt>();
+   NodeStmt* stmt = m_compiler.allocator.alloc<NodeStmt>();
    stmt->variant = stmt_print;
    return stmt;
 }
@@ -537,11 +563,11 @@ std::optional<NodeStmt*> Parser::parse_print() {
 
 std::optional<NodeStmt*> Parser::parse_return() {
    consume(); // return
-   NodeStmtReturn* _return = m_ctx.arena.alloc<NodeStmtReturn>();
+   NodeStmtReturn* _return = m_compiler.allocator.alloc<NodeStmtReturn>();
    if (auto expr = parse_expr()) _return->expr = expr.value();
    else { return {}; }
 
-   NodeStmt* stmt = m_ctx.arena.alloc<NodeStmt>();
+   NodeStmt* stmt = m_compiler.allocator.alloc<NodeStmt>();
    stmt->variant = _return;
    return stmt;
 }
@@ -550,7 +576,7 @@ std::optional<NodeStmt*> Parser::parse_return() {
 
 std::optional<NodeScopeBlock*> Parser::parse_scope() {
    if (!try_consume(TokenType::OPEN_BRACE)) { fail("Expected '{'."); return {}; }
-   NodeScopeBlock* block = m_ctx.arena.alloc<NodeScopeBlock>();
+   NodeScopeBlock* block = m_compiler.allocator.alloc<NodeScopeBlock>();
    // if (is_next(TokenType::OPEN_BRACE)){
    //    consume();
       while (peek().has_value() && peek().value().type != TokenType::CLOSE_BRACE) {
@@ -586,7 +612,7 @@ std::optional<NodeCondition*> Parser::parse_cond_primary() {
       if (auto inner = parse_condition_bp(0)) {
          if (peek().has_value() && peek().value().type == TokenType::CLOSE_PAREN) {
             if (peek(1).has_value() &&
-                Symbols::tok_cmp(peek(1).value().type) != CmpExprType::NONE)
+                Symbols::token_to_compare(peek(1).value().type) != CmpExprType::NONE)
                reset(saved);
             else {
                consume();
@@ -600,10 +626,10 @@ std::optional<NodeCondition*> Parser::parse_cond_primary() {
    auto left = parse_expr();
    if (!left .has_value()) return {};
 
-   NodeCmpCondition* cmp = m_ctx.arena.alloc<NodeCmpCondition>();
+   NodeCmpCondition* cmp = m_compiler.allocator.alloc<NodeCmpCondition>();
    cmp->left = left.value();
 
-   CmpExprType op = Symbols::tok_cmp(peek().value().type);
+   CmpExprType op = Symbols::token_to_compare(peek().value().type);
    if (op != CmpExprType::NONE) {
       consume();
       auto right = parse_expr();
@@ -615,8 +641,8 @@ std::optional<NodeCondition*> Parser::parse_cond_primary() {
       cmp->right = nullptr;
    }
 
-   NodeCondition* node = m_ctx.arena.alloc<NodeCondition>();
-   node->var = cmp;
+   NodeCondition* node = m_compiler.allocator.alloc<NodeCondition>();
+   node->variant = cmp;
    return node;
 }
 
@@ -626,7 +652,7 @@ std::optional<NodeCondition*> Parser::parse_condition_bp(int min_prec) {
    if (!left.has_value()) return {};
 
    while (peek().has_value()) {
-      CmpExprType op = Symbols::tok_logop(peek().value().type);
+      CmpExprType op = Symbols::token_to_logop(peek().value().type);
       if (op == CmpExprType::NONE) break;
 
       int prec = cond_precidence(op);
@@ -639,13 +665,13 @@ std::optional<NodeCondition*> Parser::parse_condition_bp(int min_prec) {
          return {};
       }
 
-      NodeLogicCondition* logic = m_ctx.arena.alloc<NodeLogicCondition>();
+      NodeLogicCondition* logic = m_compiler.allocator.alloc<NodeLogicCondition>();
       logic->operation = op;
       logic->left = left.value();
       logic->right = right.value();
 
-      NodeCondition* node = m_ctx.arena.alloc<NodeCondition>();
-      node->var = logic;
+      NodeCondition* node = m_compiler.allocator.alloc<NodeCondition>();
+      node->variant = logic;
       left = node;
    }
 
@@ -661,7 +687,7 @@ std::optional<NodeCondition*> Parser::parse_condition() {
 std::optional<NodeFunction*> Parser::parse_func() {
    if (!peek().has_value() || peek().value().type != TokenType::FUNC) return {};
 
-   NodeFunction* func = m_ctx.arena.alloc<NodeFunction>();
+   NodeFunction* func = m_compiler.allocator.alloc<NodeFunction>();
    consume();  // consume 'func' / 'fn'
 
    auto name = try_consume(TokenType::IDENTIFIER);
@@ -712,32 +738,6 @@ std::optional<NodeFunction*> Parser::parse_func() {
 }
 
 
-
-std::optional<NodeProg> Parser::parse_prog() {
-   NodeProg prog;
-   try {
-      while (peek().has_value()) {
-         if (is_next(TokenType::FUNC)){
-            if (auto func = parse_func())
-               prog.funcs.push_back(func.value());
-            else
-               sync_next_func();
-         }
-         else {
-            int line = 0, col = 0;
-            if (peek().has_value()) { line = peek().value().line; col = peek().value().col; }
-            m_ctx.diag.error(CompPhase::Parsing, line, col,
-                        "Expected function declaration at top level.");
-            sync_next_func();
-         }
-      }
-      return prog;
-   } catch (const CompilerError&) {
-      return prog;
-   }
-}
-
-
 int Parser::get_precidence(BinExprType op) {
    switch (op) {
       case BinExprType::ADDITION:
@@ -768,7 +768,7 @@ inline std::optional<Token> Parser::try_consume(TokenType type) {
 
 // Something went wrong and now we try to recover parsing to report multiple errors at once.
 void Parser::synchronize() {
-   m_ctx.log.trace(CompPhase::Parsing, "Synchronizing...");
+   m_compiler.log.trace(CompPhase::Parsing, "Synchronizing...", "");
    while (peek().has_value()) {
       if (peek().value().type == TokenType::SEMICOLON) { consume(); return; }
       TokenType t = peek().value().type;
@@ -787,9 +787,9 @@ void Parser::synchronize() {
 void Parser::fail(const std::string& msg) {
    int line = 0, col = 0;
    if (peek().has_value()) { line = peek().value().line; col = peek().value().col; }
-   m_ctx.diag.error(CompPhase::Parsing, line, col, msg);
+   m_compiler.diagnostics.error(CompPhase::Parsing, m_compiler.current_filename(), line, col, msg);
    synchronize();
-}
+ }
 
 
 void Parser::sync_next_func() {

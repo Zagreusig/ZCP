@@ -17,6 +17,7 @@ namespace {
       { 'o', "output",     Flags::USER_NAME,       true,  "Set the output program name (-o <name>)" },
       { 'h', "help",       Flags::HALLLLLPUH,      false, "Print this help and exit." },
       { 'd', "debug",      Flags::DEBUG,           false, "Logs every action for debugging." },
+      { 'r', "raw",        Flags::RAW_TOKENS,      false, "Print the token list before it hits the preprocessor."},
    };
 
 

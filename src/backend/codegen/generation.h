@@ -17,7 +17,7 @@ class Compiler;
 class ASMGenerator {
 public:
    inline explicit ASMGenerator(Compiler& cmp, NodeProg prog) 
-      : m_prog(std::move(prog)), m_ctx(cmp) {}
+      : m_prog(std::move(prog)), m_compiler(cmp) {}
 
    [[nodiscard]] std::string build();
    void gen_expr(const NodeExpr*);
@@ -86,7 +86,7 @@ private:
    int m_label_count      = 0;
    std::vector<size_t> m_scope_stack {};
 
-   Compiler& m_ctx;
+   Compiler& m_compiler;
 };
 
 

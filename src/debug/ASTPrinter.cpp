@@ -48,7 +48,7 @@ void ASTPrinter::print_function(const NodeFunction* func, int depth) {
       m_out << pad(depth + 1) << "Params:\n";
       for (const NodeParam& p : func->params)
          m_out << pad(depth + 2)
-                   << Symbols::dt_str(p.type.base) << " "
+                   << Symbols::datatype_to_str(p.type.base) << " "
                    << p.name.text() << "\n";
    }
 
@@ -78,7 +78,7 @@ void ASTPrinter::print_stmt(const NodeStmt* stmt, int depth) {
          p->m_out << pad(depth) << "Have: " << s->ident.text();
          if (s->resolved.is_array) { 
             p->m_out << "     Array type: " 
-                      << to_string(Symbols::dt_tok(s->resolved.base)) << std::endl;
+                      << to_string(Symbols::datatype_to_token(s->resolved.base)) << std::endl;
          }
          p->print_expr(s->expr, depth + 1);
       }
@@ -230,5 +230,5 @@ void ASTPrinter::print_condition(const NodeCondition* cond, int depth) {
          p->print_condition(c->right, depth + 1);
       }
    };
-   std::visit(Visitor{ this, depth }, cond->var);
+   std::visit(Visitor{ this, depth }, cond->variant);
 }

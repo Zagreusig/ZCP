@@ -1,4 +1,4 @@
-fn main() -> int {
+fn program() -> int {
    have x = 0;
    have y: char = 'c';
    have z = 'Y';

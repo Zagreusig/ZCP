@@ -1,12 +1,14 @@
 #ifndef LOGGER_H
 #define LOGGER_H
 
+#include <fstream>
 #include <string>
 #include <vector>
 #include <chrono>
 #include <unordered_map>
 #include <iosfwd>
 #include <utility>
+#include <sstream>
 
 #include "utils/phase.h"
 
@@ -26,6 +28,7 @@ struct LogEntry {
    CompPhase   phase;
    Severity    severity;
    std::string message;
+   std::string file_name;
    int         line = 0; // 0 == no location
    int         col  = 0;
 };
@@ -36,21 +39,28 @@ public:
    using Duration = std::chrono::nanoseconds;
 
    Logger() = default;
+   ~Logger() {
+      std::ostringstream ss;
+      flush(ss);
+      std::fstream _log("compilation_log.txt", std::ios::out);
+      _log << ss.str();
+   }
+
 
    void enable(bool on) { m_enabled = on; }
    bool enabled() const { return m_enabled; }
 
    // -- q entries --
-   void log(CompPhase phase, Severity sev, std::string msg, int line = 0, int col = 0) {
+   void log(CompPhase phase, Severity sev, std::string msg, std::string file_name, int line = 0, int col = 0) {
       if (!m_enabled) return;
-      m_entries.push_back(LogEntry{ phase, sev, std::move(msg), line, col });
+      m_entries.push_back(LogEntry{ phase, sev, std::move(msg), std::move(file_name), line, col });
    }
 
    // wrappers :]
-   void trace(CompPhase p, std::string m, int l = 0, int c = 0);
-   void info (CompPhase p, std::string m, int l = 0, int c = 0);
-   void warn (CompPhase p, std::string m, int l = 0, int c = 0);
-   void error(CompPhase p, std::string m, int l = 0, int c = 0);
+   void trace(CompPhase p, std::string m, std::string fn, int l = 0, int c = 0);
+   void info (CompPhase p, std::string m, std::string fn, int l = 0, int c = 0);
+   void warn (CompPhase p, std::string m, std::string fn, int l = 0, int c = 0);
+   void error(CompPhase p, std::string m, std::string fn, int l = 0, int c = 0);
 
    // timing
    void record_time(CompPhase phase, Duration d) {
@@ -66,11 +76,12 @@ public:
    bool failed() const { return m_failed; }
 
    // dumps things -> into log
-   void set_flags(std::string s)    { m_flags       = std::move(s); }
-   void set_tokens(std::string s)   { m_tokens_dump = std::move(s); }
-   void set_ast(std::string s)      { m_ast_dump    = std::move(s); }
-   void set_orig_asm(std::string s) { m_orig_asm    = std::move(s); }
-   void set_opt_asm(std::string s)  { m_opt_asm     = std::move(s); }
+   void set_flags(std::string s)          { m_flags       = std::move(s); }
+   void set_raw(std::string s)            { m_raw_tokens  = s; }
+   void set_tokens(std::string s)         { m_tokens_dump = s; }
+   void set_ast(std::string s)            { m_ast_dump    = s; }
+   void set_orig_asm(std::string s)       { m_orig_asm    = s; }
+   void set_opt_asm(const std::string s)  { m_opt_asm     = s; }
 
    // -- rendering --
    // writes the log.
@@ -90,7 +101,7 @@ private:
    CompPhase m_failed_phase = CompPhase::Lexing;
    CompPhase m_last_phase   = CompPhase::Lexing;
 
-   std::string m_flags, m_tokens_dump, m_ast_dump, m_orig_asm, m_opt_asm;
+   std::string m_flags, m_tokens_dump, m_raw_tokens, m_ast_dump, m_orig_asm, m_opt_asm;
 };
 
 // ============================================================================

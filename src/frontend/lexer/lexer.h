@@ -13,7 +13,8 @@ class Compiler;
 
 class Lexer {
 public:
-   inline explicit Lexer(Compiler& cmp) : m_ctx(cmp) {}
+   inline explicit Lexer(Compiler& cmp, const std::string& source, int file_id) 
+      : m_compiler(cmp), m_src(source), m_file_id(file_id) {}
    std::vector<Token> lex();
    std::vector<Token> tokenize();
 
@@ -28,11 +29,12 @@ private:
    }
    inline Token resolveSymbol(char);
 
-   Compiler& m_ctx;
-
-   std::vector<Token> tokens {};
+   Compiler& m_compiler;
 
    std::string m_src;
+   int m_file_id = 0;
+
+   std::vector<Token> tokens {};
    size_t m_currIndex = 0;
    int m_line = 1, m_col = 1;
 };

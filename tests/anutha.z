@@ -17,7 +17,7 @@ fn get_char(str prompt) -> char {
 }
 
 
-fn main() {
+fn gimme() {
    have s = "Gimme char: ";
    have ch = get_char(s);
    have i = foo(5, 2);

@@ -1,0 +1,10 @@
+#include "tests/loops.z"
+#include "tests/an_actual_program.z"
+#include "tests/test_header.zh"
+#include "tests/loops.z"
+
+fn main() -> int {
+   loops();
+   program();
+   return test_func(9, 10);
+}

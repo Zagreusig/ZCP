@@ -16,7 +16,7 @@ struct TypeInfo {
    int array_len = 0;
 
    // Element in bytes.
-   int elem_size() const {
+   int element_size() const {
       switch (base) {
          case DataType::CHAR: return 1;
          case DataType::INT:  return 8;
@@ -27,7 +27,7 @@ struct TypeInfo {
    // total storage this var occupies on the stack.
    int byte_size() const {
       if (base == DataType::STR) return 16; // fat pointer: ptr(8) + len(8)
-      return is_array ? array_len * elem_size() : elem_size();
+      return is_array ? array_len * element_size() : element_size();
    }
 };
 
@@ -75,7 +75,7 @@ struct NodeLogicCondition {
 };
 
 struct NodeCondition {
-   std::variant<NodeCmpCondition*, NodeLogicCondition*> var;
+   std::variant<NodeCmpCondition*, NodeLogicCondition*> variant;
 };
 
 struct NodeBinExpr {
@@ -143,14 +143,14 @@ struct NodeStmtScope {
 };
 
 struct NodeStmtIf {
-   NodeCondition* condition  = nullptr;
+   NodeCondition*  condition = nullptr;
    NodeScopeBlock* body      = nullptr;
    NodeScopeBlock* else_body = nullptr;
 };
 
 struct NodeStmtWhile {
-   NodeCondition* condition = nullptr;
-   NodeScopeBlock* body     = nullptr;
+   NodeCondition*  condition = nullptr;
+   NodeScopeBlock* body      = nullptr;
 };
 
 struct NodeStmtFor {
@@ -194,7 +194,7 @@ struct NodeStmt {
 };
 
 struct NodeProg {
-   std::vector<NodeFunction*> funcs;
+   std::vector<NodeFunction*> functions;
 };
 
 #endif // NODES_H

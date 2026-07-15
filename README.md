@@ -83,11 +83,11 @@ You are able to combine multiple flags into one, or keep them as separate statem
 - `-a` Leaves the generated assembly file.
 - `-p` Leaves the original, pre-optimization assembly file.
 - `-j` Leaves the generated object file.
-- `-t` Prints the lexer's tokens `{ TOKENTYPE, \<value>, line:col }
+- `-t` Prints the lexer's tokens `{ TOKENTYPE, \<value>, file:line:col } 
 - `-s` Prints a visual representation of the parser's AST
 - `-f` Prints the flags passed to the program
 - `-o` Declare the name of the final executable `./zcp -o myProg file.z`
 
 # Compiler Warnings:  
-I tried to create a similar style of error to that of g++ / gcc, however the error it points to is usually the statement AFTER the actual issue.  
-**NOTE:** There are currently no *warnings*, only errors.
+I tried to create a similar style of error to that of g++ / gcc, however the error it points to is usually the statement AFTER the actual issue.
+- **NOTE:**  Warnings are added, but are extremely limited.

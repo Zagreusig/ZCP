@@ -37,9 +37,9 @@ using TokenValue = std::variant<
 struct Token {
    TokenType type    = TokenType::NONE;
    TokenValue value;
+   int fileId        = 0;
    int line          = 0;
    int col           = 0;
-   // FileID for multifile
 
 
    // ---------------------------------------------------------------------------
@@ -49,12 +49,12 @@ struct Token {
    // ---------------------------------------------------------------------------
    bool has_value() const { return !std::holds_alternative<std::monostate>(value); }
 
-   bool is_int()  const { return std::holds_alternative<int64_t>(value); }
-   bool is_char() const { return std::holds_alternative<char>(value); }
-   bool is_text() const { return std::holds_alternative<std::string>(value); }
+   bool is_int()  const   { return std::holds_alternative<int64_t>(value); }
+   bool is_char() const   { return std::holds_alternative<char>(value); }
+   bool is_text() const   { return std::holds_alternative<std::string>(value); }
 
    int64_t int_val()  const  { return std::get<int64_t>(value); }
-   char    char_val() const { return std::get<char>(value); }
+   char    char_val() const  { return std::get<char>(value); }
 
    // Returns a reference to avoid copying the string.
    const std::string& text()     const { return std::get<std::string>(value); }
@@ -81,24 +81,24 @@ struct Token {
 // ---------------------------------------------------------------------------
 namespace tok {
    // Valueless token: ops, puncts, kwrds.
-   inline Token make(TokenType type, int line, int col) {
-      return Token{ type, std::monostate{}, line, col };
+   inline Token make(TokenType type, int fileID, int line, int col) {
+      return Token{ type, std::monostate{}, fileID, line, col };
    }
 
-   inline Token make_int(int64_t v, int line, int col) {
-      return Token{ TokenType::INT_LIT, v, line, col };
+   inline Token make_int(int64_t v, int fileID, int line, int col) {
+      return Token{ TokenType::INT_LIT, v, fileID, line, col };
    }
 
-   inline Token make_char(char c, int line, int col) {
-      return Token{ TokenType::CHAR_LIT, c, line, col };
+   inline Token make_char(char c, int fileID, int line, int col) {
+      return Token{ TokenType::CHAR_LIT, c, fileID, line, col };
    }
 
-   inline Token make_str(std::string s, int line, int col) {
-      return Token{ TokenType::STR_LIT, std::move(s), line, col };
+   inline Token make_str(std::string s, int fileID, int line, int col) {
+      return Token{ TokenType::STR_LIT, std::move(s), fileID, line, col };
    }
 
-   inline Token make_ident(std::string name, int line, int col) {
-      return Token{ TokenType::IDENTIFIER, std::move(name), line, col };
+   inline Token make_ident(std::string name, int fileID, int line, int col) {
+      return Token{ TokenType::IDENTIFIER, std::move(name), fileID, line, col };
    }
 } // namespace tok
 
