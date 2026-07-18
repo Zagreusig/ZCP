@@ -8,3 +8,6 @@ set r12 to rbp. Now we can do positive addressing.
 rax > rdx - data registers (d)
 rsi & rdi - index registers
 rbp & rsp = pointer registers
+
+
+floats use xxml <- ???

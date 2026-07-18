@@ -1,6 +1,6 @@
 #define THREE 3*3
 fn main() {
    have boolean: bool = true;
-   if (boolean == true) { return 11; }
+   if (boolean) { return 99; }
    return THREE;
 }

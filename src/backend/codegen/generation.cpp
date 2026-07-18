@@ -579,6 +579,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
             gen->gen_expr(_return->expr);
             gen->pop("rax");
          }
+         gen->m_output << "   jmp " << gen->m_epilogue_label << "\n";
       }
 
 
@@ -790,6 +791,7 @@ void ASMGenerator::gen_cond_true(const NodeCondition* cond, const std::string& t
 
 void ASMGenerator::gen_function(const NodeFunction* func) {
    m_current_offset = 0;
+   m_epilogue_label = make_label();
    int frame_size = compute_frame_size(func->body->stmts);
    for (const NodeParam& p : func->params)
       frame_size += p.type.byte_size();
@@ -849,6 +851,7 @@ void ASMGenerator::gen_function(const NodeFunction* func) {
       gen_stmt(stmt);
    end_scope();
 
+   m_output << m_epilogue_label << ":\n";
    emit_epilogue();
 }
 
