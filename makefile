@@ -111,6 +111,7 @@ clean:
 	@$(MAKE) rmExecs -i -s
 	@$(MAKE) rmFiles -i -s
 	@rm compile_commands.json
+	@rm compile_log.txt
 	clear
 
 

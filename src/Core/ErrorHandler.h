@@ -55,7 +55,7 @@ public:
    bool has_errors() const { return !m_errors.empty(); }
    size_t count() const { return m_errors.size(); }
 
-   void report_all(const std::string&, const std::string&) const;
+   void report_all(const std::string&) const;
 private:
    void report_one(const std::string&, const std::string&, const Diagnostic&) const;
    void report_one_warn(const std::string&, const std::string&, const Diagnostic&) const;

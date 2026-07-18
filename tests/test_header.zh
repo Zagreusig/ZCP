@@ -1,3 +1,11 @@
 fn test_func(int a, int b) -> int {
    return a + b;
 }
+
+fn a_thing(int a, int b) -> int {
+   return a + b;
+}
+
+fn this_errors();
+
+fn func_stub(int, int) -> int;

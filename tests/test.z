@@ -1,13 +1,3 @@
 fn main() {
-   have s: char = '\n';
-   have t: str = "She said \"hello\".\n";
-
-   print(s);
-   println(t);
-
-   have arr: str = "Hello";
-   s = arr[1];
-   println(s);
-
    return 0;
 }

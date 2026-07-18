@@ -3,8 +3,15 @@
 #include "tests/test_header.zh"
 #include "tests/loops.z"
 
+fn func_stub(int a, int b) -> int {
+   return a * b;
+}
+
 fn main() -> int {
    loops();
    program();
-   return test_func(9, 10);
+   println(test_func(9, 10));
+   println(a_thing(1, 2));
+
+   this_errors(9, 10);
 }

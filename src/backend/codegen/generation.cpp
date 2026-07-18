@@ -36,9 +36,10 @@
       m_funcs[f->name.text()] = ret;
    }
 
-   for (const NodeFunction* func : m_prog.functions)
+   for (const NodeFunction* func : m_prog.functions) {
+      if (!func->body) continue;
       gen_function(func);
-
+   }
    if (m_strings.empty()) return m_output.str();
 
    m_output << "\n\nsection .data\n";
@@ -91,15 +92,22 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
       }
 
 
+      void operator()(const NodeExprBoolLit* _bool) {
+         int boolean = (_bool->BOOL_LIT.type == TokenType::TRUE) ? 1 : 0;
+         gen->m_output << "   mov rax, " << boolean << "\n";
+         gen->push("rax");
+      }
+
+
       void operator()(const NodeExprIdent* expr_ident) {
-         auto var = gen->get_var(expr_ident->ident.text());
-         if (!var.has_value()) {
+         auto variable = gen->get_var(expr_ident->ident.text());
+         if (!variable.has_value()) {
             std::cerr << "Undeclared identifier visiting during gen_expr: " << expr_ident->ident.text() << std::endl;
             gen->total_fail();
          }
 
-         const auto& v = var.value();
-         if (v.type.base == DataType::CHAR)
+         const auto& v = variable.value();
+         if (gen->is_byte_width(v.type.base))
             gen->m_output << gen->load_scalar(v.offset, "movzx", "rax", "byte");
          else
             gen->m_output << gen->load_scalar(v.offset, "mov", "rax", "QWORD");
@@ -218,6 +226,12 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
 
          static const std::string param_regs[] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
          int reg_idx = 0;
+
+         auto itr = gen->m_funcs.find(call->name.text());
+         if (itr == gen->m_funcs.end()) {
+            std::cerr << "Expected function call.\n";
+            gen->total_fail();
+         }
 
          for (auto* arg : call->args) {
             const TypeInfo& at = arg->resolved;
@@ -363,15 +377,15 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
          });
          
          gen->m_current_offset += type.byte_size();
-         bool is_char = type.base == DataType::CHAR;
-         
+         bool byte_sized = gen->is_byte_width(type.base);
+
          if (h->expr) {
             gen->gen_expr(h->expr);
             gen->pop("rax");
-            gen->m_output << (is_char ? gen->store_scalar(off, "al", "byte") :
+            gen->m_output << (byte_sized ? gen->store_scalar(off, "al", "byte") :
                                         gen->store_scalar(off, "rax", "QWORD"));
          } else {
-            gen->m_output << gen->store_scalar(off, "0", (is_char ? "byte" : "QWORD" ));
+            gen->m_output << gen->store_scalar(off, "0", (byte_sized ? "byte" : "QWORD" ));
          }
       }
       
@@ -459,7 +473,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
                   gen->total_fail();
                }
             }
-            else if (var.value().type.base == DataType::CHAR) {
+            else if (gen->is_byte_width(var.value().type.base)) {
                gen->gen_expr(assign->expr);
                gen->pop("rax");
                gen->m_output << "   mov byte [r12 + " << off << "], al\n";
@@ -539,12 +553,16 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
             }
 
          } 
-         else if (gen->m_curr_ret_type.base == DataType::CHAR) {
+         else if (gen->is_byte_width(gen->m_curr_ret_type.base)) {
             if (auto* lit = std::get_if<NodeExprCharLit*>(&_return->expr->variant)) {
                char ch = (*lit)->CHAR_LIT.char_val();
                gen->m_output << "   mov al, '";
                if (ch == '\'') gen->m_output << "\\";
                gen->m_output << ch << "'\n";
+            }
+            else if (auto* lit = std::get_if<NodeExprBoolLit*>(&_return->expr->variant)) {
+               bool bl = (*lit)->BOOL_LIT.bool_val();
+               gen->m_output << "   mov al, " << (bl ? 1 : 0) << "\n";
             }
             else if (auto* id = std::get_if<NodeExprIdent*>(&_return->expr->variant)) {
                auto var = gen->get_var((*id)->ident.text());
@@ -582,6 +600,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
       void operator()(const NodeStmtPrint* p) const {
          DataType t = p->expr->resolved.base;
          switch (t) {
+            case DataType::BOOL: /** NOTE: TEMPORARY */
             case DataType::INT:
                gen->gen_expr(p->expr);
                gen->pop("rax");
@@ -651,6 +670,8 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
                                 << "   syscall\n";
                }
                break;
+
+
             default: 
                std::cerr << "Cannot print value of unknown type." << std::endl;
                gen->total_fail();
@@ -812,7 +833,7 @@ void ASMGenerator::gen_function(const NodeFunction* func) {
          m_output << "   mov QWORD [r12 + " << off << "], " << param_regs[reg_idx] << "\n"            // ptr
                   << "   mov QWORD [r12 + " << (off + 8) << "], " << param_regs[reg_idx + 1] << "\n"; // len
       } 
-      else if (pt.base == DataType::CHAR)
+      else if (is_byte_width(pt.base))
          // byte-width spill, storw in low byte of arg reg
          m_output << "   mov byte [r12 + " << off << "], " << reg_map.at(param_regs[reg_idx])._8_bits.low << "\n";
       else
@@ -1043,7 +1064,10 @@ bool ASMGenerator::try_load_simple(const NodeExpr* e, const std::string& reg) {
    if (auto* id = std::get_if<NodeExprIdent*>(&e->variant)) {
       auto var = get_var((*id)->ident.text());
       if (var.has_value()) {
-         m_output << "   mov " << reg << ", QWORD [r12 + " << var.value().offset << "]\n";
+         if (is_byte_width(var.value().type.base))
+            m_output << load_scalar(var.value().offset, "movzx", reg, "byte");
+         else
+            m_output << "   mov " << reg << ", QWORD [r12 + " << var.value().offset << "]\n";
          return true;
       }
    }
@@ -1100,4 +1124,9 @@ std::string ASMGenerator::load_scalar(int offset, const std::string& mv = "mov",
    std::stringstream output;
    output << "   " << mv << " " << reg << ", " << op << " [r12 + " << offset << "]\n";
    return output.str(); 
+}
+
+
+bool ASMGenerator::is_byte_width(DataType type) {
+   return type == DataType::CHAR || type == DataType::BOOL;
 }

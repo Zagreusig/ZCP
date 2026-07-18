@@ -34,6 +34,9 @@ namespace Symbols {
          case TokenType::CHAR_LIT: return DataType::CHAR;
          case TokenType::STR:
          case TokenType::STR_LIT:  return DataType::STR;
+         case TokenType::BOOL:     
+         case TokenType::FALSE:
+         case TokenType::TRUE:     return DataType::BOOL;
          default:                  return DataType::NONE;
       }
    }
@@ -43,7 +46,7 @@ namespace Symbols {
          case DataType::INT:  return TokenType::INT;
          case DataType::CHAR: return TokenType::CHAR;
          case DataType::STR:  return TokenType::STR;
-         case DataType::BOOL:
+         case DataType::BOOL: return TokenType::BOOL;
          default:             return TokenType::NONE;
       }
    }
@@ -109,7 +112,6 @@ namespace Symbols {
          default:                              return CmpExprType::NONE;
       }
    }
-
 };
 
 #endif // SYMBOLTABLE_H

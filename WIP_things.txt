@@ -2,3 +2,6 @@ array params (reference) Arr pass by ptr. Gets arr's base addr, can index throug
 
 working on includes
    -> per-file instance difficult, start with a merge style.
+
+
+cannot init bool var from comparison, only literal true / false

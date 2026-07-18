@@ -66,6 +66,7 @@ private:
    std::string load_scalar(int, const std::string&, const std::string&, const std::string&);
 
    bool try_load_simple(const NodeExpr*, const std::string&);
+   bool is_byte_width(DataType type);
 
    void total_fail();
 
@@ -85,6 +86,7 @@ private:
    int m_current_offset   = 0;
    int m_label_count      = 0;
    std::vector<size_t> m_scope_stack {};
+   std::string m_epilogue_label;
 
    Compiler& m_compiler;
 };

@@ -14,6 +14,6 @@ int main(int argc, char* argv[]) {
    auto source = read_file(args->input_file);
    if (!source) return EXIT_FAILURE;
 
-   Compiler ctx(*source, args->flags, args->output_name, args->input_file);
-   return ctx.run();
+   Compiler compiler(*source, args->flags, args->output_name, args->input_file);
+   return compiler.run();
 }

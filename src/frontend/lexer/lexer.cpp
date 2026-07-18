@@ -26,7 +26,8 @@ const std::unordered_map<std::string, TokenType> KEYWORDS = {
    { "print", TokenType::PRINT }, { "println", TokenType::PRINTLN },
    { "readc", TokenType::READC }, { "readln", TokenType::READS }, { "reads", TokenType::READS},
    { "readi", TokenType::READI }, { "readf", TokenType::READF },
-   { "global", TokenType::GLOBAL }, { "const", TokenType::CONST }
+   { "global", TokenType::GLOBAL }, { "const", TokenType::CONST },
+   { "true", TokenType::TRUE }, { "false", TokenType::FALSE }
 };
 
 
@@ -61,9 +62,21 @@ std::vector<Token> Lexer::tokenize() {
          consume(); // '\n'
          tokens.pop_back();
       }
-
-
-      if (std::isalpha(peek().value())) { 
+      else if (!tokens.empty() && tokens.back().type == TokenType::START_COMMENT_BLOCK) {
+         tokens.pop_back();
+         while(peek().has_value()) {
+            if (peek_eval('*') && peek_eval('/', 1)) {
+               consume(); consume(); break;
+            }
+            consume();
+         }
+         /** TODO: make this not like this, it's gross nasty */
+         if (!peek().has_value() && peek_eval('/', -2)) {
+            m_compiler.diagnostics.error(CompPhase::Lexing, m_compiler.current_filename(), m_line, m_col,
+                                         "Unterminated comment block.");
+         }
+      }
+      else if (std::isalpha(peek().value())) { 
          int tok_line = m_line, tok_col = m_col;        
          buf.push_back(consume());
          while (peek().has_value() && (std::isalnum(peek().value()) || peek().value() == '_'))
@@ -94,11 +107,11 @@ std::vector<Token> Lexer::tokenize() {
          int tok_line = m_line, tok_col = m_col;
          consume();
          if (!peek().has_value())
-            m_compiler.diagnostics.fatal(CompPhase::Lexing, m_compiler.filename_by_id(m_file_id), tok_line, tok_col, "Expected char literal.");
+            m_compiler.fatal(CompPhase::Lexing, m_file_id, tok_line, tok_col, "Expected char literal.");
          char c = consume();
          if (c == '\\') {
             if (!peek().has_value()) { 
-               m_compiler.diagnostics.error(CompPhase::Lexing, m_compiler.filename_by_id(m_file_id), tok_line, tok_col, "Unterminated escape.");
+               m_compiler.error(CompPhase::Lexing, m_file_id, tok_line, tok_col, "Unterminated escape.");
                break; 
             }
             c = Esc::translate_escape(consume());
@@ -115,7 +128,7 @@ std::vector<Token> Lexer::tokenize() {
          while (peek().has_value() && peek().value() != '"') {
             char c = consume();
             if (c == '\\') {
-               if (!peek().has_value()) { m_compiler.diagnostics.error(CompPhase::Lexing, m_compiler.filename_by_id(m_file_id), tok_line, tok_col, "Unterminated escape."); break; }
+               if (!peek().has_value()) { m_compiler.error(CompPhase::Lexing, m_file_id, tok_line, tok_col, "Unterminated escape."); break; }
                char esc = consume(), translated = Esc::translate_escape(esc);
                if (esc == translated) { buf.push_back(esc); }
                else { buf.push_back(translated); }
@@ -124,7 +137,7 @@ std::vector<Token> Lexer::tokenize() {
             }
          }
          if (!peek().has_value()) 
-            m_compiler.diagnostics.fatal(CompPhase::Lexing, m_compiler.filename_by_id(m_file_id), tok_line, tok_col, "Expected closing \"");
+            m_compiler.fatal(CompPhase::Lexing, m_file_id, tok_line, tok_col, "Expected closing \"");
          if (peek().value() == '"' && buf.length() < 1) buf.push_back('\0'); 
 
          consume();
@@ -255,7 +268,7 @@ inline Token Lexer::resolveSymbol(char symbol) {
       } 
       return tok::make(TokenType::AMPERSAND, m_file_id, m_line, m_col); 
    case '#': return tok::make(TokenType::POUND, m_file_id, m_line, m_col); 
-   default:  m_compiler.diagnostics.error(CompPhase::Lexing, m_compiler.filename_by_id(m_file_id), m_line, m_col, "Unknown symbol."); 
+   default:  m_compiler.error(CompPhase::Lexing, m_file_id, m_line, m_col, "Unknown symbol."); 
              return tok::make(TokenType::INVALID, m_file_id, m_line, m_col); 
    }
 }

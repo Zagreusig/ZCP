@@ -6,7 +6,6 @@
 #include "driver/compiler.h"
 #include "Core/SymbolTable.h"
 #include "utils/msc.h"
-#include "ErrorHandler.h"
 #include "Nodes.h"
 #include "phase.h"
 
@@ -19,6 +18,16 @@ void Analyzer::analyze() {
    
       for (const NodeParam& p : f->params)
          sig.param_types.push_back(p.type);
+      
+      if (!f->body) { sig.has_definition = false; sig.origin_file = f->name.fileId; }
+      else          { sig.has_definition = true;  sig.origin_file = f->name.fileId; }
+      
+      if (m_func_sigs.contains(f->name.text()) && m_func_sigs[f->name.text()].has_definition) {
+         m_compiler.error(CompPhase::Analysis, f->name.fileId, f->name.line, f->name.col,
+                                      "Redefinition of function \"" + f->name.text() + "\".");
+      } else if (m_func_sigs.contains(f->name.text())) {
+         m_func_sigs[f->name.text()].has_definition = true; 
+      }
       m_func_sigs[f->name.text()] = sig;
    }
    
@@ -33,8 +42,8 @@ void Analyzer::analyze_have(NodeStmtHave* h) {
    TypeInfo info;
 
    if (!h->has_type && h->expr == nullptr) {
-      m_compiler.diagnostics.error
-      (CompPhase::Analysis, m_compiler.filename_by_id(h->ident.fileId), h->ident.line, h->ident.col,
+      m_compiler.error
+      (CompPhase::Analysis, h->ident.fileId, h->ident.line, h->ident.col,
        "Declaration needs type of initializer.");
       return;
    }
@@ -48,8 +57,8 @@ void Analyzer::analyze_have(NodeStmtHave* h) {
             for (size_t i = 0; i < elems.size(); i++) {
                TypeInfo et = type_of(elems[i]);
                if (et.base != info.base) {
-                  m_compiler.diagnostics.error
-                  (CompPhase::Analysis, m_compiler.filename_by_id(h->ident.fileId), h->ident.line, h->ident.col,
+                  m_compiler.error
+                  (CompPhase::Analysis, h->ident.fileId, h->ident.line, h->ident.col,
                    "Array literal has mismatched element types.");
                   break;   
                } 
@@ -59,8 +68,8 @@ void Analyzer::analyze_have(NodeStmtHave* h) {
             if (info.is_array) {
                // annotation was int[N] - N must be equal lit's len
                if (info.array_len != (int)elems.size())
-                  m_compiler.diagnostics.error
-                  (CompPhase::Analysis, m_compiler.filename_by_id(h->ident.fileId), h->ident.line, h->ident.col,
+                  m_compiler.error
+                  (CompPhase::Analysis, h->ident.fileId, h->ident.line, h->ident.col,
                    "Array literals doesn't match declared length.");
             } else {
                info.is_array = true;
@@ -69,8 +78,8 @@ void Analyzer::analyze_have(NodeStmtHave* h) {
          } else {
             TypeInfo init = type_of(h->expr);
             if (!types_match(info, init))
-               m_compiler.diagnostics.error
-               (CompPhase::Analysis, m_compiler.filename_by_id(h->ident.fileId), h->ident.line, h->ident.col, 
+               m_compiler.error
+               (CompPhase::Analysis, h->ident.fileId, h->ident.line, h->ident.col, 
                 "Array type mismatch.");
          }
       }
@@ -80,15 +89,15 @@ void Analyzer::analyze_have(NodeStmtHave* h) {
    else if (auto* lit = std::get_if<NodeExprArrayLit*>(&h->expr->variant)) {
       const auto& elems = (*lit)->elements;
       if (elems.empty()) {
-         m_compiler.diagnostics.error
-         (CompPhase::Analysis, m_compiler.filename_by_id(h->ident.fileId), h->ident.line, h->ident.col,
+         m_compiler.error
+         (CompPhase::Analysis, h->ident.fileId, h->ident.line, h->ident.col,
           "Cannot infer type of empty array.");
       } else {
          TypeInfo et = type_of(elems[0]);
          for (size_t i = 1; i < elems.size(); i++) {
             if (!types_match(et, type_of(elems[i]))) {
-               m_compiler.diagnostics.error
-               (CompPhase::Analysis, m_compiler.filename_by_id(h->ident.fileId), h->ident.line, h->ident.col,
+               m_compiler.error
+               (CompPhase::Analysis, h->ident.fileId, h->ident.line, h->ident.col,
                 "Array literal has mismatched element types.");
                break;
             }
@@ -113,8 +122,13 @@ void Analyzer::analyze_function(NodeFunction* f) {
    for (const NodeParam& p : f->params)
       declare(p.name.text(), p.type);
 
-   for (auto* stmt : f->body->stmts)
-      analyze_stmt(stmt);
+   if (f->body) {
+      for (auto* stmt : f->body->stmts)
+         analyze_stmt(stmt);
+   } else {
+      m_func_sigs[f->name.text()].has_definition = false;
+      m_func_sigs[f->name.text()].origin_file = f->name.fileId;
+   }
    pop_scope();
 }
 
@@ -130,16 +144,16 @@ void Analyzer::analyze_stmt(NodeStmt* s) {
          TypeInfo target_t = type_of(s->target);
          TypeInfo rhs_t    = type_of(s->expr);
          if (!types_match(target_t, rhs_t))
-            m_compiler.diagnostics.error
-            (CompPhase::Analysis, m_compiler.filename_by_id(s->ident.fileId), s->ident.line, s->ident.col,
+            m_compiler.error
+            (CompPhase::Analysis, s->ident.fileId, s->ident.line, s->ident.col,
              "Type mismatch in assignment to '" + s->ident.text() + "'.");
       }
       
       else if constexpr (std::is_same_v<T, NodeStmtReturn>) {
          TypeInfo ret = type_of(s->expr);
          if (m_curr_func.ret_type.base != DataType::NONE && !types_match(ret, m_curr_func.ret_type))
-            m_compiler.diagnostics.error
-            (CompPhase::Analysis, m_compiler.filename_by_id(m_curr_func.ident.fileId), m_curr_func.ident.line, m_curr_func.ident.col,
+            m_compiler.error
+            (CompPhase::Analysis, m_curr_func.ident.fileId, m_curr_func.ident.line, m_curr_func.ident.col,
              "Return type mismatch.");
       }
        
@@ -244,14 +258,17 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
       else if constexpr (std::is_same_v<T, NodeExprCharLit>)
          return TypeInfo { .base = DataType::CHAR };
       
+      else if constexpr (std::is_same_v<T, NodeExprBoolLit>)
+         return TypeInfo{ .base = DataType::BOOL };
+
       else if constexpr (std::is_same_v<T, NodeExprStrLit>)
          return TypeInfo { .base = DataType::STR };
 
       else if constexpr (std::is_same_v<T, NodeExprIdent>) {
          auto found = lookup(node->ident.text());
          if (found.has_value()) return found.value();
-         m_compiler.diagnostics.error
-         (CompPhase::Analysis, m_compiler.filename_by_id(node->ident.fileId), node->ident.line, node->ident.col,
+         m_compiler.error
+         (CompPhase::Analysis, node->ident.fileId, node->ident.line, node->ident.col,
           "Use of undeclared identifier '" + node->ident.text() + "'.");
          return {};
       }
@@ -265,20 +282,27 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
          auto it = m_func_sigs.find(node->name.text());
          
          if (it == m_func_sigs.end()) {
-            m_compiler.diagnostics.error
-            (CompPhase::Analysis, m_compiler.filename_by_id(node->name.fileId), node->name.line, node->name.col,
+            m_compiler.error
+            (CompPhase::Analysis, node->name.fileId, node->name.line, node->name.col,
              "Call made to undeclared function '" + node->name.text() + "'.");
-         
+      
             for (auto* arg : node->args) type_of(arg); // still walk args to grab extra problems
             return {};
          }
       
          const FuncSig& sig = it->second;
 
+         if (!sig.has_definition && !m_func_sigs.contains(node->name.text())) { 
+            m_compiler.error
+            (CompPhase::Analysis, node->name.fileId, node->name.line, node->name.col,
+             "No matching definition for \"" + sig.ident.text() + "\".");
+            return {};
+         }
+
          // arg count check
          if (node->args.size() != sig.param_types.size()) {
-            m_compiler.diagnostics.error
-            (CompPhase::Analysis, m_compiler.filename_by_id(node->name.fileId), node->name.line, node->name.col,
+            m_compiler.error
+            (CompPhase::Analysis, node->name.fileId, node->name.line, node->name.col,
              std::to_string(sig.param_types.size()) + " argument(s) expected, got " + 
              std::to_string(node->args.size()) + ".");
          }
@@ -287,8 +311,8 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
          for (size_t i = 0; i < node->args.size(); i++) {
             TypeInfo at = type_of(node->args[i]);
             if (i < sig.param_types.size() && !types_match(sig.param_types[i], at)) {
-               m_compiler.diagnostics.error
-               (CompPhase::Analysis, m_compiler.filename_by_id(node->name.fileId), node->name.line, node->name.col,
+               m_compiler.error
+               (CompPhase::Analysis, node->name.fileId, node->name.line, node->name.col,
                 "Argument " + std::to_string(i + 1) + " to '" + node->name.text() + 
                 "' has mismatched type.");
             }
@@ -318,12 +342,12 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
       else if constexpr (std::is_same_v<T, NodeExprIndex>) {
          auto arr = lookup(node->ident.text());
          if (!arr.has_value()) { 
-            m_compiler.diagnostics.error
-            (CompPhase::Analysis, m_compiler.filename_by_id(node->ident.fileId), node->ident.line, node->ident.col,
+            m_compiler.error
+            (CompPhase::Analysis, node->ident.fileId, node->ident.line, node->ident.col,
              "Undeclared array: " + node->ident.text()); return {}; }
          if (!arr.value().is_array && arr.value().base != DataType::STR) 
-            { m_compiler.diagnostics.error
-               (CompPhase::Analysis, m_compiler.filename_by_id(node->ident.fileId), node->ident.line, node->ident.col,
+            { m_compiler.error
+               (CompPhase::Analysis, node->ident.fileId, node->ident.line, node->ident.col,
                 "Cannot index non-array."); return {}; }
          // indexing array yields its ELEMENT type (scalar, not array)
          return TypeInfo { .base = (arr.value().base == DataType::STR ? DataType::CHAR : arr.value().base) }; // is_array = false (default)
@@ -342,8 +366,18 @@ std::optional<TypeInfo> Analyzer::lookup(const std::string& ident) {
 
 
 bool Analyzer::types_match(TypeInfo t1, TypeInfo t2) {
-   if (t1.base != t2.base) return false;
-   if (t1.is_array != t2.is_array) return false;
-   if (t1.is_array && t1.array_len != t2.array_len) return false;
-   return true;
+   return (t1.base == t2.base) && (t1.is_array == t2.is_array) &&
+          (t1.array_len == t2.array_len);
+}
+
+
+bool Analyzer::functions_match(FuncSig first, FuncSig second) {
+   bool ret = true;
+
+   if (first.param_types.size() != second.param_types.size()) return false;
+   for (size_t i = 0; i < first.param_types.size(); i++) {
+      ret = ret && types_match(first.param_types.at(i), second.param_types.at(i));
+   }
+   return ret && (first.ident.text() == second.ident.text()) &&
+          types_match(first.ret_type, second.ret_type);
 }

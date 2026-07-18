@@ -2,6 +2,7 @@
 #define COMPILER_H
 
 #include <stdint.h>
+#include <stddef.h>
 #include <optional>
 #include <string>
 #include <vector>
@@ -19,6 +20,7 @@
 
 struct NodeProg;
 struct Token;
+enum class CompPhase;
 
 struct Options {
    bool log;
@@ -46,7 +48,7 @@ public:
    int optimizer_passes = 0;
 
    Options compiler_opts;
-   Logger  log;
+   Logger  logger;
 
    int main_file_ID = 0, current_file_ID = 0;
    std::unordered_map<int, std::pair<std::string, std::string>> m_files;
@@ -58,8 +60,8 @@ public:
       : file_name(fname), prog_name(pnm), source_text(src), flag_arr(arr), allocator(1024 * 1024 * 4) {
          for (auto& flag : arr) _flags = flag | _flags;
          compiler_opts.log = has_flag(Flags::DEBUG); set_bools();
-         if (compiler_opts.log) log.enable(true);
-         diagnostics.attach_logger(&log);
+         if (compiler_opts.log) logger.enable(true);
+         diagnostics.attach_logger(&logger);
          main_file_ID = add_file(file_name, source_text);
       }
 
@@ -109,10 +111,10 @@ public:
    Syscaller::Options          make_syscall_options();
 
 
-   bool errors(const std::string& source, const std::string& filename) { 
+   bool errors(const std::string& source) { 
       if (diagnostics.has_errors()) { 
-         diagnostics.report_all(source, filename); 
-         log.flush_to_file("compilation_log.txt"); 
+         diagnostics.report_all(source); 
+         logger.flush_to_file("compilation_log.txt"); 
          return true; 
       } 
       return false; 
@@ -123,10 +125,17 @@ public:
    void do_ast(NodeProg);
    void do_optimizer_logging(int, const std::string&);
 
+   std::string format_tokens(std::vector<Token>& tokens);
+   std::string format_raw(const std::vector<Token>& tokens);
+
    void print_tokens(std::vector<Token>);
    void print_tokens(std::ostringstream&, std::vector<Token>);
    void print_ast(std::ostringstream&, const NodeProg);
    void print_flags(std::ostringstream&, std::vector<Flags>);
+
+   void fatal(CompPhase, int, int, int, const std::string&);
+   void error(CompPhase, int, int, int, const std::string&);
+   void warn (CompPhase, int, int, int, const std::string&);
 };
 
 

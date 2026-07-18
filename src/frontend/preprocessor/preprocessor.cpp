@@ -6,7 +6,6 @@
 #include "frontend/lexer/lexer.h"
 #include "driver/compiler.h"
 #include "utils/file_util.h"
-#include "Core/ErrorHandler.h"
 #include "Core/TokenTable.h"
 #include "Core/Tokens.h"
 #include "utils/phase.h"
@@ -21,8 +20,12 @@
 std::vector<Token> Preprocessor::process() {
    std::vector<Token> out;
    while (m_index < m_tokens.size()) {
-      if (at_directive()) handle_directive(out);
-      else out.push_back(m_tokens[m_index++]);
+      if (at_directive()) 
+         handle_directive(out);
+      else if (const Macro* macro = get_macro(peek().value()))
+         expand_macro(*macro, out);
+      else
+         out.push_back(m_tokens[m_index++]);
    }
    return out;
 }
@@ -34,16 +37,30 @@ bool Preprocessor::at_directive() const {
 }
 
 
+const Macro* Preprocessor::get_macro(const Token& token) {
+   if (token.type != TokenType::IDENTIFIER) return nullptr;
+   auto iterator = m_macros.find(token.text());
+   return iterator != m_macros.end() ? &iterator->second : nullptr;
+}
+
+
+void Preprocessor::expand_macro(const Macro& macro, std::vector<Token>& out) {
+   m_index++; // macro identifier
+   for (const Token& splice : macro.content) 
+      out.push_back(splice);
+}
+
+
 void Preprocessor::handle_include(std::vector<Token>& out, int dir_line) {
 
    if (m_index >= m_tokens.size() || m_tokens[m_index].line != dir_line) {
-      m_compiler.diagnostics.error(CompPhase::Preprocessing, m_compiler.current_filename(), dir_line, 1, "Expected file path after #include.");
+      m_compiler.error(CompPhase::Preprocessing, m_compiler.current_file_ID, dir_line, 1, "Expected file path after #include.");
       return;
    }
 
    const Token& path_token = m_tokens[m_index];
    if (path_token.type != TokenType::STR_LIT) {
-      m_compiler.diagnostics.error(CompPhase::Preprocessing, m_compiler.current_filename(), path_token.line, path_token.col,
+      m_compiler.error(CompPhase::Preprocessing, path_token.fileId, path_token.line, path_token.col,
                               "Expected \"path\" after #include.");
       return;
    }
@@ -53,14 +70,14 @@ void Preprocessor::handle_include(std::vector<Token>& out, int dir_line) {
    if (m_included.count(path)) return;
 
    if (std::find(m_include_stack.begin(), m_include_stack.end(), path) != m_include_stack.end()) {
-      m_compiler.diagnostics.error(CompPhase::Preprocessing, m_compiler.current_filename(), path_token.line, path_token.col,
+      m_compiler.error(CompPhase::Preprocessing, path_token.fileId, path_token.line, path_token.col,
                               "Circular include of \"" + path + "\".");
       return;
    }
 
    auto source = read_file(path);
    if (!source) {
-      m_compiler.diagnostics.error(CompPhase::Preprocessing, m_compiler.current_filename(), path_token.line, path_token.col,
+      m_compiler.error(CompPhase::Preprocessing, path_token.fileId, path_token.line, path_token.col,
                               "Cannot open \"" + path + "\".");
       return;
    }
@@ -91,24 +108,25 @@ void Preprocessor::handle_directive(std::vector<Token>& out) {
    m_index++; // '#'
 
    if (m_index >= m_tokens.size() || m_tokens[m_index].line != dir_line) {
-      m_compiler.diagnostics.error(CompPhase::Preprocessing, m_compiler.current_filename(), dir_line, 1,
-                                   "Expected directive after '#'");
+      m_compiler.error(CompPhase::Preprocessing, m_compiler.current_file_ID, dir_line, 1,
+                       "Expected directive after '#'");
       return;
    }
 
    const Token& name = m_tokens[m_index];
    if (!name.is_text()) { 
-      m_compiler.diagnostics.error(m_compiler.current_filename(), name.line, name.col, "directive name must be an identifier");
+      m_compiler.error(CompPhase::Preprocessing, name.fileId, name.line, name.col, "directive name must be an identifier");
       return;
    }
    m_index++;
 
    const std::string& directive = name.text();
    if      (directive == "include") handle_include(out, dir_line);
-   else if (directive == "pragma") handle_pragma(dir_line);
+   else if (directive == "define")  handle_define(dir_line);
+   else if (directive == "pragma")  handle_pragma(dir_line);
    else {
-      m_compiler.diagnostics.error(m_compiler.current_filename(), name.line, name.col, 
-                                   "Unknown directive '#" + directive + "'.");
+      m_compiler.error(CompPhase::Preprocessing, name.fileId, name.line, name.col, 
+                       "Unknown directive '#" + directive + "'.");
       skip_to_next_line(dir_line); // recovery: eat the rest of the line :]
    }
 }
@@ -116,16 +134,38 @@ void Preprocessor::handle_directive(std::vector<Token>& out) {
 
 void Preprocessor::handle_pragma(int dir_line) {
    if (m_index >= m_tokens.size() || m_tokens[m_index].line != dir_line) {
-      m_compiler.diagnostics.error(CompPhase::Preprocessing, m_compiler.current_filename(), dir_line, 1,
-                                   "Expected pragma name.");
+      m_compiler.error(CompPhase::Preprocessing, m_compiler.current_file_ID, dir_line, 1,
+                       "Expected pragma name.");
       return;
    }
 
    const Token& name = consume();
    if (name.is_text() && name.text() == "once") return; // no-op: default behavior
 
-   m_compiler.diagnostics.warn(CompPhase::Preprocessing, m_compiler.current_filename(), name.line, name.col,
-                               "Unknown pragma directive.");
+   m_compiler.warn(CompPhase::Preprocessing, name.fileId, name.line, name.col,
+                   "Unknown pragma directive.");
+}
+
+
+void Preprocessor::handle_define(int dir_line) {
+   if (!peek().has_value() || peek().value().line != dir_line) {
+      int fid = 0, line = 0, col = 0;
+      if (peek().has_value()) { fid = peek().value().fileId; line = peek().value().line; col = peek().value().col; }
+      m_compiler.error(CompPhase::Preprocessing, fid, line, col, "Expected macro name after #define."); return;
+   }
+
+   const Token& name_token = consume();
+   if (!name_token.is_text()) { m_compiler.error(CompPhase::Preprocessing, name_token.fileId, 
+                                                 name_token.line, name_token.col, "Macro name must be an identifier."); return;} 
+   
+   Macro macro;
+   macro.name = name_token.text(); macro.origin_file = name_token.fileId; macro.line = name_token.line;
+
+   // collecting the macro :]
+   while (m_index < m_tokens.size() && m_tokens[m_index].line == dir_line)
+      macro.content.push_back(consume());
+   
+   m_macros[macro.name] = macro;
 }
 
 

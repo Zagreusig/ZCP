@@ -1,0 +1,10 @@
+rax, rbx, rcx, rdx, r8 - mostly scratch registers 
+rbp, rsp - ptr registers
+
+"allocating" memory for a scope:
+subtract all locals' combined size (including params) from rbp
+set r12 to rbp. Now we can do positive addressing.
+
+rax > rdx - data registers (d)
+rsi & rdi - index registers
+rbp & rsp = pointer registers

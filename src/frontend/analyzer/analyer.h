@@ -18,6 +18,7 @@ struct FuncSig {
    Token ident;
    int origin_file = 0;
    bool has_definition = false;
+   NodeFunction* definition = nullptr;
 };
 
 class Compiler;
@@ -42,6 +43,7 @@ private:
    std::optional<TypeInfo> lookup(const std::string&);
 
    bool types_match(TypeInfo, TypeInfo);
+   bool functions_match(FuncSig, FuncSig);
 
    NodeProg& m_prog;
    Compiler& m_compiler;

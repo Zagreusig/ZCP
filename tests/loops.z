@@ -1,3 +1,5 @@
+#include "tests/test_header.zh"
+
 fn loops() {
    have arr: int[10];
    have st = "Hello!";
@@ -21,3 +23,10 @@ fn loops() {
 
    return 0;
 }
+
+/*
+fn this_errors(int a, int b) {
+   if (b != 0) { return a / b; }
+   else { return a; }
+}
+*/

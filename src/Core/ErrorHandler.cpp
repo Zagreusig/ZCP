@@ -32,11 +32,11 @@ std::string fetch_line(const std::string& src, int line) {
 }
 
 
-void Diagnostics::report_all(const std::string& src, const std::string& file) const {
+void Diagnostics::report_all(const std::string& src) const {
    for (const auto& phase : m_errors) {
       std::cerr << "In phase " << phase_str(phase.first) << ":" << std::endl;
       for (const auto& item : phase.second) {
-         report_one(src, file, item);
+         report_one(src, item.file_name, item);
       }
    }
    

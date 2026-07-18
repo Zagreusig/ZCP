@@ -20,6 +20,7 @@
 #include "TokenTable.h"
 #include "Tokens.h"
 #include "phase.h"
+#include "ErrorHandler.h"
 
 
 int Compiler::run() {
@@ -27,27 +28,27 @@ int Compiler::run() {
 
    m_tokens = lex();
    if (isRawTokensEnabled()) do_tokens(m_tokens);
-   if (errors(source_text, file_name)) return LEX_FAILURE;
+   if (errors(source_text)) return LEX_FAILURE;
 
    m_tokens = preprocess();
    if (isTokenPrintingEnabled()) do_tokens(m_tokens);
-   if (errors(source_text, file_name)) return PREPROCESS_FAILURE;
+   if (errors(source_text)) return PREPROCESS_FAILURE;
 
    m_program = parse();
    if (isASTPrintingEnabled() && m_program) do_ast(*m_program);
-   if (errors(source_text, file_name)) return PARSE_FAILURE;
+   if (errors(source_text)) return PARSE_FAILURE;
 
    analyze();
-   if (errors(source_text, file_name)) return ANALYSIS_FAILURE;
+   if (errors(source_text)) return ANALYSIS_FAILURE;
 
    m_orig = generate();
-   if (log.enabled()) log.set_orig_asm(m_orig);
-   if (errors(source_text, file_name)) return GENERATOR_FAILURE;
+   if (logger.enabled()) logger.set_orig_asm(m_orig);
+   if (errors(source_text)) return GENERATOR_FAILURE;
 
    auto returned = optimize();
    m_asm_out = returned.first; optimizer_passes = returned.second;
    
-    if (log.enabled()) do_optimizer_logging(optimizer_passes, m_asm_out);
+    if (logger.enabled()) do_optimizer_logging(optimizer_passes, m_asm_out);
 
    write_files();
 
@@ -60,48 +61,48 @@ int Compiler::run() {
 
 
 std::vector<Token> Compiler::lex() {
-   log.mark_phase(CompPhase::Lexing);
-   ScopedPhaseTimer timer(log, CompPhase::Lexing);
+   logger.mark_phase(CompPhase::Lexing);
+   ScopedPhaseTimer timer(logger, CompPhase::Lexing);
    Lexer lexer(*this, source_text, 0);
    return lexer.lex();
 }
 
 
 std::vector<Token> Compiler::preprocess() {
-   log.mark_phase(CompPhase::Preprocessing);
-   ScopedPhaseTimer timer(log, CompPhase::Preprocessing);
+   logger.mark_phase(CompPhase::Preprocessing);
+   ScopedPhaseTimer timer(logger, CompPhase::Preprocessing);
    Preprocessor preprocessor(*this, m_tokens);
    return preprocessor.process();
 }
 
 
 std::optional<NodeProg> Compiler::parse() {
-   log.mark_phase(CompPhase::Parsing);
-   ScopedPhaseTimer timer(log, CompPhase::Parsing);
+   logger.mark_phase(CompPhase::Parsing);
+   ScopedPhaseTimer timer(logger, CompPhase::Parsing);
    Parser parser(*this, m_tokens);
    return parser.parse_prog();
 }
 
 
 void Compiler::analyze() {
-   log.mark_phase(CompPhase::Analysis);
-   ScopedPhaseTimer t(log, CompPhase::Analysis);
+   logger.mark_phase(CompPhase::Analysis);
+   ScopedPhaseTimer t(logger, CompPhase::Analysis);
    Analyzer analyzer(*this, *m_program);
    analyzer.analyze();
 }
 
 
 std::string Compiler::generate() {
-   log.mark_phase(CompPhase::CodeGen);
-   ScopedPhaseTimer t(log, CompPhase::CodeGen);
+   logger.mark_phase(CompPhase::CodeGen);
+   ScopedPhaseTimer t(logger, CompPhase::CodeGen);
    ASMGenerator generator(*this, *m_program);
    return generator.build();
 }
 
 
 std::pair<std::string, int> Compiler::optimize() {
-   log.mark_phase(CompPhase::Optimization);
-   ScopedPhaseTimer timer(log, CompPhase::Optimization);
+   logger.mark_phase(CompPhase::Optimization);
+   ScopedPhaseTimer timer(logger, CompPhase::Optimization);
    Optimizer optimizer(m_orig);
    optimizer.optimize();
    return { optimizer.finish(), optimizer.passes() };
@@ -135,12 +136,29 @@ void Compiler::print_tokens(std::vector<Token> tokens) {
 }
 
 
+std::string Compiler::format_tokens(std::vector<Token>& tokens) {
+   std::ostringstream ss;
+   print_tokens(ss, tokens);
+   return ss.str();
+}
+
+
+std::string Compiler::format_raw(const std::vector<Token>& tokens) {
+   std::ostringstream ss;
+   for (auto& token : tokens)
+      ss << token.name() << ", ";
+   ss << "\n";
+   return ss.str();
+}
+
+
 void Compiler::print_tokens(std::ostringstream& ss, std::vector<Token> tokens) {
    for (auto& token : tokens) {
       ss << "{ " << to_string(token.type);
-      if (token.is_text())      ss << ", " << token.text();
+      if     (token.is_text())  ss << ", " << token.text();
       else if (token.is_int())  ss << ", " << token.int_val();
       else if (token.is_char()) ss << ", " << token.char_val();
+      else if (token.is_bool()) ss << ", " << token.bool_val();
    
       ss <<  ", " << filename_by_id(token.fileId) << ":" 
                  << token.line << ':' << token.col << " }\n";
@@ -165,7 +183,7 @@ void Compiler::do_flags() {
    std::ostringstream ss;
    print_flags(ss, flag_arr);
    if (compiler_opts.flags) std::cout << ss.str();
-   if (log.enabled()) log.set_flags(ss.str());
+   if (logger.enabled()) logger.set_flags(ss.str());
 }
 
 
@@ -173,19 +191,19 @@ void Compiler::do_tokens(const std::vector<Token>& tokens) {
    std::ostringstream ss;
    print_tokens(ss, tokens);
    if (compiler_opts.toks) std::cout << ss.str();
-   if (log.enabled()) {
-      if (compiler_opts.raw) log.set_raw(ss.str());
-      log.set_tokens(ss.str());
+   if (logger.enabled()) {
+      if (compiler_opts.raw) logger.set_raw(ss.str());
+      logger.set_tokens(ss.str());
    }
 }
 
 
 void Compiler::do_optimizer_logging(int passes, const std::string& source) {
-   log.record_passes(passes);
-   log.set_opt_asm(source);
+   logger.record_passes(passes);
+   logger.set_opt_asm(source);
 
-   std::fstream _log("compilation_log.txt", std::ios::out);
-   log.flush(_log);
+   std::fstream _logger("compilation_log.txt", std::ios::out);
+   logger.flush(_logger);
 }
 
 
@@ -193,7 +211,7 @@ void Compiler::do_ast(NodeProg program) {
    std::ostringstream ss;
    print_ast(ss, program);
    if (compiler_opts.ast) std::cout << ss.str();
-   if (log.enabled()) log.set_ast(ss.str());
+   if (logger.enabled()) logger.set_ast(ss.str());
 }
 
 
@@ -202,6 +220,24 @@ Syscaller::Options Compiler::make_syscall_options() {
       .keep_asm   = has_flag(Flags::LEAVE_ASM),
       .keep_obj   = has_flag(Flags::LEAVE_OBJ),
       .keep_preop = has_flag(Flags::PRESERVE_PRE_OP),
-      .debug_enbl = log.enabled()
+      .debug_enbl = logger.enabled()
    };
+}
+
+
+void Compiler::fatal(CompPhase phase, int fileId, int line, int col, const std::string& msg) {
+   std::string file = filename_by_id(fileId);
+   diagnostics.fatal(phase, file, line, col, msg);
+}
+
+
+void Compiler::error(CompPhase phase, int fileId, int line, int col, const std::string& msg) {
+   std::string file = filename_by_id(fileId);
+   diagnostics.error(phase, file, line, col, msg);
+}
+
+
+void Compiler::warn(CompPhase phase, int fileId, int line, int col, const std::string& msg) {
+   std::string file = filename_by_id(fileId);
+   diagnostics.warn(phase, file, line, col, msg);
 }

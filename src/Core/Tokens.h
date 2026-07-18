@@ -29,6 +29,7 @@
 
 using TokenValue = std::variant<
    std::monostate,    // no value
+   bool,              // booleans
    int64_t,           // int literals
    char,              // char literals
    std::string        // string literals & identifiers
@@ -52,9 +53,11 @@ struct Token {
    bool is_int()  const   { return std::holds_alternative<int64_t>(value); }
    bool is_char() const   { return std::holds_alternative<char>(value); }
    bool is_text() const   { return std::holds_alternative<std::string>(value); }
+   bool is_bool() const   { return std::holds_alternative<bool>(value); }
 
    int64_t int_val()  const  { return std::get<int64_t>(value); }
    char    char_val() const  { return std::get<char>(value); }
+   bool    bool_val() const  { return std::get<bool>(value); }
 
    // Returns a reference to avoid copying the string.
    const std::string& text()     const { return std::get<std::string>(value); }
@@ -63,12 +66,17 @@ struct Token {
    const int64_t*     try_int()  const { return std::get_if<int64_t>(&value); }
    const char*        try_char() const { return std::get_if<char>(&value); }
    const std::string* try_text() const { return std::get_if<std::string>(&value); }
+   const bool*        try_bool() const { return std::get_if<bool>(&value); }
 
    // Convenience: token's spelling for diagnostics.
    //   - text tokens (identifiers / str lits) print their text.
    //   - everything else prints canonical name from table.
    std::string spelling() const {
       if (auto* s = try_text()) return *s;
+      return std::string(to_string(type));
+   }
+
+   std::string name() const {
       return std::string(to_string(type));
    }
 };
@@ -95,6 +103,10 @@ namespace tok {
 
    inline Token make_str(std::string s, int fileID, int line, int col) {
       return Token{ TokenType::STR_LIT, std::move(s), fileID, line, col };
+   }
+
+   inline Token make_bool(bool b, int fileID, int line, int col) {
+      return Token{ TokenType::BOOL, b, fileID, line, col };
    }
 
    inline Token make_ident(std::string name, int fileID, int line, int col) {

@@ -9,15 +9,15 @@ enum class DataType { NONE, INT, CHAR, STR, BOOL, FLOAT };
 
 struct TypeInfo {
    DataType base = DataType::NONE;
-
+   bool is_signed = true;
    bool is_ptr   = false;
-
    bool is_array = false;
    int array_len = 0;
 
    // Element in bytes.
    int element_size() const {
       switch (base) {
+         case DataType::BOOL:
          case DataType::CHAR: return 1;
          case DataType::INT:  return 8;
          default:             return 8;
@@ -47,6 +47,10 @@ struct NodeExprCharLit {
 
 struct NodeExprStrLit {
    Token STR_LIT;
+};
+
+struct NodeExprBoolLit {
+   Token BOOL_LIT;
 };
 
 struct NodeExprIdent {
@@ -100,7 +104,7 @@ struct NodeExprRead {
 };
 
 struct NodeExpr {
-   std::variant<NodeExprIntLit*, NodeExprCharLit*, NodeExprStrLit*,
+   std::variant<NodeExprIntLit*, NodeExprCharLit*, NodeExprStrLit*, NodeExprBoolLit*,
                 NodeExprIdent*, NodeExprIndex*, NodeExprRead*,
                 NodeExprIncDec*, NodeBinExpr*, NodeExprCall*, NodeExprArrayLit*> variant;
 

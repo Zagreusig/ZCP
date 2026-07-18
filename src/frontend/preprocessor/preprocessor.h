@@ -52,12 +52,12 @@ enum class PreprocessorDirectives {
 
 class Compiler;
 
-struct MacroDef {
+struct Macro {
    std::string name;
-   std::vector<std::string> params;
-   bool is_function_like = false;
+   // std::vector<std::string> params;
+   // bool is_function_like = false;
    std::vector<Token> content;
-   std::string origin_file;
+   int origin_file = 0;
    int line = 0;
 };
 
@@ -75,16 +75,17 @@ private:
       else return m_tokens.at(m_index + offset);
    }
 
-   Token consume(int n = 1)   { return m_tokens.at(m_index += n); }
+   Token consume()   { return m_tokens[m_index++]; }
    bool has_tokens() { return peek().has_value(); }
 
    bool at_directive() const;
-   bool is_macro_use();
+   const Macro* get_macro(const Token& token);
 
    void handle_directive(std::vector<Token>& out);
    void handle_include  (std::vector<Token>& out, int dir_line);
    void handle_pragma   (int dir_line);
-   void expand_macro    (std::vector<Token>& out);
+   void handle_define   (int dir_line);
+   void expand_macro    (const Macro& macro, std::vector<Token>& out);
    std::vector<Token> lex_file(const std::string& path, int file_id);
 
    void skip_to_next_line(int dir_line) { while (peek().has_value() && peek().value().line == dir_line) consume(); }
@@ -95,7 +96,7 @@ private:
 
    std::set<std::string> m_included;         // #pragma once / guard: alr included paths
    std::vector<std::string> m_include_stack; // for circular detection
-   // std::unordered_map<std::string, MacroDef> m_macros;
+   std::unordered_map<std::string, Macro> m_macros;
 
 
 };

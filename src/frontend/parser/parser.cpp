@@ -1,3 +1,4 @@
+#include <iostream>
 #include <optional>
 #include <vector>
 #include <variant>
@@ -8,7 +9,6 @@
 #include "parser.h"
 #include "Core/Tokens.h"
 #include "Core/SymbolTable.h"
-#include "ErrorHandler.h"
 #include "Logger.h"
 #include "TokenTable.h"
 #include "phase.h"
@@ -25,11 +25,12 @@ std::optional<NodeProg> Parser::parse_prog() {
                sync_next_func();
          }
          else {
-            int line = 0, col = 0;
-            if (peek().has_value()) { line = peek().value().line; col = peek().value().col; }
-            m_compiler.diagnostics.error(CompPhase::Parsing, m_compiler.current_filename(), line, col,
-                        "Expected function declaration at top level.");
-            sync_next_func();
+            if (peek().has_value()) { 
+               const Token& token = peek().value();
+               m_compiler.error(CompPhase::Parsing, token.fileId, 
+                           token.line, token.col, "Expected function declaration at top level.");
+               sync_next_func();
+            }
          }
       }
       return prog;
@@ -68,7 +69,7 @@ bool Parser::is_compound_assign(const TokenType& t) {
 }
 
 
-bool is_print_stmt(const TokenType& t) {
+bool is_read_stmt(const TokenType& t) {
    switch (t) {
       case TokenType::READC:
       case TokenType::READF:
@@ -165,6 +166,18 @@ std::optional<NodeExpr*> Parser::parse_primary() {
       return wrap_expr(str);
    }
 
+   if (auto val = try_consume(TokenType::TRUE)) {
+      NodeExprBoolLit* _bool = m_compiler.allocator.alloc<NodeExprBoolLit>();
+      _bool->BOOL_LIT = val.value();
+      return wrap_expr(_bool);
+   }
+
+   if (auto val = try_consume(TokenType::FALSE)) {
+      NodeExprBoolLit* _bool = m_compiler.allocator.alloc<NodeExprBoolLit>();
+      _bool->BOOL_LIT = val.value();
+      return wrap_expr(_bool);
+   }
+
    if (try_consume(TokenType::OPEN_BRACKET)) {
       NodeExprArrayLit* arr = m_compiler.allocator.alloc<NodeExprArrayLit>();
       if (!is_next(TokenType::CLOSE_BRACKET)) {
@@ -179,7 +192,7 @@ std::optional<NodeExpr*> Parser::parse_primary() {
       return wrap_expr(arr);
    }
 
-   if (peek().has_value() && is_print_stmt(peek().value().type)) {
+   if (peek().has_value() && is_read_stmt(peek().value().type)) {
       NodeExprRead* read = m_compiler.allocator.alloc<NodeExprRead>();
       read->kind = Symbols::token_to_readkind(peek().value().type);
       consume();
@@ -706,7 +719,7 @@ std::optional<NodeFunction*> Parser::parse_func() {
          if (auto t = parse_type()) param.type = t.value();
          else { fail("Expected parameter type."); return {}; }
          if (auto n = try_consume(TokenType::IDENTIFIER)) param.name = n.value();
-         else { fail("Expected parameter name."); return {};}
+         else { param.name.value = "Null"; }
          func->params.push_back(param);
 
          if (!try_consume(TokenType::COMMA)) break; 
@@ -727,10 +740,13 @@ std::optional<NodeFunction*> Parser::parse_func() {
       }
    } else func->has_ret_type = false;
 
-   if (auto body = parse_scope())
+   if (try_consume(TokenType::SEMICOLON)) {
+      func->body = nullptr;
+   } else if (auto body = parse_scope()) {
       func->body = body.value();
+   }
    else {
-      fail("Expected function body.");
+      fail("Expected function body or ';'.");
       return {};
    }
 
@@ -768,7 +784,7 @@ inline std::optional<Token> Parser::try_consume(TokenType type) {
 
 // Something went wrong and now we try to recover parsing to report multiple errors at once.
 void Parser::synchronize() {
-   m_compiler.log.trace(CompPhase::Parsing, "Synchronizing...", "");
+   m_compiler.logger.trace(CompPhase::Parsing, "Synchronizing...", "");
    while (peek().has_value()) {
       if (peek().value().type == TokenType::SEMICOLON) { consume(); return; }
       TokenType t = peek().value().type;
@@ -776,7 +792,6 @@ void Parser::synchronize() {
           t == TokenType::FOR || t == TokenType::HAVE || t == TokenType::RETURN ||
           t == TokenType::PRINT || t == TokenType::PRINTLN || t == TokenType::READC ||
           t == TokenType::READF || t == TokenType::READI || t == TokenType::READS) {
-         
          return;
       }
       consume();
@@ -787,7 +802,7 @@ void Parser::synchronize() {
 void Parser::fail(const std::string& msg) {
    int line = 0, col = 0;
    if (peek().has_value()) { line = peek().value().line; col = peek().value().col; }
-   m_compiler.diagnostics.error(CompPhase::Parsing, m_compiler.current_filename(), line, col, msg);
+   m_compiler.error(CompPhase::Parsing, m_compiler.current_file_ID, line, col, msg);
    synchronize();
  }
 
