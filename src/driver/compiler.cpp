@@ -12,9 +12,12 @@
 #include "frontend/analyzer/analyer.h"
 #include "backend/codegen/generation.h"
 #include "backend/optimizations/optimizer.h"
+#include "IR/Lowerer.h"
+#include "Core/IRDefs.h"
 #include "syscaller.h"
 #include "utils/flags.h"
 #include "debug/ASTPrinter.h"
+#include "debug/IRDebug.h"
 #include "debug/Log.h"
 #include "Logger.h"
 #include "Nodes.h"
@@ -51,6 +54,12 @@ int Compiler::run() {
 
    analyze();
    if (errors(source_text)) return ANALYSIS_FAILURE;
+
+   Lowerer ir;
+   IRModule mod = ir.lower(*m_program);
+
+   IRPrinter printer(std::cout);
+   printer.print(mod);
 
    m_orig = generate();
    if (m_logger.enabled()) m_logger.set_orig_asm(m_orig);

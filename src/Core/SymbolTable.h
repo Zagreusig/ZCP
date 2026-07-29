@@ -2,6 +2,7 @@
 #define SYMBOLTABLE_H
 
 #include "Nodes.h"
+#include "IRDefs.h"
 #include <string>
 
 namespace Symbols {
@@ -112,6 +113,51 @@ namespace Symbols {
          default:                              return CmpExprType::NONE;
       }
    }
+
+   inline IROp binop_to_ir(BinExprType op) {
+      switch (op) {
+         case BinExprType::ADDITION:       return IROp::Add;
+         case BinExprType::SUBTRACTION:    return IROp::Sub;
+         case BinExprType::MULTIPLICATION: return IROp::Mul;
+         case BinExprType::DIVISION:       return IROp::Div;
+         case BinExprType::MODULUS:        return IROp::Mod;
+         default:                          return IROp::Add;
+      }
+   }
+
+   inline IROp cmp_to_ir(CmpExprType op) {
+      switch (op) {
+         case CmpExprType::EQUAL:         return IROp::CmpEq;
+         case CmpExprType::NOT_EQUAL:     return IROp::CmpNe;
+         case CmpExprType::LESS_THAN:     return IROp::CmpLt;
+         case CmpExprType::LESS_EQUAL:    return IROp::CmpLe;
+         case CmpExprType::GREATER_THAN:  return IROp::CmpGt;
+         case CmpExprType::GREATER_EQUAL: return IROp::CmpGe;
+         default:                         return IROp::CmpEq; // && / || handled specifically
+      }
+   }
+
+   
+   inline IRType datatype_to_irtype(DataType type) {
+      switch (type) {
+         case DataType::INT: return IRType::I64;
+         case DataType::CHAR:
+         case DataType::BOOL: return IRType::I8;
+         case DataType::STR:  return IRType::Ptr; // fat pointer handled later
+         default:             return IRType::I64;
+      }
+   }
+
+   inline IRType ir_type_of(const TypeInfo& t) {
+      if (t.is_ptr || t.is_array) return IRType::Ptr;
+      return datatype_to_irtype(t.base);
+   }
+
+   inline IRType ir_type_of(TokenType type) {
+      return datatype_to_irtype(token_to_datatype(type));
+   }
+
+   
 };
 
 #endif // SYMBOLTABLE_H
