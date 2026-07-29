@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <string>
 
+enum class Severity { Trace, Info, Warn, Error };
 enum class CompPhase { Lexing, Preprocessing, Parsing, Analysis, CodeGen, Optimization };
 
 inline std::string phase_str(CompPhase phase) {

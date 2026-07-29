@@ -65,16 +65,14 @@ std::vector<Token> Lexer::tokenize() {
       else if (!tokens.empty() && tokens.back().type == TokenType::START_COMMENT_BLOCK) {
          tokens.pop_back();
          while(peek().has_value()) {
-            if (peek_eval('*') && peek_eval('/', 1)) {
-               consume(); consume(); break;
-            }
+            if (peek_eval('*') && peek_eval('/', 1)) break;
             consume();
          }
-         /** TODO: make this not like this, it's gross nasty */
-         if (!peek().has_value() && peek_eval('/', -2)) {
+         if (peek_eval('*') && peek_eval('/', 1)) { consume(); consume(); }
+         else
             m_compiler.diagnostics.error(CompPhase::Lexing, m_compiler.current_filename(), m_line, m_col,
                                          "Unterminated comment block.");
-         }
+         
       }
       else if (std::isalpha(peek().value())) { 
          int tok_line = m_line, tok_col = m_col;        

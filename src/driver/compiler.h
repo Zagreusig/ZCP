@@ -43,12 +43,14 @@ public:
    std::string m_asm_out;
    std::string m_orig;
 
+   std::string m_macros;
+
    std::vector<Token>      m_tokens;
    std::optional<NodeProg> m_program;
    int optimizer_passes = 0;
 
    Options compiler_opts;
-   Logger  logger;
+   Logger  m_logger;
 
    int main_file_ID = 0, current_file_ID = 0;
    std::unordered_map<int, std::pair<std::string, std::string>> m_files;
@@ -60,8 +62,8 @@ public:
       : file_name(fname), prog_name(pnm), source_text(src), flag_arr(arr), allocator(1024 * 1024 * 4) {
          for (auto& flag : arr) _flags = flag | _flags;
          compiler_opts.log = has_flag(Flags::DEBUG); set_bools();
-         if (compiler_opts.log) logger.enable(true);
-         diagnostics.attach_logger(&logger);
+         if (compiler_opts.log) m_logger.enable(true);
+         diagnostics.attach_logger(&m_logger);
          main_file_ID = add_file(file_name, source_text);
       }
 
@@ -76,7 +78,7 @@ public:
    std::string get_filename()           { return file_name; }  
    std::string current_filename()       { return m_files.size() > 0 ? m_files.at(current_file_ID).first : "Null"; }
    int         current_fileID()         { return current_file_ID; }
-   Flags get_flags()                    { return _flags; }
+   Flags       get_flags()              { return _flags; }
    std::vector<Flags> get_flag_vector() { return flag_arr; }
 
    bool has_flag(Flags f) {
@@ -94,6 +96,7 @@ public:
    bool isFlagPrintingEnabled()  { return compiler_opts.log || compiler_opts.flags; }
    bool isTokenPrintingEnabled() { return compiler_opts.log || compiler_opts.toks;  }
    bool isASTPrintingEnabled()   { return compiler_opts.log || compiler_opts.ast;   }
+   bool isLoggingEnabled()       { return compiler_opts.log; }
 
    // driver func
    int run();
@@ -114,7 +117,7 @@ public:
    bool errors(const std::string& source) { 
       if (diagnostics.has_errors()) { 
          diagnostics.report_all(source); 
-         logger.flush_to_file("compilation_log.txt"); 
+         m_logger.flush_to_file("compilation_log.txt"); 
          return true; 
       } 
       return false; 
@@ -124,6 +127,7 @@ public:
    void do_tokens(const std::vector<Token>&);
    void do_ast(NodeProg);
    void do_optimizer_logging(int, const std::string&);
+   void do_preprocess(const std::string&);
 
    std::string format_tokens(std::vector<Token>& tokens);
    std::string format_raw(const std::vector<Token>& tokens);

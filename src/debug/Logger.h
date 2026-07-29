@@ -12,8 +12,6 @@
 
 #include "utils/phase.h"
 
-enum class Severity { Trace, Info, Warn, Error };
-
 inline const char* to_string(Severity s) {
    switch (s) {
       case Severity::Trace: return "TRACE";
@@ -40,6 +38,7 @@ public:
 
    Logger() = default;
    ~Logger() {
+      if (!m_enabled) return;
       std::ostringstream ss;
       flush(ss);
       std::fstream _log("compilation_log.txt", std::ios::out);
@@ -50,9 +49,16 @@ public:
    void enable(bool on) { m_enabled = on; }
    bool enabled() const { return m_enabled; }
 
+   void set_threshold(CompPhase phase, Severity severity) { m_thresholds[phase] = severity; }
+   void set_default_threshold(Severity severity) { m_default_threshold = severity; }
+
    // -- q entries --
    void log(CompPhase phase, Severity sev, std::string msg, std::string file_name, int line = 0, int col = 0) {
       if (!m_enabled) return;
+      Severity threshold = m_default_threshold;
+      if (auto iterator = m_thresholds.find(phase); iterator != m_thresholds.end())
+         threshold = iterator->second;
+      if (sev < threshold) return; // ignore, below severity threshold.
       m_entries.push_back(LogEntry{ phase, sev, std::move(msg), std::move(file_name), line, col });
    }
 
@@ -82,6 +88,7 @@ public:
    void set_ast(std::string s)            { m_ast_dump    = s; }
    void set_orig_asm(std::string s)       { m_orig_asm    = s; }
    void set_opt_asm(const std::string s)  { m_opt_asm     = s; }
+   void set_macros(const std::string s)   { m_macro_toks  = s; }
 
    // -- rendering --
    // writes the log.
@@ -96,12 +103,15 @@ private:
    std::vector<LogEntry> m_entries;
    std::unordered_map<CompPhase, Duration> m_times;
 
+   std::unordered_map<CompPhase, Severity> m_thresholds;
+   Severity m_default_threshold = Severity::Trace;
+
    int m_opt_passes = 0;
    bool m_failed = false;
    CompPhase m_failed_phase = CompPhase::Lexing;
    CompPhase m_last_phase   = CompPhase::Lexing;
 
-   std::string m_flags, m_tokens_dump, m_raw_tokens, m_ast_dump, m_orig_asm, m_opt_asm;
+   std::string m_flags, m_tokens_dump, m_macro_toks, m_raw_tokens, m_ast_dump, m_orig_asm, m_opt_asm;
 };
 
 // ============================================================================

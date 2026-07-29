@@ -1,6 +1,7 @@
 #define THREE 3*3
+#define MULT(x, y) x * y
+#define REC(x) MULT(3, 4) + x
 fn main() {
-   have boolean: bool = true;
-   if (boolean) { return 99; }
-   return THREE;
+   println(REC(5));
+   return 0;
 }

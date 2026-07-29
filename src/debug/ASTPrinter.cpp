@@ -150,11 +150,8 @@ void ASTPrinter::print_expr(const NodeExpr* expr, int depth) {
          p->m_out << pad(depth) << "IntLit: " << e->INT_LIT.int_val() << "\n";
       }
       void operator()(const NodeExprBoolLit* e) {
-         if (e->BOOL_LIT.is_bool())
-            p->m_out << pad(depth) << "BoolLit: " << (e->BOOL_LIT.bool_val() ? "true" : "false") << "\n";
-         else
-            p->m_out << pad(depth) << "BoolLit: (problem child)" << std::endl;
-      }
+            p->m_out << pad(depth) << "BoolLit: " << to_string(e->BOOL_LIT.type) << std::endl;
+         }
       void operator()(const NodeExprIdent* e) {
          p->m_out << pad(depth) << "Ident: " << e->ident.text() << "\n";
       }

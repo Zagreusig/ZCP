@@ -5,10 +5,10 @@
 #include "Core/arena.h"
 #include "Core/Nodes.h"
 #include "driver/compiler.h"
+#include "debug/Log.h"
 #include "parser.h"
 #include "Core/Tokens.h"
 #include "Core/SymbolTable.h"
-#include "Logger.h"
 #include "TokenTable.h"
 #include "phase.h"
 
@@ -783,7 +783,7 @@ inline std::optional<Token> Parser::try_consume(TokenType type) {
 
 // Something went wrong and now we try to recover parsing to report multiple errors at once.
 void Parser::synchronize() {
-   m_compiler.logger.trace(CompPhase::Parsing, "Synchronizing...", "");
+   Log::trace(CompPhase::Parsing, "Encountered error, syncing...");
    while (peek().has_value()) {
       if (peek().value().type == TokenType::SEMICOLON) { consume(); return; }
       TokenType t = peek().value().type;
@@ -807,6 +807,7 @@ void Parser::fail(const std::string& msg) {
 
 
 void Parser::sync_next_func() {
+   Log::trace(CompPhase::Parsing, "Encountered error, syncing to next function...");
    while (peek().has_value() && peek().value().type != TokenType::FUNC)
       consume();
 }

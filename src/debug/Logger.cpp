@@ -77,6 +77,10 @@ void Logger::flush(std::ostream& out) const {
       rule(out);
       out << "FLAGS\n\n" << m_flags << "\n";
    }
+   if (!m_macro_toks.empty()) {
+      rule(out);
+      out << "MACRO TOKENS\n\n" << m_macro_toks << "\n";
+   }
    if (!m_tokens_dump.empty()) {
       rule(out);
       out << "TOKENS\n\n" << m_tokens_dump << "\n";

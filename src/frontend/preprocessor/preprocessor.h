@@ -51,11 +51,12 @@ enum class PreprocessorDirectives {
 #include "Core/Tokens.h"
 
 class Compiler;
+enum class TokenType;
 
 struct Macro {
    std::string name;
-   // std::vector<std::string> params;
-   // bool is_function_like = false;
+   std::vector<std::string> params;
+   bool is_function_like = false;
    std::vector<Token> content;
    int origin_file = 0;
    int line = 0;
@@ -68,11 +69,17 @@ public:
 
    std::vector<Token> process();
 
+   
+   std::string dump();
    std::vector<Token> spit() { return m_tokens; }
 private:
    [[nodiscard]] inline std::optional<Token> peek(int offset = 0) const {
       if (m_index + offset >= m_tokens.size()) return {};
       else return m_tokens.at(m_index + offset);
+   }
+
+   bool peek_eval(TokenType type, int offset = 0) const { 
+      return peek(offset).has_value() && peek(offset).value().type == type; 
    }
 
    Token consume()   { return m_tokens[m_index++]; }
@@ -85,10 +92,16 @@ private:
    void handle_include  (std::vector<Token>& out, int dir_line);
    void handle_pragma   (int dir_line);
    void handle_define   (int dir_line);
-   void expand_macro    (const Macro& macro, std::vector<Token>& out);
+   void expand_into     (const std::vector<Token>& input, std::vector<Token>& out, std::set<std::string>& active, int recursion_depth);
    std::vector<Token> lex_file(const std::string& path, int file_id);
 
+   bool try_expand(const std::vector<Token>& tokens, size_t& position, std::vector<Token>& out, std::set<std::string>& active, int recursion_depth);
+
    void skip_to_next_line(int dir_line) { while (peek().has_value() && peek().value().line == dir_line) consume(); }
+
+   std::vector<std::vector<Token>> collect_args(const std::vector<Token>& input, size_t& position);
+   std::vector<Token> substitute(const Macro& macro, const std::vector<std::vector<Token>>& args);
+
 
    Compiler& m_compiler;
    std::vector<Token> m_tokens;
