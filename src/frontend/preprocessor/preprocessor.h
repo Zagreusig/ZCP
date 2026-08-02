@@ -64,8 +64,8 @@ struct Macro {
 
 class Preprocessor {
 public:
-   Preprocessor(Compiler& cmp, std::vector<Token> tokens) :
-        m_compiler(cmp), m_tokens(std::move(tokens)) {}
+   Preprocessor(Compiler& cmp, std::vector<Token> tokens, std::string file_name) :
+        m_compiler(cmp), m_file_name(file_name), m_tokens(std::move(tokens)) {}
 
    std::vector<Token> process();
 
@@ -104,6 +104,7 @@ private:
 
 
    Compiler& m_compiler;
+   std::string m_file_name;
    std::vector<Token> m_tokens;
    size_t m_index = 0;
 

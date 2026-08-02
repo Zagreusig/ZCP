@@ -89,6 +89,10 @@ void Logger::flush(std::ostream& out) const {
       rule(out);
       out << "AST\n\n" << m_ast_dump << "\n";
    }
+   if (!m_ir_dump.empty()) {
+      rule(out);
+      out << "IR\n\n" << m_ir_dump << "\n";
+   }
    if (!m_orig_asm.empty()) {
       rule(out);
       out << "ORIGINAL ASM\n\n" << m_orig_asm << "\n";
@@ -105,7 +109,7 @@ void Logger::flush(std::ostream& out) const {
    // Print in pipeline order, not hash order
    const CompPhase order[] = {
       CompPhase::Lexing, CompPhase::Preprocessing, CompPhase::Parsing, 
-      CompPhase::Analysis, CompPhase::CodeGen, CompPhase::Optimization
+      CompPhase::Analysis, CompPhase::Lowering, CompPhase::CodeGen, CompPhase::Optimization
    };
 
    Duration total(0);

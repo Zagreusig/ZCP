@@ -1,13 +1,26 @@
 #ifndef LOWERER_H
 #define LOWERER_H
 
-#include "../Core/IRDefs.h"
-#include "../Core/Nodes.h"
-
+#include <stdint.h>
 #include <string>
 #include <unordered_map>
 #include <variant>
 #include <vector>
+#include <utility>
+
+#include "../Core/IRDefs.h"
+#include "../Core/Nodes.h"
+
+enum class CmpExprType;
+struct NodeCondition;
+struct NodeExpr;
+struct NodeFunction;
+struct NodeProg;
+struct NodeScopeBlock;
+struct NodeStmt;
+struct NodeStmtFor;
+struct NodeStmtIf;
+struct NodeStmtWhile;
 
 // ===========================================================================
 // Lowerer - Walks the AST and produces three-address IR.
@@ -37,6 +50,21 @@ private:
    // scope stack: name -> address VReg (the variable's alloca). Innermost last.
    std::vector<std::unordered_map<std::string, VReg>> m_scopes;
 
+   // parallel scope stack (pushed/popped in lockstep with m_scopes) tracking
+   // which names are STR-typed. Kept separate rather than folded into
+   // m_scopes's value type so lookup_var and its many call sites stay
+   // untouched. Needed because NodeExprIndex must tell a STR base ("s[i]")
+   // apart from a char-array base ("arr[i]") - both produce a CHAR element
+   // with element_size 1, but only STR's data lives behind an extra pointer
+   // indirection, and nothing else (not resolved(), not a symbol table -
+   // there isn't one) carries that distinction by the time we're lowering.
+   std::vector<std::unordered_map<std::string, bool>> m_str_vars;
+   
+   // string lit map
+   std::unordered_map<std::string, std::string> m_string_labels;
+
+   IRModule m_module;
+
    // ----- general helpers --------------------------------------------------
    void emit_binop(IROp op, VReg dest, VReg addr1, VReg addr2);
    void emit_store(VReg addr1, VReg addr2);
@@ -44,23 +72,37 @@ private:
    void emit_const(VReg dest, int64_t val);
    void emit_condbr(VReg res, int true_id, int false_id);
    void emit_alloca(VReg dest, int size);
+   void emit_load(VReg dest, VReg origin);
    void emit_GetElemPtr(VReg base, VReg idx, VReg elem, int size);
+   void emit_GetElemPtr(VReg base, VReg ptr, int len, int size);
+   void emit_copy_str(VReg dest_addr, VReg src_addr);
+   void emit_symbol(IROp op, VReg dest, std::string& symbol);
    void lower_logop(int pred, CmpExprType op, NodeCondition* left, NodeCondition* right, int true_id, int false_id);
    
 
    // ========================================================================
    // Scope + Variable helpers
    // ========================================================================
-   void push_scope() { m_scopes.emplace_back(); }
-   void pop_scope()  { m_scopes.pop_back(); }
+   void push_scope() { m_scopes.emplace_back(); m_str_vars.emplace_back(); }
+   void pop_scope()  { m_scopes.pop_back(); m_str_vars.pop_back(); }
 
-   void declare_var(const std::string& name, VReg addr) { m_scopes.back()[name] = addr; }
+   void declare_var(const std::string& name, VReg addr, bool is_str = false) {
+      m_scopes.back()[name] = addr;
+      if (is_str) m_str_vars.back()[name] = true;
+   }
    VReg lookup_var(const std::string& name) const {
       for (auto it = m_scopes.rbegin(); it != m_scopes.rend(); ++it) {
          auto found = it->find(name);
          if (found != it->end()) return found->second;
       }
       return VReg{}; // invalid -> undeclared (analyzer should have caught this!)
+   }
+   bool lookup_is_str(const std::string& name) const {
+      for (auto it = m_str_vars.rbegin(); it != m_str_vars.rend(); ++it) {
+         auto found = it->find(name);
+         if (found != it->end()) return found->second;
+      }
+      return false;
    }
 
 
@@ -109,6 +151,8 @@ private:
 
    // ----- statements -------------------------------------------------------
    void lower_stmt(const NodeStmt* stmt);
+   void lower_print(const NodeStmtPrint* stmt);
+   void lower_exit(const NodeStmtExit* stmt);
 
    // ----- control flow -----------------------------------------------------
    // if (cond) { then } [else { else }]
@@ -150,6 +194,10 @@ private:
 
    // ----- expressions: return the VReg holding the result ------------------
    VReg lower_expr(const NodeExpr* expr);
+
+
+   // ----- str helper -------------------------------------------------------
+   std::pair<std::string, int64_t> intern_string(const std::string& text);
 };
 
 #endif // LOWERER_H

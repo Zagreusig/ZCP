@@ -89,16 +89,20 @@ enum class IROp {
    Load,    // dest = load [operand0 (addr)]
    Store,   // store operand1 (value) -> [operand0 (addr)]
 
+   GlobalAddr, // dest(ptr) = address of a named global (operand0 = symbol)
+
    // indexing / addressing (compute an element address)
    GetElemPtr,  // dest(ptr) = base(operand0) + index(operand1) * elem_size(imm)
 
    // calls
    Call,       //dest = call symbol(args...) (dest invalid if void)
+   CallResult, // dest = rdx from the immediately-preceding Call (STR len half)
 
    // terminators (each block ends in ONE of these)
    Br,     // unconditional branch to block operand0
    CondBr, // if operand0 != 0 -> block operand1 else block operand2
-   Ret     // return operand0 (or void if none)
+   Ret,    // return operand0 (or void if none)
+   Exit   // exit program
 };
 
 
@@ -112,9 +116,10 @@ inline const char* ir_op_str(IROp op) {
       case IROp::CmpLe: return "cmp.le"; case IROp::CmpGe: return "cmp.ge";
       case IROp::And: return "and"; case IROp::Or: return "or"; case IROp::Not: return "not";
       case IROp::Alloca: return "alloca"; case IROp::Load: return "load"; case IROp::Store: return "store";
+      case IROp::GlobalAddr: return "global_addr";
       case IROp::GetElemPtr: return "getelemptr";
       case IROp::Call: return "call";
-      case IROp::Br: return "br"; case IROp::CondBr: return "condbr"; case IROp::Ret: return "ret";
+      case IROp::Br: return "br"; case IROp::CondBr: return "condbr"; case IROp::Ret: return "ret"; case IROp::Exit: return "exit";
       default: return "????";
    }
 }
@@ -122,7 +127,7 @@ inline const char* ir_op_str(IROp op) {
 
 // Is this opcode a block term?
 inline bool ir_IsTerminator(IROp op) {
-   return op == IROp::Br || op == IROp::CondBr || op == IROp::Ret;
+   return op == IROp::Br || op == IROp::CondBr || op == IROp::Ret || op == IROp::Exit;
 }
 
 
@@ -188,8 +193,13 @@ struct IRFunction {
 // ===========================================================================
 // A module: the whole compilation's functions (later globals, str dat, etc).
 // ===========================================================================
+struct IRGlobal {
+   std::string label;
+   std::vector<uint8_t> bytes;
+};
+
 struct IRModule {
    std::vector<IRFunction> functions;
-   // std::vector<IRGlobal> globals; (str lits, etc.)
+   std::vector<IRGlobal> globals; // str lits, etc.
 };
 #endif // IRDEFS_H

@@ -1,10 +1,11 @@
 #ifndef IRDEBUG_H
 #define IRDEBUG_H
 
-#include "Core/IRDefs.h"
 #include <ostream>
 #include <sstream>
 #include <string>
+
+#include "Core/IRDefs.h"
 
 // ===========================================================================
 // IRPrinter - renders IR as text. For debugging sob

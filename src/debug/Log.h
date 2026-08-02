@@ -9,8 +9,11 @@ class Logger;
 enum class CompPhase;
 
 namespace Log {
-   void set_sink(Logger* logger);
    Logger* sink();
+   inline CompPhase phase;
+
+   void set_sink(Logger* logger);
+   inline void set_phase(CompPhase cat) { phase = cat; }
 
    void trace(CompPhase cat, std::string msg, std::string file = "", int line = 0, int col = 0);
    void info (CompPhase cat, std::string msg, std::string file = "", int line = 0, int col = 0);

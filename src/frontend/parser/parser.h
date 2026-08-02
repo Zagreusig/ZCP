@@ -21,9 +21,8 @@ class Compiler;
 
 class Parser {
 public:
-   inline explicit Parser(Compiler& cmp, std::vector<Token> tokens)
-      : m_tokens(tokens),
-        m_compiler(cmp) {}
+   inline explicit Parser(Compiler& cmp, std::vector<Token> tokens, std::string file_name)
+      : m_tokens(tokens), m_file_name(file_name), m_compiler(cmp) {}
 
    std::vector<Token> regurg_toks() { return m_tokens; }
 
@@ -83,6 +82,7 @@ private:
    const std::vector<Token> m_tokens;
    size_t m_index = 0;
    
+   std::string m_file_name;
    Compiler& m_compiler;
 };
 

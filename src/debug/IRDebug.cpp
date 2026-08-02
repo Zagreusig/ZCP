@@ -1,5 +1,10 @@
 #include "IRDebug.h"
 
+#include <stddef.h>
+#include <vector>
+
+#include "IRDefs.h"
+
 
 std::string IRPrinter::reg(const VReg& vreg) const {
    if (!vreg.valid()) return "<novalue>";
@@ -104,6 +109,10 @@ void IRPrinter::print_instruction(const IRInstruction& instruction) {
             m_out << operand(instruction.operands[i]);
          }
          m_out << ")";
+         break;
+
+      case IROp::CallResult:
+         m_out << "call_result   ; rdx of preceding call";
          break;
 
       case IROp::CondBr:

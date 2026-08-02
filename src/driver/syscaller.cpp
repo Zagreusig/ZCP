@@ -14,11 +14,14 @@ bool Syscaller::linker() {
 }
 
 
-void Syscaller::cleanup() {
+int Syscaller::cleanup() {
+   int ret_codes = 0;
    std::string rm = "rm " + m_asm;
-   if (!m_opts.keep_asm && !m_opts.debug_enbl) system(rm.c_str());
+   if (!m_opts.keep_asm && !m_opts.debug_enbl) ret_codes += system(rm.c_str());
    rm.clear(); rm = "rm " + m_obj;
-   if (!m_opts.keep_obj && !m_opts.debug_enbl) system(rm.c_str());
+   if (!m_opts.keep_obj && !m_opts.debug_enbl) ret_codes += system(rm.c_str());
    rm.clear(); rm = "rm " + m_name + "_preop.asm";
-   if (!m_opts.keep_preop && !m_opts.debug_enbl) system(rm.c_str());
+   if (!m_opts.keep_preop && !m_opts.debug_enbl) ret_codes += system(rm.c_str());
+
+   return ret_codes;
 }

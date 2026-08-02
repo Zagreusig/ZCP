@@ -19,12 +19,12 @@ DEPS := $(OBJS:.o=.d)
 INC_DIRS := $(shell find $(SRC_DIRS) -type d)
 INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
-COMMON_FLAGS := $(INC_FLAGS) -MMD -MP -O2 -std=c++23
+COMMON_FLAGS := $(INC_FLAGS) -MMD -MP -std=c++23
 
 ifeq ($(BUILD_MODE),live)
-	CPPFLAGS := $(COMMON_FLAGS)
+	CPPFLAGS := $(COMMON_FLAGS) -O2
 else
-	CPPFLAGS := $(COMMON_FLAGS) -Wextra -Wall -g
+	CPPFLAGS := $(COMMON_FLAGS) -Wextra -Wall -Og
 endif
 
 

@@ -4,6 +4,7 @@
 #include <variant>
 
 #include "driver/compiler.h"
+#include "debug/Log.h"
 #include "Core/SymbolTable.h"
 #include "utils/msc.h"
 #include "Nodes.h"

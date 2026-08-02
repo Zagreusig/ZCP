@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <utility>
 
-#include "driver/compiler.h"
+#include "debug/Log.h"
 #include "Core/EscapeChars.h"
 #include "ErrorHandler.h"
 #include "TokenTable.h"
@@ -70,9 +70,7 @@ std::vector<Token> Lexer::tokenize() {
          }
          if (peek_eval('*') && peek_eval('/', 1)) { consume(); consume(); }
          else
-            m_compiler.diagnostics.error(CompPhase::Lexing, m_compiler.current_filename(), m_line, m_col,
-                                         "Unterminated comment block.");
-         
+            Log::error(CompPhase::Lexing, "Unterminated comment block.", m_file_name, m_line, m_col);
       }
       else if (std::isalpha(peek().value())) { 
          int tok_line = m_line, tok_col = m_col;        
@@ -96,7 +94,7 @@ std::vector<Token> Lexer::tokenize() {
          try {
             tokens.push_back(tok::make_int(std::stoll(buf), m_file_id, tok_line, tok_col));
          } catch (const std::out_of_range&) {
-            m_compiler.diagnostics.fatal(CompPhase::Lexing, m_compiler.filename_by_id(m_file_id), tok_line, tok_col, "Int literal too large.");
+            Log::error(CompPhase::Lexing, "Int literal too large.", m_file_name, tok_line, tok_col);
          }
          
          buf.clear(); continue;
@@ -105,17 +103,17 @@ std::vector<Token> Lexer::tokenize() {
          int tok_line = m_line, tok_col = m_col;
          consume();
          if (!peek().has_value())
-            m_compiler.fatal(CompPhase::Lexing, m_file_id, tok_line, tok_col, "Expected char literal.");
+            Log::error(CompPhase::Lexing, "Expected char literal.", m_file_name, tok_line, tok_col);
          char c = consume();
          if (c == '\\') {
             if (!peek().has_value()) { 
-               m_compiler.error(CompPhase::Lexing, m_file_id, tok_line, tok_col, "Unterminated escape.");
+               Log::error(CompPhase::Lexing, "Unterminated escape char.", m_file_name, tok_line, tok_col);
                break; 
             }
             c = Esc::translate_escape(consume());
          }
          if (!peek().has_value() || peek().value() != '\'')
-            m_compiler.diagnostics.fatal(CompPhase::Lexing, m_compiler.filename_by_id(m_file_id), tok_line, tok_col, "Expected closing '.");
+            Log::error(CompPhase::Lexing, "Expected closing '.", m_file_name, tok_line, tok_col);
          consume();
          tokens.push_back(tok::make_char(c, m_file_id, tok_line, tok_col));
          continue;
@@ -126,7 +124,7 @@ std::vector<Token> Lexer::tokenize() {
          while (peek().has_value() && peek().value() != '"') {
             char c = consume();
             if (c == '\\') {
-               if (!peek().has_value()) { m_compiler.error(CompPhase::Lexing, m_file_id, tok_line, tok_col, "Unterminated escape."); break; }
+               if (!peek().has_value()) { Log::error(CompPhase::Lexing, "Unterminated escape char.", m_file_name, tok_line, tok_col); break; }
                char esc = consume(), translated = Esc::translate_escape(esc);
                if (esc == translated) { buf.push_back(esc); }
                else { buf.push_back(translated); }
@@ -135,7 +133,7 @@ std::vector<Token> Lexer::tokenize() {
             }
          }
          if (!peek().has_value()) 
-            m_compiler.fatal(CompPhase::Lexing, m_file_id, tok_line, tok_col, "Expected closing \"");
+            Log::error(CompPhase::Lexing, "Expected closing \"", m_file_name, tok_line, tok_col);
          if (peek().value() == '"' && buf.length() < 1) buf.push_back('\0'); 
 
          consume();
@@ -266,7 +264,7 @@ inline Token Lexer::resolveSymbol(char symbol) {
       } 
       return tok::make(TokenType::AMPERSAND, m_file_id, m_line, m_col); 
    case '#': return tok::make(TokenType::POUND, m_file_id, m_line, m_col); 
-   default:  m_compiler.error(CompPhase::Lexing, m_file_id, m_line, m_col, "Unknown symbol."); 
+   default:  Log::error(CompPhase::Lexing, "Unknown symbol.", m_file_name, m_line, m_col); 
              return tok::make(TokenType::INVALID, m_file_id, m_line, m_col); 
    }
 }

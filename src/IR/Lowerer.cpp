@@ -1,11 +1,19 @@
 #include "Lowerer.h"
+
+#include <type_traits>
+#include <variant>
+
 #include "Core/SymbolTable.h"
+#include "Core/IRDefs.h"
+#include "Core/Nodes.h"
+#include "Core/TokenTable.h"
+#include "Core/Tokens.h"
+#include "utils/msc.h"
 
 IRModule Lowerer::lower(const NodeProg& prog) {
-   IRModule mod;
    for (const NodeFunction* function : prog.functions) 
-      mod.functions.push_back(lower_function(function));
-   return mod;
+      m_module.functions.push_back(lower_function(function));
+   return m_module;
 }
 
 IRFunction Lowerer::lower_function(const NodeFunction* function) {
@@ -26,18 +34,30 @@ IRFunction Lowerer::lower_function(const NodeFunction* function) {
    // parameters: each -> a VReg, stored into an alloca so the body reads
    // it uniformly via load. Param type vary (NodeParam::type)/
    for (const NodeParam& param : function->params) {
+      if (param.type.base == DataType::STR) {
+         // STR params take 2 incoming regs (ptr, len), matching the old
+         // codegen's ABI - see NodeExprCall below for the caller side.
+         VReg ptr_vreg = fresh(IRType::Ptr), len_vreg = fresh(IRType::I64);
+         out.params.push_back(ptr_vreg);
+         out.params.push_back(len_vreg);
+
+         VReg addr = fresh(IRType::Ptr);
+         emit_alloca(addr, 16);
+         emit_store(addr, ptr_vreg);
+         VReg len_addr = fresh(IRType::Ptr);
+         emit_GetElemPtr(len_addr, addr, 1, 8);
+         emit_store(len_addr, len_vreg);
+         declare_var(param.name.text(), addr, true);
+         continue;
+      }
+
       IRType param_type = Symbols::ir_type_of(param.type);
       VReg param_vreg = fresh(param_type);
       out.params.push_back(param_vreg);
 
       VReg addr = fresh(IRType::Ptr);
       emit_alloca(addr, param.type.byte_size());
-      // { IRInstruction a(IROp::Alloca, addr); a.imm = param.type.byte_size(); emit(a); }
       emit_store(addr, param_vreg);
-      // { IRInstruction s(IROp::Store); 
-      //   s.operands.push_back(IROperand::make_reg(addr));
-      //   s.operands.push_back(IROperand::make_reg(param_vreg));
-      //   emit(s); }
       declare_var(param.name.text(), addr);
    }
 
@@ -49,9 +69,6 @@ IRFunction Lowerer::lower_function(const NodeFunction* function) {
       if (out.ret_type != IRType::Void) {
          VReg zero = fresh(IRType::I64);
          emit_const(zero, 0);
-         // IRInstruction c(IROp::Const, zero);
-         // c.operands.push_back(IROperand::make_const(0));
-         // emit(c);
          ret.operands.push_back(IROperand::make_reg(zero));
       }
       emit(ret);
@@ -83,30 +100,35 @@ void Lowerer::lower_stmt(const NodeStmt* stmt) {
          { IRInstruction a(IROp::Alloca, addr); a.imm = s->resolved.byte_size(); emit(a); }
          if (s->expr) {
             VReg val = lower_expr(s->expr);
-            emit_store(addr, val);
-            // IRInstruction st(IROp::Store);
-            // st.operands.push_back(IROperand::make_reg(addr));
-            // st.operands.push_back(IROperand::make_reg(val));
-            // emit(st);
+            if (s->resolved.base == DataType::STR) emit_copy_str(addr, val);
+            else emit_store(addr, val);
          }
-         declare_var(s->ident.text(), addr);
+         declare_var(s->ident.text(), addr, s->resolved.base == DataType::STR);
          (void)t;
       }
       else if constexpr (std::is_same_v<T, NodeStmtAssign>) {
          // target is an lvalue expr: ident (simple) or index (element).
          VReg val = lower_expr(s->expr);
          VReg addr = lower_lvalue_address(s->target);
-         emit_store(addr, val);
-         // IRInstruction st(IROp::Store);
-         // st.operands.push_back(IROperand::make_reg(addr));
-         // st.operands.push_back(IROperand::make_reg(val));
-         // emit(st);
+         if (s->target->resolved.base == DataType::STR) emit_copy_str(addr, val);
+         else emit_store(addr, val);
       }
       else if constexpr (std::is_same_v<T, NodeStmtReturn>) {
          IRInstruction r(IROp::Ret);
          if (s->expr) {
             VReg val = lower_expr(s->expr);
-            r.operands.push_back(IROperand::make_reg(val));
+            if (s->expr->resolved.base == DataType::STR) {
+               VReg ptr_val = fresh(IRType::Ptr);
+               emit_load(ptr_val, val);
+               VReg len_addr = fresh(IRType::Ptr);
+               emit_GetElemPtr(len_addr, val, 1, 8);
+               VReg len_val = fresh(IRType::I64);
+               emit_load(len_val, len_addr);
+               r.operands.push_back(IROperand::make_reg(ptr_val));
+               r.operands.push_back(IROperand::make_reg(len_val));
+            }
+            else
+               r.operands.push_back(IROperand::make_reg(val));
          }
          emit(r);
       }
@@ -122,8 +144,66 @@ void Lowerer::lower_stmt(const NodeStmt* stmt) {
          lower_scope(s);
       else if constexpr (std::is_same_v<T, NodeStmtExpr>)
          lower_expr(s->expr); // side effects (call, ind/dec); result discarded....
-      // NodeStmtExit, NodeStmtPrint: lowered via calls to runtime - deferred.
+      else if constexpr (std::is_same_v<T, NodeStmtPrint>)
+         lower_print(s);
+      else if constexpr (std::is_same_v<T, NodeStmtExit>)
+         lower_exit(s);
    }, stmt->variant);
+}
+
+
+void Lowerer::lower_print(const NodeStmtPrint* stmt) {
+   int64_t nl = stmt->nwln ? 1 : 0; // newline flag
+
+   if (!stmt->expr) {
+      IRInstruction call(IROp::Call);
+      call.operands.push_back(IROperand::make_symbol("print_nl"));
+      emit(call);
+      return;
+   }
+
+   TypeInfo tinfo = stmt->expr->resolved;
+   VReg val = lower_expr(stmt->expr);        // ptr in case of STR
+   IRInstruction call(IROp::Call);
+
+   if (tinfo.base == DataType::STR) {
+      VReg ptr = fresh(IRType::Ptr);
+
+      // ptr = load [val]
+      emit_load(ptr, val);
+
+      // len = load [val + 8]
+      VReg len_addr = fresh(IRType::Ptr);
+      emit_GetElemPtr(len_addr, val, 1, 8);
+
+      VReg len = fresh(IRType::I64);
+      emit_load(len, len_addr);
+      call.operands.push_back(IROperand::make_symbol("print_str"));
+      call.operands.push_back(IROperand::make_reg(ptr));    // rdi
+      call.operands.push_back(IROperand::make_reg(len));    // rsi
+      call.operands.push_back(IROperand::make_const(nl));   // rdx (low byte = dl)
+      emit(call); return; // leave early so the rest doesn't happen :D
+   }
+   else if (tinfo.base == DataType::CHAR) 
+      call.operands.push_back(IROperand::make_symbol("print_char"));
+   else // int / bool
+      call.operands.push_back(IROperand::make_symbol("print_int"));
+
+   call.operands.push_back(IROperand::make_reg(val));               // in print_char -> rdi/dil
+   call.operands.push_back(IROperand::make_const(nl));              // in print_char -> rsi/sil
+   emit(call);
+}
+
+
+void Lowerer::lower_exit(const NodeStmtExit* stmt) {
+   VReg code = lower_expr(stmt->expr);
+   IRInstruction call(IROp::Call);
+   call.operands.push_back(IROperand::make_symbol("sys_exit"));
+   call.operands.push_back(IROperand::make_reg(code));
+   emit(call);
+
+   IRInstruction _exit(IROp::Exit);
+   emit(_exit);
 }
 
 
@@ -200,35 +280,11 @@ void Lowerer::lower_condition(const NodeCondition* cond, int true_id, int false_
          VReg l = lower_expr(c->left), r = lower_expr(c->right);
          VReg res = fresh(IRType::I64);
          emit_binop(Symbols::cmp_to_ir(c->operation), res, l, r);
-         // IRInstruction cmp(Symbols::cmp_to_ir(c->operation), res);
-         // cmp.operands.push_back(IROperand::make_reg(l));
-         // cmp.operands.push_back(IROperand::make_reg(r));
-         // emit(cmp);
          emit_condbr(res, true_id, false_id);
-         // IRInstruction cbr(IROp::CondBr);
-         // cbr.operands.push_back(IROperand::make_reg(res));
-         // cbr.operands.push_back(IROperand::make_block(true_id));
-         // cbr.operands.push_back(IROperand::make_block(false_id));
-         // emit(cbr);
       }
-      else if constexpr (std::is_same_v<T, NodeLogicCondition>) {
+      else if constexpr (std::is_same_v<T, NodeLogicCondition>) 
          lower_logop(m_block->id, c->operation, c->left, c->right, true_id, false_id);
-         // if (c->operation == CmpExprType::AND) {
-            
-            // int pred = m_block->id, rhs = make_block("and.rhs");
-            // switch_to(pred);
-            // lower_condition(c->left, rhs, false_id); // left false -> whole false
-            // switch_to(rhs);
-            // lower_condition(c->right, true_id, false_id);
-         // }
-         // else { // OR 
-         //    int pred = m_block->id, rhs = make_block("or.rhs");
-         //    switch_to(pred);
-         //    lower_condition(c->left, true_id, rhs);
-         //    switch_to(rhs);
-         //    lower_condition(c->right, true_id, false_id);
-         // }
-      }
+      
    }, cond->variant);
 }
 
@@ -240,14 +296,19 @@ VReg Lowerer::lower_lvalue_address(const NodeExpr* target) {
          return lookup_var(e->ident.text());
       else if constexpr (std::is_same_v<T, NodeExprIndex>) {
          VReg base = lookup_var(e->ident.text()); // array base address
+         if (lookup_is_str(e->ident.text())) {
+            // analyzer accepts `s[i] = ...` for STR (it only type-checks the
+            // element type), so mirror the read side: deref the ptr field
+            // before indexing into the actual char data.
+            VReg ptr_val = fresh(IRType::Ptr);
+            emit_load(ptr_val, base);
+            VReg idx = lower_expr(e->index), elem = fresh(IRType::Ptr);
+            emit_GetElemPtr(ptr_val, idx, elem, 1);
+            return elem;
+         }
          VReg idx  = lower_expr(e->index);
          VReg elem = fresh(IRType::Ptr);
-         emit_GetElemPtr(base, idx, elem, target->resolved.element_size()); /** TODO: get size from array's elem type. */
-         // IRInstruction gep(IROp::GetElemPtr, elem);
-         // gep.operands.push_back(IROperand::make_reg(base));
-         // gep.operands.push_back(IROperand::make_reg(idx));
-         // gep.imm = 8; 
-         // emit(gep);
+         emit_GetElemPtr(base, idx, elem, target->resolved.element_size());
          return elem;
       }
       else
@@ -263,62 +324,67 @@ VReg Lowerer::lower_expr(const NodeExpr* expr) {
       if constexpr (std::is_same_v<T, NodeExprIntLit>) {
          VReg dest = fresh(IRType::I64);
          emit_const(dest, e->INT_LIT.int_val());
-         // IRInstruction i(IROp::Const, dest);
-         // i.operands.push_back(IROperand::make_const(e->INT_LIT.int_val()));
-         // emit(i);
          return dest;
       }
       else if constexpr (std::is_same_v<T, NodeExprCharLit>) {
          VReg dest = fresh(IRType::I8);
          emit_const(dest, (int64_t)e->CHAR_LIT.char_val());
-         // IRInstruction i(IROp::Const, dest);
-         // i.operands.push_back(IROperand::make_const((int64_t)e->CHAR_LIT.char_val()));
-         // emit(i);
          return dest;
       }
       else if constexpr (std::is_same_v<T, NodeExprBoolLit>) {
          VReg dest = fresh(IRType::I8);
          emit_const(dest, e->BOOL_LIT.type == TokenType::TRUE ? 1 : 0);
-         // IRInstruction i(IROp::Const, dest);
-         // int64_t v = (e->BOOL_LIT.type == TokenType::TRUE) ? 1 : 0;
-         // i.operands.push_back(IROperand::make_const(v));
-         // emit(i);
          return dest;
+      }
+      else if constexpr (std::is_same_v<T, NodeExprStrLit>) {
+         auto [label, len] = intern_string(e->STR_LIT.text());
+
+         VReg fp = fresh(IRType::Ptr);
+         emit_alloca(fp, 16);
+
+         VReg ptr = fresh(IRType::Ptr);
+         emit_symbol(IROp::GlobalAddr, ptr, label);
+         emit_store(fp, ptr);
+
+         VReg len_addr = fresh(IRType::Ptr);
+         emit_GetElemPtr(len_addr, fp, 1, 8);
+         
+         VReg len_val = fresh(IRType::I64);
+         emit_const(len_val, len);
+         emit_store(len_addr, len_val);
+         return fp;
       }
       else if constexpr (std::is_same_v<T, NodeExprIdent>) {
          VReg addr = lookup_var(e->ident.text());
+         if (expr->resolved.base == DataType::STR) return addr; // STR VReg = struct address
          VReg dest = fresh(Symbols::ir_type_of(expr->resolved));
          emit_one_reg(IROp::Load, dest, addr);
-         // IRInstruction i(IROp::Load, dest);
-         // i.operands.push_back(IROperand::make_reg(addr));
-         // emit(i);
          return dest;
       }
       else if constexpr (std::is_same_v<T, NodeExprIndex>) {
-         VReg base = lookup_var(e->ident.text()),
-              idx  = lower_expr(e->index),
+         VReg base = lookup_var(e->ident.text());
+         if (lookup_is_str(e->ident.text())) {
+            // base is a STR struct's address: deref its ptr field first,
+            // then index into the actual char data it points at.
+            VReg ptr_val = fresh(IRType::Ptr);
+            emit_load(ptr_val, base);
+            VReg idx = lower_expr(e->index), elem = fresh(IRType::Ptr);
+            emit_GetElemPtr(ptr_val, idx, elem, 1);
+            VReg dest = fresh(IRType::I8);
+            emit_one_reg(IROp::Load, dest, elem);
+            return dest;
+         }
+         VReg idx  = lower_expr(e->index),
               elem = fresh(IRType::Ptr);
          emit_GetElemPtr(base, idx, elem, expr->resolved.element_size());
-         // { IRInstruction gep(IROp::GetElemPtr, elem);
-         //   gep.operands.push_back(IROperand::make_reg(base));
-         //   gep.operands.push_back(IROperand::make_reg(idx));
-         //   gep.imm = 8; /** TODO: get from aray */
-         //   emit(gep); }
          VReg dest = fresh(Symbols::ir_type_of(expr->resolved));
          emit_one_reg(IROp::Load, dest, elem);
-         // IRInstruction ld(IROp::Load, dest);
-         // ld.operands.push_back(IROperand::make_reg(elem));
-         // emit(ld);
          return dest;
       }
       else if constexpr (std::is_same_v<T, NodeBinExpr>) {
          VReg l = lower_expr(e->left), r = lower_expr(e->right),
               dest = fresh(Symbols::ir_type_of(expr->resolved));
          emit_binop(Symbols::binop_to_ir(e->operation), dest, l, r);
-         // IRInstruction i(Symbols::binop_to_ir(e->operation), dest);
-         // i.operands.push_back(IROperand::make_reg(l));
-         // i.operands.push_back(IROperand::make_reg(r));
-         // emit(i);
          return dest;
       }
       else if constexpr (std::is_same_v<T, NodeExprCall>) {
@@ -326,30 +392,69 @@ VReg Lowerer::lower_expr(const NodeExpr* expr) {
          VReg dest = fresh(Symbols::ir_type_of(expr->resolved));
          call.dest = dest;
          call.operands.push_back(IROperand::make_symbol(e->name.text()));
-         for (const NodeExpr* arg : e->args)
-            call.operands.push_back(IROperand::make_reg(lower_expr(arg)));
+         for (const NodeExpr* arg : e->args) {
+            if (arg->resolved.base == DataType::STR) {
+               VReg struct_addr = lower_expr(arg);
+               VReg ptr_val = fresh(IRType::Ptr);
+               emit_load(ptr_val, struct_addr);
+               VReg len_addr = fresh(IRType::Ptr);
+               emit_GetElemPtr(len_addr, struct_addr, 1, 8);
+               VReg len_val = fresh(IRType::I64);
+               emit_load(len_val, len_addr);
+               call.operands.push_back(IROperand::make_reg(ptr_val));
+               call.operands.push_back(IROperand::make_reg(len_val));
+            }
+            else
+               call.operands.push_back(IROperand::make_reg(lower_expr(arg)));
+         }
          emit(call);
-         return dest;
+
+         if (expr->resolved.base != DataType::STR) return dest;
+
+         // STR return: rax (already captured as `dest`) is the ptr half;
+         // rdx (the len half) has nowhere to land on this instruction (one
+         // dest per IRInstruction) so CallResult - which MUST immediately
+         // follow this Call - captures it separately. Then repackage both
+         // into a fresh 16-byte struct, same shape as NodeExprStrLit, so a
+         // STR VReg keeps meaning "address of the {ptr,len} struct".
+         VReg len_reg = fresh(IRType::I64);
+         emit(IRInstruction(IROp::CallResult, len_reg));
+
+         VReg struct_addr = fresh(IRType::Ptr);
+         emit_alloca(struct_addr, 16);
+         emit_store(struct_addr, dest);
+         VReg len_addr = fresh(IRType::Ptr);
+         emit_GetElemPtr(len_addr, struct_addr, 1, 8);
+         emit_store(len_addr, len_reg);
+         return struct_addr;
       }
       else if constexpr (std::is_same_v<T, NodeExprIncDec>) {
          // x++ / ++x : load, add / sub 1, store, return appropriate values
          VReg addr = lookup_var(e->ident.text());
          VReg old  = fresh(IRType::I64);
          emit_one_reg(IROp::Load, old, addr);
-         // { IRInstruction ld(IROp::Load, old); ld.operands.push_back(IROperand::make_reg(addr)); emit(ld); }
          VReg one = fresh(IRType::I64);
          emit_const(one, 1);
-         // { IRInstruction c(IROp::Const, one); c.operands.push_back(IROperand::make_const(1)); emit(c); }
          VReg nv = fresh(IRType::I64);
          emit_binop(e->is_increment ? IROp::Add : IROp::Sub, nv, old, one);
-         // { IRInstruction op(e->is_increment ? IROp::Add : IROp::Sub, nv);
-         //   op.operands.push_back(IROperand::make_reg(old));
-         //   op.operands.push_back(IROperand::make_reg(one)); emit(op); }
          emit_store(addr, nv);
-         // { IRInstruction st(IROp::Store);
-         //   st.operands.push_back(IROperand::make_reg(addr));
-         //   st.operands.push_back(IROperand::make_reg(nv)); emit(st); }
          return e->is_prefix ? nv : old; // prefix returns new, postfix returns old
+      }
+      else if constexpr (std::is_same_v<T, NodeExprRead>) {
+         const char* routine = nullptr;
+         IRType result_type = IRType::I64;
+         switch (e->kind) {
+            case ReadKind::Int:   routine = "read_int";   result_type = IRType::I64; break;
+            case ReadKind::Char:  routine = "read_char";  result_type = IRType::I8;  break;
+            case ReadKind::Line:  routine = "read_str";   result_type = IRType::Ptr; break;
+            case ReadKind::Float: routine = "read_float"; result_type = IRType::I64; break;
+         }
+
+         VReg dest = fresh(result_type);
+         IRInstruction call(IROp::Call, dest);
+         call.operands.push_back(IROperand::make_symbol(routine));
+         emit(call);
+         return dest;
       }
       else
          return VReg{};
@@ -396,6 +501,13 @@ void Lowerer::emit_alloca(VReg dest, int size) {
 }
 
 
+void Lowerer::emit_load(VReg dest, VReg origin) {
+   IRInstruction instruction(IROp::Load, dest);
+   instruction.operands.push_back(IROperand::make_reg(origin));
+   emit(instruction);
+}
+
+
 void Lowerer::emit_condbr(VReg res, int true_id, int false_id) {
    IRInstruction cbr(IROp::CondBr);
    cbr.operands.push_back(IROperand::make_reg(res));
@@ -414,6 +526,38 @@ void Lowerer::emit_GetElemPtr(VReg base, VReg idx, VReg elem, int size) {
 }
 
 
+void Lowerer::emit_GetElemPtr(VReg base, VReg ptr, int len, int size) {
+   IRInstruction gep(IROp::GetElemPtr, base);
+   gep.operands.push_back(IROperand::make_reg(ptr));
+   gep.operands.push_back(IROperand::make_const(len));
+   gep.imm = size;
+   emit(gep);
+}
+
+
+void Lowerer::emit_copy_str(VReg dest_addr, VReg src_addr) {
+   // ptr field lives at offset 0, so the struct address doubles as its address.
+   VReg ptr_val = fresh(IRType::Ptr);
+   emit_load(ptr_val, src_addr);
+   emit_store(dest_addr, ptr_val);
+
+   VReg src_len_addr = fresh(IRType::Ptr), dest_len_addr = fresh(IRType::Ptr);
+   emit_GetElemPtr(src_len_addr, src_addr, 1, 8);
+   emit_GetElemPtr(dest_len_addr, dest_addr, 1, 8);
+
+   VReg len_val = fresh(IRType::I64);
+   emit_load(len_val, src_len_addr);
+   emit_store(dest_len_addr, len_val);
+}
+
+
+void Lowerer::emit_symbol(IROp op, VReg dest, std::string& symbol) {
+   IRInstruction sym(op, dest);
+   sym.operands.push_back(IROperand::make_symbol(symbol));
+   emit(sym);
+}
+
+
 void Lowerer::lower_logop(int pred, CmpExprType op, NodeCondition* left, NodeCondition* right, int true_id, int false_id) {
    int rhs = make_block(op == CmpExprType::AND ? "and.rhs" : "or.rhs");
    switch_to(pred);
@@ -421,4 +565,19 @@ void Lowerer::lower_logop(int pred, CmpExprType op, NodeCondition* left, NodeCon
    else                        lower_condition(left, true_id, rhs);  // left true -> while true; left false -> eval right
    switch_to(rhs);
    lower_condition(right, true_id, false_id);
+}
+
+
+std::pair<std::string, int64_t> Lowerer::intern_string(const std::string& text) {
+   // dedup: if we've seen this exact string, reuse its label
+   auto it = m_string_labels.find(text);
+   if (it != m_string_labels.end())
+      return { it->second, I64(text.size()) };
+
+   std::string label = "str_" + std::to_string(m_module.globals.size());
+   IRGlobal global;
+   global.label = label;
+   global.bytes.assign(text.begin(), text.end());
+   m_module.globals.push_back(std::move(global));
+   return { label, I64(text.size()) };
 }

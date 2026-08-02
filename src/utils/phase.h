@@ -5,7 +5,7 @@
 #include <string>
 
 enum class Severity { Trace, Info, Warn, Error };
-enum class CompPhase { Lexing, Preprocessing, Parsing, Analysis, CodeGen, Optimization };
+enum class CompPhase { Lexing, Preprocessing, Parsing, Analysis, Lowering, CodeGen, Optimization };
 
 inline std::string phase_str(CompPhase phase) {
    switch (phase) {
@@ -13,6 +13,7 @@ inline std::string phase_str(CompPhase phase) {
       case CompPhase::Preprocessing: return "Preprocessing";
       case CompPhase::Parsing:       return "Parsing";
       case CompPhase::Analysis:      return "Analysis";
+      case CompPhase::Lowering:      return "Lowering";
       case CompPhase::CodeGen:       return "CodeGen";
       case CompPhase::Optimization:  return "Optimization";
       default:                       return "Null";

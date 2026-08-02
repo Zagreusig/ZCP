@@ -24,14 +24,13 @@ public:
    int create_executable() {
       if (!nasm())   throw std::runtime_error("Nasm failure");
       if (!linker()) throw std::runtime_error("ld failure.");
-      cleanup();
-      return 0;
+      return cleanup();
    }
 
    private:
       bool nasm();
       bool linker();
-      void cleanup();
+      int cleanup();
 
       std::string m_name = {}, m_asm = {}, m_obj = {};
       Options m_opts;

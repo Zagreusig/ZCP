@@ -6,6 +6,7 @@
 
 #include "frontend/lexer/lexer.h"
 #include "driver/compiler.h"
+#include "debug/Log.h"
 #include "utils/file_util.h"
 #include "Core/TokenTable.h"
 #include "Core/Tokens.h"
@@ -13,13 +14,6 @@
 
 using Clock    = std::chrono::steady_clock;
 using Duration = std::chrono::nanoseconds;
-
-/** while the line is the same, no specific dermination.
- * #pragma once
- * #
- * pragma (identifier) <- is valid drctv?
- * once   (identifier) <- is valid cmd?
- */
 
 std::vector<Token> Preprocessor::process() {
    std::vector<Token> out;
@@ -97,11 +91,11 @@ void Preprocessor::handle_include(std::vector<Token>& out, int dir_line) {
    m_include_stack.push_back(path);
    m_included.insert(path);
 
-   Lexer lex(m_compiler, *source, fileID);
+   Lexer lex(*source, m_file_name, fileID);
    std::vector<Token> file_tokens = lex.lex();
 
    // Check if the included file has includes.
-   Preprocessor preprocessor(m_compiler, std::move(file_tokens));
+   Preprocessor preprocessor(m_compiler, std::move(file_tokens), m_file_name);
    preprocessor.m_included = m_included;
    preprocessor.m_include_stack = m_include_stack;
    std::vector<Token> expanded = preprocessor.process();
@@ -198,7 +192,7 @@ std::vector<Token> Preprocessor::lex_file(const std::string& path, int fileID) {
    auto t2 = Clock::now();
    std::cout << "lex_file: " << Duration(t2 - t1) << std::endl;
    if (!source.has_value()) { return {}; }
-   Lexer lex(m_compiler, *source, fileID);
+   Lexer lex(*source, m_file_name, fileID);
    return lex.lex();
 }
 

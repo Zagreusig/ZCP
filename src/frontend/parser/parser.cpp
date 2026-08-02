@@ -25,9 +25,7 @@ std::optional<NodeProg> Parser::parse_prog() {
          }
          else {
             if (peek().has_value()) { 
-               const Token& token = peek().value();
-               m_compiler.error(CompPhase::Parsing, token.fileId, 
-                           token.line, token.col, "Expected function declaration at top level.");
+               Log::error(CompPhase::Parsing, "Expected function declaration at top level.");
                sync_next_func();
             }
          }
@@ -585,7 +583,6 @@ std::optional<NodeStmt*> Parser::parse_return() {
 }
 
 
-
 std::optional<NodeScopeBlock*> Parser::parse_scope() {
    if (!try_consume(TokenType::OPEN_BRACE)) { fail("Expected '{'."); return {}; }
    NodeScopeBlock* block = m_compiler.allocator.alloc<NodeScopeBlock>();
@@ -801,9 +798,9 @@ void Parser::synchronize() {
 void Parser::fail(const std::string& msg) {
    int line = 0, col = 0;
    if (peek().has_value()) { line = peek().value().line; col = peek().value().col; }
-   m_compiler.error(CompPhase::Parsing, m_compiler.current_file_ID, line, col, msg);
+   Log::error(CompPhase::Parsing, msg, m_file_name, line, col);
    synchronize();
- }
+}
 
 
 void Parser::sync_next_func() {

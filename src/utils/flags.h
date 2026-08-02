@@ -23,7 +23,9 @@ enum class Flags {
    HALLLLLPUH      = BIT(6),   // -h
    PRESERVE_PRE_OP = BIT(7),   // -p
    DEBUG           = BIT(8),   // -d
-   RAW_TOKENS      = BIT(9)    // -r
+   RAW_TOKENS      = BIT(9),   // -r
+   USE_IR          = BIT(10),  // -i
+   /** TEMP: IR will become the only thing once all functionality is implemented */
 };
 
 inline Flags operator|(Flags a, Flags b) {
@@ -48,6 +50,7 @@ inline std::string to_str(Flags flag) {
       case Flags::PRESERVE_PRE_OP: return "PRESERVE_PRE_OP";
       case Flags::DEBUG:           return "DEBUG";
       case Flags::RAW_TOKENS:      return "RAW_TOKENS";
+      case Flags::USE_IR:          return "USE_IR";
       default:                     return "ERR_FLAG";
    }
 }

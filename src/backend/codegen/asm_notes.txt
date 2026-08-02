@@ -9,5 +9,16 @@ rax > rdx - data registers (d)
 rsi & rdi - index registers
 rbp & rsp = pointer registers
 
+jmp - unconditional jump
+je - jump if equal | jne - jump if not equal
+jge - jump if >= | jg - jump if >
+jle - jump if <= | jl - jump if <
+
+Set conditions (for flags & IR system)
+sete - set if == | setne - set if !=
+setl - set if <  | setle - set if <=
+setg - set if >  | setge - set if >=
+
+setting to al (only flips one byte)
 
 floats use xxml <- ???

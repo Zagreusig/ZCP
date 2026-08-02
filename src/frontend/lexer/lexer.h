@@ -9,12 +9,10 @@
 #include "Core/ErrorHandler.h"
 #include "Core/Tokens.h"
 
-class Compiler;
-
 class Lexer {
 public:
-   inline explicit Lexer(Compiler& cmp, const std::string& source, int file_id) 
-      : m_compiler(cmp), m_src(source), m_file_id(file_id) {}
+   inline explicit Lexer(const std::string& source, const std::string& file_name, int file_id) 
+      : m_src(source), m_file_id(file_id), m_file_name(file_name) {}
    std::vector<Token> lex();
    std::vector<Token> tokenize();
 
@@ -29,10 +27,9 @@ private:
    }
    inline Token resolveSymbol(char);
 
-   Compiler& m_compiler;
-
    std::string m_src;
    int m_file_id = 0;
+   std::string m_file_name;
 
    std::vector<Token> tokens {};
    size_t m_currIndex = 0;

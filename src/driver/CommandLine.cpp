@@ -18,6 +18,7 @@ namespace {
       { 'h', "help",       Flags::HALLLLLPUH,      false, "Print this help and exit." },
       { 'd', "debug",      Flags::DEBUG,           false, "Logs every action for debugging." },
       { 'r', "raw",        Flags::RAW_TOKENS,      false, "Print the token list before it hits the preprocessor."},
+      { 'i', "use-ir",     Flags::USE_IR,          false, "Use Intermediate Representation" },
    };
 
 

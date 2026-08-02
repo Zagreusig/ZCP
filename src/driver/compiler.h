@@ -13,6 +13,7 @@
 #include "Core/Nodes.h"
 #include "Core/arena.h"
 #include "Core/ErrorHandler.h"
+#include "Core/IRDefs.h"
 #include "syscaller.h"
 #include "utils/flags.h"
 #include "debug/Logger.h"
@@ -23,31 +24,32 @@ struct Token;
 enum class CompPhase;
 
 struct Options {
-   bool log;
-   bool flags;
-   bool toks;
-   bool ast;
-   bool raw;
+   bool log   = false;
+   bool flags = false;
+   bool toks  = false;
+   bool ast   = false;
+   bool raw   = false;
+   bool ir    = false;
 };
 
 class Compiler {
 public:
-   std::string file_name;
-   std::string prog_name;
-   std::string source_text;
+   std::string        file_name;
+   std::string        prog_name;
+   std::string        source_text;
    std::vector<Flags> flag_arr;
-   ArenaAllocator allocator;
-   Diagnostics diagnostics;
+   ArenaAllocator     allocator;
+   Diagnostics        diagnostics;
 
-   Flags _flags = Flags::NONE;
-   std::string m_asm_out;
-   std::string m_orig;
+   Flags              _flags = Flags::NONE;
+   std::string        m_asm_out;
+   std::string        m_orig;
 
-   std::string m_macros;
+   std::string        m_macros;
 
    std::vector<Token>      m_tokens;
    std::optional<NodeProg> m_program;
-   int optimizer_passes = 0;
+   int                     optimizer_passes = 0;
 
    Options compiler_opts;
    Logger  m_logger;
@@ -90,6 +92,7 @@ public:
       compiler_opts.flags = has_flag(Flags::PRINT_FLAGS);
       compiler_opts.ast   = has_flag(Flags::PRINT_AST);
       compiler_opts.toks  = has_flag(Flags::PRINT_TOKENS);
+      compiler_opts.ir    = has_flag(Flags::USE_IR);
    }
 
    bool isRawTokensEnabled()     { return compiler_opts.log || compiler_opts.raw;   }
@@ -106,6 +109,7 @@ public:
    std::vector<Token>          preprocess();
    std::optional<NodeProg>     parse();
    void                        analyze();
+   IRModule                    IR();
    std::string                 generate();
    std::pair<std::string, int> optimize(); // <optimised asm, number of passes>
    int                         write_files();

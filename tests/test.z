@@ -1,11 +1,14 @@
 fn main() {
    have arr: int[5];
+   have ch: char = 'c';
+   have num: int = 5;
 
    for (have i = 0; i < 5; i++) {
       arr[i] = i;
    }
 
-   arr[3];
-
+   if (5 < 10) {
+      return 99;
+   }
    return 0;
 }

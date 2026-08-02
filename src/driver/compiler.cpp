@@ -12,6 +12,7 @@
 #include "frontend/analyzer/analyer.h"
 #include "backend/codegen/generation.h"
 #include "backend/optimizations/optimizer.h"
+#include "backend/codegen/backend.h"
 #include "IR/Lowerer.h"
 #include "Core/IRDefs.h"
 #include "syscaller.h"
@@ -55,16 +56,28 @@ int Compiler::run() {
    analyze();
    if (errors(source_text)) return ANALYSIS_FAILURE;
 
-   Lowerer ir;
-   IRModule mod = ir.lower(*m_program);
+   if (compiler_opts.ir) {
+      IRModule mod = IR();
 
-   IRPrinter printer(std::cout);
-   printer.print(mod);
-
-   m_orig = generate();
-   if (m_logger.enabled()) m_logger.set_orig_asm(m_orig);
-   if (errors(source_text)) return GENERATOR_FAILURE;
-
+      if (isLoggingEnabled()) {
+         std::ostringstream out;
+         IRPrinter printer(out);
+         printer.print(mod);
+         m_logger.set_ir_mod(out.str());
+      }
+      
+      m_logger.mark_phase(CompPhase::CodeGen);
+      {
+         ScopedPhaseTimer t(m_logger, CompPhase::CodeGen);
+         Backend generator;
+         m_orig = generator.generate(mod);
+      }
+   }
+   else {
+      m_orig = generate();
+      if (m_logger.enabled()) m_logger.set_orig_asm(m_orig);
+      if (errors(source_text)) return GENERATOR_FAILURE;
+   }
    auto returned = optimize();
    m_asm_out = returned.first; optimizer_passes = returned.second;
    
@@ -85,7 +98,7 @@ int Compiler::run() {
 std::vector<Token> Compiler::lex() {
    m_logger.mark_phase(CompPhase::Lexing);
    ScopedPhaseTimer timer(m_logger, CompPhase::Lexing);
-   Lexer lexer(*this, source_text, 0);
+   Lexer lexer(source_text, get_filename(), 0);
    return lexer.lex();
 }
 
@@ -93,7 +106,7 @@ std::vector<Token> Compiler::lex() {
 /** TODO: Figure a way to get this out */
 std::vector<Token> Compiler::preprocess() {
    m_logger.mark_phase(CompPhase::Preprocessing);
-   Preprocessor preprocessor(*this, m_tokens);
+   Preprocessor preprocessor(*this, m_tokens, get_filename());
    std::vector<Token> temp;
    {
       ScopedPhaseTimer timer(m_logger, CompPhase::Preprocessing);
@@ -107,7 +120,7 @@ std::vector<Token> Compiler::preprocess() {
 std::optional<NodeProg> Compiler::parse() {
    m_logger.mark_phase(CompPhase::Parsing);
    ScopedPhaseTimer timer(m_logger, CompPhase::Parsing);
-   Parser parser(*this, m_tokens);
+   Parser parser(*this, m_tokens, get_filename());
    return parser.parse_prog();
 }
 
@@ -117,6 +130,14 @@ void Compiler::analyze() {
    ScopedPhaseTimer t(m_logger, CompPhase::Analysis);
    Analyzer analyzer(*this, *m_program);
    analyzer.analyze();
+}
+
+
+IRModule Compiler::IR() {
+   m_logger.mark_phase(CompPhase::Lowering);
+   ScopedPhaseTimer t(m_logger, CompPhase::Lowering);
+   Lowerer lowerer;
+   return lowerer.lower(*m_program);
 }
 
 
