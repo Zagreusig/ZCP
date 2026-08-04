@@ -25,10 +25,14 @@
 *  - precedence   : binding power for expression parser (0 if N/A)
 *  - BinExprType  : the arithmetic op this maps to (BinExprType::NONE if N/A)
 *
-* Note: cmp/log ops map to CmpExprType, which is queried through a separate 
-* helper (cmp_of / logop_of) since a single "binop" column can't hold both
-* BinExprType and CmpExprType. Those helpers are defined below and read from
-* the same conceptual source, kept adj to the table.
+* Note: cmp ops map to ComparisonOp and logic ops (&&/||) map to LogicOp,
+* queried through separate helpers (cmp_of / logop_of) since a single
+* "binop" column can't hold BinExprType, ComparisonOp, and LogicOp all at
+* once. Those helpers are defined below and read from the same conceptual
+* source, kept adj to the table. ComparisonOp and LogicOp are themselves
+* kept separate (rather than one shared enum) because they're consumed by
+* two different AST node kinds (NodeCmpCondition vs NodeLogicCondition) that
+* should not be able to hold each other's operators.
 *****************************************************************************/
 
 
@@ -47,16 +51,20 @@ enum class BinExprType {
    PARENS           = 7
 };
 
-enum class CmpExprType {
+enum class ComparisonOp {
    NONE,
    EQUAL,
-   AND,
-   OR,
    NOT_EQUAL,
    LESS_THAN,
    GREATER_THAN,
    LESS_EQUAL,
    GREATER_EQUAL
+};
+
+enum class LogicOp {
+   NONE,
+   AND,
+   OR
 };
 
 enum class TokenCategory { 
@@ -247,28 +255,28 @@ inline constexpr bool is_binop(TokenType t)    { return binop_of(t) != BinExprTy
 // These can't live within the "binop" column, so they're here as focused 
 // switches. Not an issue, as there are only a small handful of tokens here.
 // ---------------------------------------------------------------------------
-inline constexpr CmpExprType cmp_of(TokenType t) {
+inline constexpr ComparisonOp cmp_of(TokenType t) {
    switch (t) {
-      case TokenType::OPERATOR_EQUAL_EQUAL:   return CmpExprType::EQUAL;
-      case TokenType::OPERATOR_NOT_EQUAL:     return CmpExprType::NOT_EQUAL;
-      case TokenType::OPERATOR_GREATER_EQUAL: return CmpExprType::GREATER_EQUAL;
-      case TokenType::OPERATOR_GT:            return CmpExprType::GREATER_THAN;
-      case TokenType::OPERATOR_LESS_EQUAL:    return CmpExprType::LESS_EQUAL;
-      case TokenType::OPERATOR_LT:            return CmpExprType::LESS_THAN;
-      default:                                return CmpExprType::NONE;
+      case TokenType::OPERATOR_EQUAL_EQUAL:   return ComparisonOp::EQUAL;
+      case TokenType::OPERATOR_NOT_EQUAL:     return ComparisonOp::NOT_EQUAL;
+      case TokenType::OPERATOR_GREATER_EQUAL: return ComparisonOp::GREATER_EQUAL;
+      case TokenType::OPERATOR_GT:            return ComparisonOp::GREATER_THAN;
+      case TokenType::OPERATOR_LESS_EQUAL:    return ComparisonOp::LESS_EQUAL;
+      case TokenType::OPERATOR_LT:            return ComparisonOp::LESS_THAN;
+      default:                                return ComparisonOp::NONE;
    }
 }
 
-inline constexpr CmpExprType logop_of(TokenType t) {
+inline constexpr LogicOp logop_of(TokenType t) {
    switch (t) {
-      case TokenType::OPERATOR_LOGICAL_AND: return CmpExprType::AND;
-      case TokenType::OPERATOR_LOGICAL_OR:  return CmpExprType::OR;
-      default:                              return CmpExprType::NONE;
+      case TokenType::OPERATOR_LOGICAL_AND: return LogicOp::AND;
+      case TokenType::OPERATOR_LOGICAL_OR:  return LogicOp::OR;
+      default:                              return LogicOp::NONE;
    }
 }
 
-inline constexpr bool is_cmp(TokenType t)   { return cmp_of(t)   != CmpExprType::NONE; }
-inline constexpr bool is_logop(TokenType t) { return logop_of(t) != CmpExprType::NONE; }
+inline constexpr bool is_cmp(TokenType t)   { return cmp_of(t)   != ComparisonOp::NONE; }
+inline constexpr bool is_logop(TokenType t) { return logop_of(t) != LogicOp::NONE; }
 
 
 // ---------------------------------------------------------------------------

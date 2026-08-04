@@ -27,7 +27,9 @@ const std::unordered_map<std::string, TokenType> KEYWORDS = {
    { "readc", TokenType::READC }, { "readln", TokenType::READS }, { "reads", TokenType::READS},
    { "readi", TokenType::READI }, { "readf", TokenType::READF },
    { "global", TokenType::GLOBAL }, { "const", TokenType::CONST },
-   { "true", TokenType::TRUE }, { "false", TokenType::FALSE }
+   { "true", TokenType::TRUE }, { "false", TokenType::FALSE },
+   { "struct", TokenType::UDEF_STRUCT }, { "class", TokenType::UDEF_CLASS },
+   { "skeleton", TokenType::UDEF_STRUCT }
 };
 
 

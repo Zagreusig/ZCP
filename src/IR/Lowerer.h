@@ -11,7 +11,7 @@
 #include "../Core/IRDefs.h"
 #include "../Core/Nodes.h"
 
-enum class CmpExprType;
+enum class LogicOp;
 struct NodeCondition;
 struct NodeExpr;
 struct NodeFunction;
@@ -77,7 +77,7 @@ private:
    void emit_GetElemPtr(VReg base, VReg ptr, int len, int size);
    void emit_copy_str(VReg dest_addr, VReg src_addr);
    void emit_symbol(IROp op, VReg dest, std::string& symbol);
-   void lower_logop(int pred, CmpExprType op, NodeCondition* left, NodeCondition* right, int true_id, int false_id);
+   void lower_logop(int pred, LogicOp op, NodeCondition* left, NodeCondition* right, int true_id, int false_id);
    
 
    // ========================================================================
@@ -145,9 +145,11 @@ private:
       emit(branch);
    }
 
-   // ----- functions --------------------------------------------------------
+   // ----- top level --------------------------------------------------------
    IRFunction lower_function(const NodeFunction* function);
    void lower_scope(const NodeScopeBlock* block);
+
+   /** TODO: structs go here */
 
    // ----- statements -------------------------------------------------------
    void lower_stmt(const NodeStmt* stmt);

@@ -3,7 +3,7 @@
 #include <type_traits>
 #include <variant>
 
-#include "Core/SymbolTable.h"
+#include "Core/TypeConversions.h"
 #include "Core/IRDefs.h"
 #include "Core/Nodes.h"
 #include "Core/TokenTable.h"
@@ -444,10 +444,11 @@ VReg Lowerer::lower_expr(const NodeExpr* expr) {
          const char* routine = nullptr;
          IRType result_type = IRType::I64;
          switch (e->kind) {
-            case ReadKind::Int:   routine = "read_int";   result_type = IRType::I64; break;
-            case ReadKind::Char:  routine = "read_char";  result_type = IRType::I8;  break;
-            case ReadKind::Line:  routine = "read_str";   result_type = IRType::Ptr; break;
-            case ReadKind::Float: routine = "read_float"; result_type = IRType::I64; break;
+            case DataType::INT:   routine = "read_int";   result_type = IRType::I64; break;
+            case DataType::CHAR:  routine = "read_char";  result_type = IRType::I8;  break;
+            case DataType::STR:   routine = "read_str";   result_type = IRType::Ptr; break;
+            case DataType::FLOAT: routine = "read_float"; result_type = IRType::I64; break;
+            default: break;
          }
 
          VReg dest = fresh(result_type);
@@ -558,10 +559,10 @@ void Lowerer::emit_symbol(IROp op, VReg dest, std::string& symbol) {
 }
 
 
-void Lowerer::lower_logop(int pred, CmpExprType op, NodeCondition* left, NodeCondition* right, int true_id, int false_id) {
-   int rhs = make_block(op == CmpExprType::AND ? "and.rhs" : "or.rhs");
+void Lowerer::lower_logop(int pred, LogicOp op, NodeCondition* left, NodeCondition* right, int true_id, int false_id) {
+   int rhs = make_block(op == LogicOp::AND ? "and.rhs" : "or.rhs");
    switch_to(pred);
-   if (op == CmpExprType::AND) lower_condition(left, rhs, false_id); // left true -> eval right; left false -> whole false
+   if (op == LogicOp::AND) lower_condition(left, rhs, false_id); // left true -> eval right; left false -> whole false
    else                        lower_condition(left, true_id, rhs);  // left true -> while true; left false -> eval right
    switch_to(rhs);
    lower_condition(right, true_id, false_id);

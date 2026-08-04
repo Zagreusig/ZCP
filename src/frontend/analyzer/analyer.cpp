@@ -1,40 +1,51 @@
 #include "analyer.h"
 
+#include <assert.h>
 #include <type_traits>
 #include <variant>
 
 #include "driver/compiler.h"
 #include "debug/Log.h"
-#include "Core/SymbolTable.h"
+#include "Core/TypeConversions.h"
 #include "utils/msc.h"
 #include "Nodes.h"
 #include "phase.h"
 
 void Analyzer::analyze() {
-   for (const NodeFunction* f : m_prog.functions) {
-      FuncSig sig;
-      sig.ident = f->name;
-      if (f->has_ret_type)
-         sig.ret_type.base = Symbols::token_to_datatype(f->ret_type.type);
-   
-      for (const NodeParam& p : f->params)
-         sig.param_types.push_back(p.type);
-      
-      if (!f->body) { sig.has_definition = false; sig.origin_file = f->name.fileId; }
-      else          { sig.has_definition = true;  sig.origin_file = f->name.fileId; }
-      
-      if (m_func_sigs.contains(f->name.text()) && m_func_sigs[f->name.text()].has_definition) {
-         m_compiler.error(CompPhase::Analysis, f->name.fileId, f->name.line, f->name.col,
-                                      "Redefinition of function \"" + f->name.text() + "\".");
-      } else if (m_func_sigs.contains(f->name.text())) {
-         m_func_sigs[f->name.text()].has_definition = true; 
-      }
-      m_func_sigs[f->name.text()] = sig;
+   m_symbols.push_scope(); // global scope
+   for (const NodeTopLevel* tl : m_prog.declarations) {
+      if (std::holds_alternative<NodeFunction*>(tl->variant)) {
+         NodeFunction* decl = std::get<NodeFunction*>(tl->variant);
+         FunctionSymbol func;
+            func.name = decl->name.text();
+            
+            if (decl->has_ret_type)
+               func.ret_type.base = Symbols::token_to_datatype(decl->ret_type.type);
+            
+            for (const NodeParam& p : decl->params)
+               func.params.push_back(p.type);
+
+            func.definition = decl; func.origin_file = decl->name.fileId;
+         
+            if (auto redef = m_symbols.lookup(func.name))
+               if (redef->is_function() && redef->as_function().definition)
+                  m_compiler.error(CompPhase::Analysis, decl->name.fileId, decl->name.line, decl->name.col,
+                                 "Redefinition of function \"" + decl->name.text() + "\".");
+            
+            Symbol construct; construct.name = func.name; construct.decl = decl->name; construct.info = func;
+            m_symbols.declare(construct);
+      } else continue;
    }
-   
-   for (NodeFunction* f : m_prog.functions) {
-      m_curr_func = m_func_sigs[f->name.text()];
-      analyze_function(f);
+
+   for (const NodeTopLevel* tl : m_prog.declarations) {
+      if (auto* fn = std::get_if<NodeFunction*>(&tl->variant)) {
+         set_curr_func(*m_symbols.lookup((*fn)->name.text()));
+         analyze_function(*fn);
+      }
+      else if (auto* decl = std::get_if<NodeTypeDecl*>(&tl->variant)) {
+         analyze_decl(*decl);
+      }
+      // else if (auto* global = std::get_if<NodeGlobal*>(&tl->variant))
    }
 }
 
@@ -114,23 +125,43 @@ void Analyzer::analyze_have(NodeStmtHave* h) {
 
    h->resolved = info;
    h->is_resolved = true;
-   declare(h->ident.text(), info);
+   declare(h->ident, info);
 }
 
 
 void Analyzer::analyze_function(NodeFunction* f) {
    push_scope();
    for (const NodeParam& p : f->params)
-      declare(p.name.text(), p.type);
+      declare(p.name, p.type);
 
-   if (f->body) {
+   if (f->body) 
       for (auto* stmt : f->body->stmts)
          analyze_stmt(stmt);
-   } else {
-      m_func_sigs[f->name.text()].has_definition = false;
-      m_func_sigs[f->name.text()].origin_file = f->name.fileId;
-   }
    pop_scope();
+}
+
+
+void Analyzer::analyze_decl(NodeTypeDecl* t) {
+   // throw std::runtime_error("Structs WIP");
+   if (auto* _struct = std::get_if<NodeStructDecl*>(&t->variant))
+      analyze_struct(*_struct);
+   // else if (auto* _enum = std::get_if<NodeEnumDecl*>(&t->variant))
+}
+
+
+void Analyzer::analyze_struct(NodeStructDecl* decl) {
+   StructLayout layout;
+
+   for (auto& field : decl->vars) {
+      FieldInfo info;
+      info.name = field.name.text();
+      info.type = field.type;
+      info.offset = layout.size;
+      layout.size += info.type.byte_size();
+      layout.fields.push_back(info);
+   }
+
+   m_symbols.declare(Symbol{ layout, decl->name });
 }
 
 
@@ -154,7 +185,7 @@ void Analyzer::analyze_stmt(NodeStmt* s) {
          TypeInfo ret = type_of(s->expr);
          if (m_curr_func.ret_type.base != DataType::NONE && !types_match(ret, m_curr_func.ret_type))
             m_compiler.error
-            (CompPhase::Analysis, m_curr_func.ident.fileId, m_curr_func.ident.line, m_curr_func.ident.col,
+            (CompPhase::Analysis, m_curr_func.origin_file, m_func_line, m_func_col,
              "Return type mismatch.");
       }
        
@@ -222,19 +253,22 @@ void Analyzer::analyze_condition(const NodeCondition* cond) {
 
 
 void Analyzer::push_scope() {
-   m_scopes.push_back(m_vars.size());
+   m_symbols.push_scope();
 }
 
 
 void Analyzer::pop_scope() {
-   size_t before = m_scopes.back();
-   m_scopes.pop_back();
-   m_vars.resize(before);
+   m_symbols.pop_scope();
 }
 
 
-void Analyzer::declare(const std::string& ident, const TypeInfo& t) {
-   m_vars.push_back({ ident, t });
+void Analyzer::declare(Token ident, const TypeInfo& t) {
+   VariableSymbol var { t };
+   Symbol symbol(var, ident);
+   if (!m_symbols.declare(symbol))
+      m_compiler.error
+      (CompPhase::Analysis, ident.fileId, ident.line, ident.col,
+       "Redeclaration of '" + ident.text() + "' in this scope.");
 }
 
 
@@ -280,9 +314,9 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
       else if constexpr (std::is_same_v<T, NodeExprCall>) {
          for (auto* arg : node->args)
             type_of(arg); // stamping the arg as resolved; no return needed here
-         auto it = m_func_sigs.find(node->name.text());
          
-         if (it == m_func_sigs.end()) {
+         auto symbol = m_symbols.lookup(node->name.text());
+         if (!symbol) {
             m_compiler.error
             (CompPhase::Analysis, node->name.fileId, node->name.line, node->name.col,
              "Call made to undeclared function '" + node->name.text() + "'.");
@@ -291,27 +325,26 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
             return {};
          }
       
-         const FuncSig& sig = it->second;
-
-         if (!sig.has_definition && !m_func_sigs.contains(node->name.text())) { 
+         if (!symbol->is_function() || symbol->as_function().definition) { 
             m_compiler.error
             (CompPhase::Analysis, node->name.fileId, node->name.line, node->name.col,
-             "No matching definition for \"" + sig.ident.text() + "\".");
+             "No matching definition for \"" + symbol->name + "\".");
             return {};
          }
 
          // arg count check
-         if (node->args.size() != sig.param_types.size()) {
+         if (node->args.size() != symbol->as_function().params.size()) {
             m_compiler.error
             (CompPhase::Analysis, node->name.fileId, node->name.line, node->name.col,
-             std::to_string(sig.param_types.size()) + " argument(s) expected, got " + 
+             std::to_string(symbol->as_function().params.size()) + " argument(s) expected, got " + 
              std::to_string(node->args.size()) + ".");
          }
 
          // arg type check.
+
          for (size_t i = 0; i < node->args.size(); i++) {
             TypeInfo at = type_of(node->args[i]);
-            if (i < sig.param_types.size() && !types_match(sig.param_types[i], at)) {
+            if (i < symbol->as_function().params.size() && !types_match(symbol->as_function().params[i], at)) {
                m_compiler.error
                (CompPhase::Analysis, node->name.fileId, node->name.line, node->name.col,
                 "Argument " + std::to_string(i + 1) + " to '" + node->name.text() + 
@@ -319,7 +352,7 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
             }
          }
 
-         return sig.ret_type;
+         return symbol->as_function().ret_type;
       }
 
       else if constexpr (std::is_same_v<T, NodeExprIncDec>)
@@ -327,8 +360,8 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
       
       else if constexpr (std::is_same_v<T, NodeExprRead>) {
          switch (node->kind) {
-            case ReadKind::Char: return TypeInfo { .base = DataType::CHAR };
-            case ReadKind::Int:  return TypeInfo { .base = DataType::INT };
+            case DataType::CHAR: return TypeInfo { .base = DataType::CHAR };
+            case DataType::INT:  return TypeInfo { .base = DataType::INT };
             default:             return TypeInfo { .base = DataType::INT };
          }
       }
@@ -360,25 +393,35 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
 
 
 std::optional<TypeInfo> Analyzer::lookup(const std::string& ident) {
-   for (auto it = m_vars.rbegin(); it != m_vars.rend(); ++it)
-      if (it->first == ident) return it->second;
+   const Symbol* sym = m_symbols.lookup(ident);
+   if (sym && sym->is_variable()) return sym->as_variable().type;
    return {};
 }
 
 
 bool Analyzer::types_match(TypeInfo t1, TypeInfo t2) {
-   return (t1.base == t2.base) && (t1.is_array == t2.is_array) &&
-          (t1.array_len == t2.array_len);
+   return t1.base == t2.base && ((t1.is_array == t2.is_array &&
+          t1.array_len == t2.array_len) || t1.is_ptr == t2.is_ptr ||
+          t1.is_signed == t2.is_signed);
 }
 
 
-bool Analyzer::functions_match(FuncSig first, FuncSig second) {
+bool Analyzer::functions_match(FunctionSymbol first, FunctionSymbol second) {
    bool ret = true;
 
-   if (first.param_types.size() != second.param_types.size()) return false;
-   for (size_t i = 0; i < first.param_types.size(); i++) {
-      ret = ret && types_match(first.param_types.at(i), second.param_types.at(i));
+   if (first.params.size() != second.params.size()) return false;
+   for (size_t i = 0; i < first.params.size(); i++) {
+      ret = ret && types_match(first.params.at(i), second.params.at(i));
    }
-   return ret && (first.ident.text() == second.ident.text()) &&
+   return ret && (first.name == second.name) &&
           types_match(first.ret_type, second.ret_type);
+}
+
+
+void Analyzer::set_curr_func(Symbol symbol) {
+   if (!symbol.is_function()) return;
+
+   m_curr_func = symbol.as_function();
+   m_func_line = symbol.decl.line; 
+   m_func_col = symbol.decl.col;
 }

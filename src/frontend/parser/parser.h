@@ -11,13 +11,14 @@
 #include "Core/Tokens.h"
 
 enum class BinExprType;
-enum class CmpExprType;
+enum class ComparisonOp;
+enum class LogicOp;
 enum class TokenType;
+struct TypedName;
 
 // enum class UnaryExprType { NEGATIVE };
 
 class Compiler;
-
 
 class Parser {
 public:
@@ -44,6 +45,7 @@ private:
    static bool is_lval(const NodeExpr* expression);
 
    std::optional<TypeInfo>        parse_type();
+   std::optional<TypedName>       parse_typed_name();
 
    std::optional<NodeExpr*>       parse_expr(int precedence);
    std::optional<NodeStmt*>       parse_stmt();
@@ -64,18 +66,24 @@ private:
    std::optional<NodeStmt*>       wrap_expr_stmt(NodeExpr* expression);
    std::optional<NodeStmt*>       parse_cmpd_assign();
 
+
    std::optional<NodeExpr*>       parse_primary();
    std::optional<NodeExpr*>       parse_ident_expr();
    std::optional<NodeExpr*>       parse_prefix_incdec();
    std::optional<NodeExpr*>       parse_call(Token token);
-
+   std::optional<NodeExpr*>       parse_member_access(Token token);
+   
    std::optional<NodeFunction*>   parse_func();
+   std::optional<NodeTypeDecl*>   parse_type_decl();
+   std::optional<NodeStructDecl*> parse_struct_decl();
    NodeExpr* wrap_expr(auto* expression);
    NodeStmt* wrap_stmt(auto* statement);
-   size_t mark() const    { return m_index; }
-   void   reset(size_t m) { m_index = m;    }
+   NodeTopLevel* wrap_top(auto* decl);
+   NodeTypeDecl* wrap_type(auto* type);
+   size_t mark() const       { return m_index; }
+   void   reset(size_t mark) { m_index = mark; }
    
-   void sync_next_func();
+   void sync_next_top_level();
    void synchronize();
    void fail(const std::string& msg);
 
@@ -86,6 +94,6 @@ private:
    Compiler& m_compiler;
 };
 
-int cond_precidence(CmpExprType type);
+int cond_precidence(LogicOp type);
 
 #endif // PARSER_H

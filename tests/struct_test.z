@@ -1,0 +1,12 @@
+struct MyStruct {
+   s: int;
+   y: char;
+   z: bool;
+};
+
+fn main() -> int {
+   MyStruct this_will_error;
+   this_will_error.s = 5;
+   this_will_error.y = 'c';
+   this_will_error.z = true;
+}

@@ -5,23 +5,30 @@
 #include <variant>
 
 #include "Core/EscapeChars.h"
-#include "Core/SymbolTable.h"
+#include "Core/TypeConversions.h"
 #include "Nodes.h"
 #include "TokenTable.h"
 #include "Tokens.h"
 
-std::string ASTPrinter::cmp_name(CmpExprType op) {
+std::string ASTPrinter::cmp_name(ComparisonOp op) {
    switch (op) {
-      case CmpExprType::EQUAL:         return "EQUAL";
-      case CmpExprType::NOT_EQUAL:     return "NOT_EQUAL";
-      case CmpExprType::LESS_THAN:     return "LESS_THAN";
-      case CmpExprType::GREATER_THAN:  return "GREATER_THAN";
-      case CmpExprType::LESS_EQUAL:    return "LESS_EQUAL";
-      case CmpExprType::GREATER_EQUAL: return "GREATER_EQUAL";
-      case CmpExprType::AND:           return "AND";
-      case CmpExprType::OR:            return "OR";
-      case CmpExprType::NONE:          return "NONE";
-      default:                         return "?";
+      case ComparisonOp::EQUAL:         return "EQUAL";
+      case ComparisonOp::NOT_EQUAL:     return "NOT_EQUAL";
+      case ComparisonOp::LESS_THAN:     return "LESS_THAN";
+      case ComparisonOp::GREATER_THAN:  return "GREATER_THAN";
+      case ComparisonOp::LESS_EQUAL:    return "LESS_EQUAL";
+      case ComparisonOp::GREATER_EQUAL: return "GREATER_EQUAL";
+      case ComparisonOp::NONE:          return "NONE";
+      default:                          return "?";
+   }
+}
+
+std::string ASTPrinter::logic_name(LogicOp op) {
+   switch (op) {
+      case LogicOp::AND:  return "AND";
+      case LogicOp::OR:   return "OR";
+      case LogicOp::NONE: return "NONE";
+      default:            return "?";
    }
 }
 
@@ -36,6 +43,37 @@ std::string ASTPrinter::bin_name(BinExprType op) {
       default:                          return "?";
    }
 }
+
+void ASTPrinter::print_top(const NodeTopLevel* node, int depth) {
+   if (node == nullptr) { m_out << pad(depth) << "<null top-decl>\n"; return; }
+   if (std::holds_alternative<NodeFunction*>(node->variant))
+      print_function(std::get<NodeFunction*>(node->variant), 1);
+   else if (std::holds_alternative<NodeTypeDecl*>(node->variant))
+      print_type_decl(std::get<NodeTypeDecl*>(node->variant), 1);
+}
+
+
+void ASTPrinter::print_type_decl(const NodeTypeDecl* decl, int depth) {
+   if (decl == nullptr) { m_out << pad(depth) << "<null type decl>\n"; return; }
+   if (std::holds_alternative<NodeStructDecl*>(decl->variant))
+      print_struct_decl(std::get<NodeStructDecl*>(decl->variant), 1);
+   else { /** PROBLEM ): */}
+}
+
+
+void ASTPrinter::print_struct_decl(const NodeStructDecl* decl, int depth) {
+   if (decl == nullptr) { m_out << pad(depth) << "<null struct>\n"; return; }
+   m_out << pad(depth) << "Struct: " << decl->name.text() << std::endl;
+   if (!decl->vars.empty()) {
+      for (const auto& var : decl->vars) {
+         m_out << pad(depth + 1)
+               << var.name.text() << ": " << Symbols::datatype_to_str(var.type.base);
+         if (var.type.is_array) m_out << "[" << std::to_string(var.type.array_len) << "]";
+         m_out << " offset: " << var.offset << "\n";
+      }
+   }
+}
+
 
 void ASTPrinter::print_function(const NodeFunction* func, int depth) {
    if (func == nullptr) { m_out << pad(depth) << "<null func>\n"; return; }
@@ -185,10 +223,10 @@ void ASTPrinter::print_expr(const NodeExpr* expr, int depth) {
       void operator()(const NodeExprRead* r) {
          p->m_out << pad(depth);
          switch (r->kind) {
-            case ReadKind::Char:  p->m_out << "Readc\n"; break;
-            case ReadKind::Int:   p->m_out << "Readi\n"; break;
-            case ReadKind::Float: p->m_out << "Readf\n"; break;
-            case ReadKind::Line:  p->m_out << "Reads\n"; break;
+            case DataType::CHAR:  p->m_out << "Readc\n"; break;
+            case DataType::INT:   p->m_out << "Readi\n"; break;
+            case DataType::FLOAT: p->m_out << "Readf\n"; break;
+            case DataType::STR:   p->m_out << "Reads\n"; break;
             default:              p->m_out << "Read<NULL>\n"; break;
          }
       }
@@ -218,7 +256,7 @@ void ASTPrinter::print_condition(const NodeCondition* cond, int depth) {
       int depth;
 
       void operator()(const NodeCmpCondition* c) {
-         if (c->operation == CmpExprType::NONE) {
+         if (c->operation == ComparisonOp::NONE) {
             p->m_out << pad(depth) << "Cmp: (bare expr, truthy)\n";
             p->print_expr(c->left, depth + 1);
          } else {
@@ -228,7 +266,7 @@ void ASTPrinter::print_condition(const NodeCondition* cond, int depth) {
          }
       }
       void operator()(const NodeLogicCondition* c) {
-         p->m_out << pad(depth) << "Logic: " << cmp_name(c->operation) << "\n";
+         p->m_out << pad(depth) << "Logic: " << logic_name(c->operation) << "\n";
          p->print_condition(c->left,  depth + 1);
          p->print_condition(c->right, depth + 1);
       }

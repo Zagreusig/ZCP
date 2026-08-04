@@ -26,7 +26,7 @@ std::string Backend::generate(const IRModule& module) {
 
    m_output << "global _start\n"
             << "_start:\n"
-            << "   call main\n"
+            << (module.functions.size() > 0 ? "   call main\n" : "")
             << "   mov rdi, rax\n"
             << "   mov rax, 60\n"
             << "   syscall\n\n";

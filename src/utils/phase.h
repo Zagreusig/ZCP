@@ -20,6 +20,11 @@ inline std::string phase_str(CompPhase phase) {
    }
 }
 
+// Process exit code for a phase that failed. 0 (SUCCESS) is reserved, so codes start at 1.
+inline int exit_code(CompPhase phase) {
+   return static_cast<int>(phase) + 1;
+}
+
 class CompilerError : public std::runtime_error {
 public:
    CompilerError(CompPhase phase, int line, int col, const std::string& msg)

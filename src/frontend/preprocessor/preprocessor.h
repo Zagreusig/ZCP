@@ -33,13 +33,6 @@
 * Find the matching .z file, 
 */
 
-enum class PreprocessorDirectives { 
-   INCLUDE, 
-   IFNDEF, DEF, UNDEF, PRAGMA, IF, ELIF, ENDIF, ELSE, 
-   STRTOK, CATTOK,  // this down is later work 
-   ERR, WARN 
-};
-
 #include <stddef.h>
 #include <set>
 #include <string>

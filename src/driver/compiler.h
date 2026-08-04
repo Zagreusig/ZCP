@@ -148,15 +148,8 @@ public:
 
 
 enum {
-   SUCCESS            = 0,
-   LEX_FAILURE        = 1,
-   PREPROCESS_FAILURE = 2,
-   PARSE_FAILURE      = 3,
-   ANALYSIS_FAILURE   = 4,
-   GENERATOR_FAILURE  = 5,
-   OPTIMIZER_FAILURE  = 6,
-   SYSCALLER_FAILURE  = 7,
-   FILE_ERROR         = 8
+   SUCCESS    = 0,
+   FILE_ERROR = 8 // not phase-indexed; see exit_code(CompPhase) in utils/phase.h for phase failures
 };
 
 #endif // COMPILER_H

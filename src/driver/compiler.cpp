@@ -39,7 +39,7 @@ int Compiler::run() {
       Log::info(CompPhase::Lexing, temp + " tokens");
       do_tokens(m_tokens);
    }
-   if (errors(source_text)) return LEX_FAILURE;
+   if (errors(source_text)) return exit_code(CompPhase::Lexing);
 
    m_tokens = preprocess();
    if (isTokenPrintingEnabled()) {
@@ -47,16 +47,17 @@ int Compiler::run() {
       Log::info(CompPhase::Preprocessing, temp + " tokens");
       do_tokens(m_tokens);
    }
-   if (errors(source_text)) return PREPROCESS_FAILURE;
+   if (errors(source_text)) return exit_code(CompPhase::Preprocessing);
 
    m_program = parse();
    if (isASTPrintingEnabled() && m_program) do_ast(*m_program);
-   if (errors(source_text)) return PARSE_FAILURE;
+   if (errors(source_text)) return exit_code(CompPhase::Parsing);
 
    analyze();
-   if (errors(source_text)) return ANALYSIS_FAILURE;
+   if (errors(source_text)) return exit_code(CompPhase::Analysis);
 
-   if (compiler_opts.ir) {
+   m_logger.mark_phase(CompPhase::Lowering);
+   // if (compiler_opts.ir) {
       IRModule mod = IR();
 
       if (isLoggingEnabled()) {
@@ -72,18 +73,17 @@ int Compiler::run() {
          Backend generator;
          m_orig = generator.generate(mod);
       }
-   }
-   else {
-      m_orig = generate();
-      if (m_logger.enabled()) m_logger.set_orig_asm(m_orig);
-      if (errors(source_text)) return GENERATOR_FAILURE;
-   }
-   auto returned = optimize();
-   m_asm_out = returned.first; optimizer_passes = returned.second;
-   
-   if (m_logger.enabled()) {
-      do_optimizer_logging(optimizer_passes, m_asm_out);
-   }
+   // else {
+   //    m_orig = generate();
+   //    if (m_logger.enabled()) m_logger.set_orig_asm(m_orig);
+   //    if (errors(source_text)) return exit_code(CompPhase::CodeGen);
+   // }
+   // auto returned = optimize();
+   // m_asm_out = returned.first; optimizer_passes = returned.second;
+   m_asm_out = m_orig; optimizer_passes = 0;
+   // if (m_logger.enabled()) {
+   //    do_optimizer_logging(optimizer_passes, m_asm_out);
+   // }
 
    write_files();
 
@@ -150,6 +150,7 @@ std::string Compiler::generate() {
 
 
 std::pair<std::string, int> Compiler::optimize() {
+   if (compiler_opts.ir || compiler_opts.log) return { m_orig, 0 };
    m_logger.mark_phase(CompPhase::Optimization);
    ScopedPhaseTimer timer(m_logger, CompPhase::Optimization);
    Optimizer optimizer(m_orig);

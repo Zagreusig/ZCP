@@ -8,25 +8,32 @@
 #include "debug/Log.h"
 #include "parser.h"
 #include "Core/Tokens.h"
-#include "Core/SymbolTable.h"
+#include "Core/TypeConversions.h"
 #include "TokenTable.h"
 #include "phase.h"
 
+#include <iostream>
 
 std::optional<NodeProg> Parser::parse_prog() {
    NodeProg prog;
    try {
       while (peek().has_value()) {
+         NodeTopLevel* decl = m_compiler.allocator.alloc<NodeTopLevel>();
          if (is_next(TokenType::FUNC)){
             if (auto func = parse_func())
-               prog.functions.push_back(func.value());
+               decl->variant = func.value();
             else
-               sync_next_func();
+               sync_next_top_level();
          }
+         else if (is_next(TokenType::UDEF_STRUCT) || is_next(TokenType::UDEF_CLASS)) {
+            if (auto type = parse_type_decl())
+               decl->variant = type.value();
+         }
+         // else if (is_next(ENUMS)), else if (is_next(GLOBAL))
          else {
             if (peek().has_value()) { 
                Log::error(CompPhase::Parsing, "Expected function declaration at top level.");
-               sync_next_func();
+               sync_next_top_level();
             }
          }
       }
@@ -36,6 +43,50 @@ std::optional<NodeProg> Parser::parse_prog() {
    }
 }
 
+
+std::optional<NodeTypeDecl*> Parser::parse_type_decl() {
+   NodeTypeDecl* decl = m_compiler.allocator.alloc<NodeTypeDecl>();
+   if (is_next(TokenType::UDEF_STRUCT)) {
+      if (auto _struct = parse_struct_decl())
+         decl->variant = _struct.value();
+   }
+   else return {};
+   
+   return decl;
+}
+
+
+/** WIP:
+ *  This way doesn't allow for default values yet.
+ */
+std::optional<NodeStructDecl*> Parser::parse_struct_decl() {
+   if (!peek().has_value() || !is_next(TokenType::UDEF_STRUCT)) return {};
+   NodeStructDecl* def = m_compiler.allocator.alloc<NodeStructDecl>();
+   consume(); // UDEF_STRUCT
+   
+   if (!is_next(TokenType::IDENTIFIER)) { fail("Expected struct identifier."); return {}; }
+   Token name = consume();
+
+   if (!is_next(TokenType::OPEN_BRACE) && is_next(TokenType::SEMICOLON)) 
+      return def; // foreward declaration.
+   consume();
+   /** TODO: this */
+   
+   while (peek().has_value() && peek().value().type != TokenType::CLOSE_BRACE) {
+      if (auto type = parse_typed_name(); type.has_value()) {
+         NodeStructField field;
+         std::cerr << type.value().name.text() << ": " << (type.value().type.has_value() ? Symbols::datatype_to_str(type.value().type.value().base) : "null") << std::endl;
+
+         if (!type.value().has_type) { fail("Expected type notation for struct field."); return {}; }
+         def->vars.push_back(NodeStructField{ .name = type.value().name, .type = type.value().type.value()});
+         if (!try_consume(TokenType::SEMICOLON)) { fail("Expected ';' after field declaration."); return {}; }
+      }
+   }
+   if (!try_consume(TokenType::CLOSE_BRACE)) { fail("Expected closing '}' in struct declaration"); return {}; }
+   if (!try_consume(TokenType::SEMICOLON)) { fail("Expected ';' after struct declaration."); return {}; }
+
+   return def;
+}
 
 
 [[nodiscard]] inline std::optional<Token> Parser::peek(int offset) const {
@@ -51,7 +102,7 @@ bool Parser::is_next(TokenType type, int offset) {
 
 bool Parser::is_type(const TokenType& t) {
    return t == TokenType::INT || t == TokenType::CHAR ||
-          t == TokenType::STR /* || t == TokenType::BOOL || t == TokenType::FLOAT */;
+          t == TokenType::STR || t == TokenType::BOOL /* || t == TokenType::FLOAT */;
 }
 
 
@@ -114,6 +165,18 @@ std::optional<TypeInfo> Parser::parse_type() {
       if (!try_consume(TokenType::CLOSE_BRACKET)) { fail("Expected ']'."); return {}; }
    }
    return info;
+}
+
+
+std::optional<TypedName> Parser::parse_typed_name() {
+   Token name = consume(); // Could be issue, no bounds check :]
+   if (!try_consume(TokenType::COLON)) return TypedName{ .name = name, .has_type = false, .type = std::nullopt };
+   
+   TypeInfo info;
+   if (auto type = parse_type(); type.has_value()) info = type.value();
+   else return TypedName{ .name = name, .has_type = false, .type = std::nullopt };
+   
+   return TypedName{ .name = name, .has_type = true, .type = info };
 }
 
 
@@ -194,7 +257,7 @@ std::optional<NodeExpr*> Parser::parse_primary() {
       read->kind = Symbols::token_to_readkind(peek().value().type);
       consume();
       if (!try_consume(TokenType::OPEN_PAREN)) { fail("Expected '('."); return {}; }
-      if (read->kind == ReadKind::None) { fail("Invalid read type"); return {}; }
+      if (read->kind == DataType::NONE) { fail("Invalid read type"); return {}; }
       if (!try_consume(TokenType::CLOSE_PAREN)) { fail("Expected ')'."); return {}; }
 
       return wrap_expr(read);
@@ -232,12 +295,18 @@ std::optional<NodeExpr*> Parser::parse_ident_expr() {
       return wrap_expr(node);
    }
 
+   // ++ / --
    if (is_next(TokenType::OPERATOR_INCR) || is_next(TokenType::OPERATOR_DECR)) {
       bool inc = is_next(TokenType::OPERATOR_INCR);
       consume(); // inc / dec
       NodeExprIncDec* node = m_compiler.allocator.alloc<NodeExprIncDec>();
       node->ident = id; node->is_increment = inc;
       return wrap_expr(node);
+   }
+
+   if (is_next(TokenType::FULL_STOP)) {
+      consume();
+      return parse_member_access(id);
    }
 
    NodeExprIdent* node = m_compiler.allocator.alloc<NodeExprIdent>();
@@ -456,6 +525,8 @@ std::optional<NodeStmt*> Parser::parse_exit() {
 std::optional<NodeStmt*> Parser::parse_have() {
    consume(); // have
    NodeStmtHave* stmt_have = m_compiler.allocator.alloc<NodeStmtHave>();
+   auto info = parse_typed_name();
+
    auto id = try_consume(TokenType::IDENTIFIER);
    if (!id.has_value()) { fail("Invalid identifier."); return {}; }
    stmt_have->ident = id.value();
@@ -621,7 +692,7 @@ std::optional<NodeCondition*> Parser::parse_cond_primary() {
       if (auto inner = parse_condition_bp(0)) {
          if (peek().has_value() && peek().value().type == TokenType::CLOSE_PAREN) {
             if (peek(1).has_value() &&
-                Symbols::token_to_compare(peek(1).value().type) != CmpExprType::NONE)
+                Symbols::token_to_compare(peek(1).value().type) != ComparisonOp::NONE)
                reset(saved);
             else {
                consume();
@@ -638,15 +709,15 @@ std::optional<NodeCondition*> Parser::parse_cond_primary() {
    NodeCmpCondition* cmp = m_compiler.allocator.alloc<NodeCmpCondition>();
    cmp->left = left.value();
 
-   CmpExprType op = Symbols::token_to_compare(peek().value().type);
-   if (op != CmpExprType::NONE) {
+   ComparisonOp op = Symbols::token_to_compare(peek().value().type);
+   if (op != ComparisonOp::NONE) {
       consume();
       auto right = parse_expr();
       if (!right.has_value()) { fail("Expected comparison operator."); return {}; }
       cmp->operation = op;
       cmp->right = right.value();
    } else {
-      cmp->operation = CmpExprType::NONE; // Expr like if (x) or if (!head)
+      cmp->operation = ComparisonOp::NONE; // Expr like if (x) or if (!head)
       cmp->right = nullptr;
    }
 
@@ -661,8 +732,8 @@ std::optional<NodeCondition*> Parser::parse_condition_bp(int min_prec) {
    if (!left.has_value()) return {};
 
    while (peek().has_value()) {
-      CmpExprType op = Symbols::token_to_logop(peek().value().type);
-      if (op == CmpExprType::NONE) break;
+      LogicOp op = Symbols::token_to_logop(peek().value().type);
+      if (op == LogicOp::NONE) break;
 
       int prec = cond_precidence(op);
       if (prec < min_prec) break;
@@ -763,11 +834,11 @@ int Parser::get_precidence(BinExprType op) {
 }
 
 
-int cond_precidence(CmpExprType op) {
+int cond_precidence(LogicOp op) {
    switch (op) {
-      case CmpExprType::OR:  return 1;
-      case CmpExprType::AND: return 2;
-      default:               return -1; // not a logical op
+      case LogicOp::OR:  return 1;
+      case LogicOp::AND: return 2;
+      default:            return -1; // not a logical op
    }
 }
 
@@ -803,8 +874,33 @@ void Parser::fail(const std::string& msg) {
 }
 
 
-void Parser::sync_next_func() {
+void Parser::sync_next_top_level() {
    Log::trace(CompPhase::Parsing, "Encountered error, syncing to next function...");
-   while (peek().has_value() && peek().value().type != TokenType::FUNC)
+   while (peek().has_value() && 
+          (peek().value().type != TokenType::FUNC 
+          || peek().value().type != TokenType::UDEF_STRUCT))
       consume();
+}
+
+
+NodeTopLevel* Parser::wrap_top(auto* node) {
+   NodeTopLevel* top = m_compiler.allocator.alloc<NodeTopLevel>();
+   top->variant = node;
+   return top;
+}
+
+
+NodeTypeDecl* Parser::wrap_type(auto* node) {
+   NodeTypeDecl* type = m_compiler.allocator.alloc<NodeTypeDecl>();
+   type->variant = node;
+   return type;
+}
+
+
+std::optional<NodeExpr*> Parser::parse_member_access(Token token) {
+   /**
+   * ident.field = 4;
+   *
+   * NodeExpr -> assign -> ????
+   */
 }

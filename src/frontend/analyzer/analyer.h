@@ -1,25 +1,13 @@
 #ifndef ANALYER_H
 #define ANALYER_H
 
-#include <stddef.h>
 #include <optional>
 #include <string>
-#include <unordered_map>
-#include <vector>
-#include <utility>
 
 #include "Core/Nodes.h"
 #include "Core/ErrorHandler.h"
+#include "Core/SymbolTable.h"
 #include "Tokens.h"
-
-struct FuncSig {
-   std::vector<TypeInfo> param_types;
-   TypeInfo ret_type;
-   Token ident;
-   int origin_file = 0;
-   bool has_definition = false;
-   NodeFunction* definition = nullptr;
-};
 
 class Compiler;
 
@@ -32,6 +20,8 @@ public:
 private:
    void analyze_condition(const NodeCondition*);
    void analyze_function(NodeFunction*);
+   void analyze_decl(NodeTypeDecl*);
+   void analyze_struct(NodeStructDecl*);
    void analyze_stmt(NodeStmt*);
    void analyze_have(NodeStmtHave*);
    TypeInfo type_of(NodeExpr*);
@@ -39,19 +29,20 @@ private:
 
    void push_scope();
    void pop_scope();
-   void declare(const std::string&, const TypeInfo&);
+   void declare(Token, const TypeInfo&);
    std::optional<TypeInfo> lookup(const std::string&);
 
    bool types_match(TypeInfo, TypeInfo);
-   bool functions_match(FuncSig, FuncSig);
+   bool functions_match(FunctionSymbol, FunctionSymbol);
+
+   void set_curr_func(Symbol symbol);
 
    NodeProg& m_prog;
    Compiler& m_compiler;
-   std::unordered_map<std::string, FuncSig> m_func_sigs;
-   std::vector<std::pair<std::string, TypeInfo>> m_vars;
-   std::vector<size_t> m_scopes;
+   SymbolTable m_symbols;
 
-   FuncSig m_curr_func;
+   FunctionSymbol m_curr_func = {};
+   int m_func_line = 0, m_func_col = 0;
 };
 
 #endif // ANALYER_H

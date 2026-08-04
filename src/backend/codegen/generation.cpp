@@ -7,13 +7,18 @@
 #include <type_traits>
 #include <variant>
 
-#include "Core/Nodes.h"
+#include "../Core/Nodes.h"
 #include "generation.h"
 #include "Core/Tokens.h"
 #include "Core/EscapeChars.h"
-#include "Core/SymbolTable.h"
+#include "Core/TypeConversions.h"
 #include "utils/msc.h"
 #include "TokenTable.h"
+
+/**
+ * BEING DEPRICATED IN FAVOR OF backend.cpp FOR IR
+ */
+
 
 
 [[nodiscard]] std::string ASMGenerator::build() {   
@@ -159,10 +164,10 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
 
       void operator()(const NodeExprRead* read) {
          switch (read->kind) {
-            case ReadKind::Char:  gen->m_output << "   call read_char\n"; break;
-            case ReadKind::Int:   gen->m_output << "   call read_int\n";  break;
-            case ReadKind::Float: 
-            case ReadKind::Line:
+            case DataType::CHAR:  gen->m_output << "   call read_char\n"; break;
+            case DataType::INT:   gen->m_output << "   call read_int\n";  break;
+            case DataType::FLOAT:
+            case DataType::STR:
             default:              std::cerr << "Invalid read statement.\n"; gen->total_fail();
          }
          gen->push("rax");
@@ -690,7 +695,7 @@ void ASMGenerator::gen_cond(const NodeCondition* cond, const std::string& false_
       const std::string& false_label;
 
       void operator()(const NodeCmpCondition* cmp) {
-         if (cmp->operation == CmpExprType::NONE) {
+         if (cmp->operation == ComparisonOp::NONE) {
             gen->gen_expr(cmp->left);
             gen->pop("rax");
             gen->m_output << "   cmp rax, FALSE\n";
@@ -707,24 +712,24 @@ void ASMGenerator::gen_cond(const NodeCondition* cond, const std::string& false_
             gen->pop("rax");
          }
          gen->m_output << "   cmp rax, rbx\n";
-      
+
          switch (cmp->operation) {
-            case CmpExprType::EQUAL:         gen->m_output << "   jne " << false_label << "\n"; break;
-            case CmpExprType::NOT_EQUAL:     gen->m_output << "   je "  << false_label << "\n"; break;
-            case CmpExprType::LESS_THAN:     gen->m_output << "   jge " << false_label << "\n"; break;
-            case CmpExprType::GREATER_THAN:  gen->m_output << "   jle " << false_label << "\n"; break;
-            case CmpExprType::LESS_EQUAL:    gen->m_output << "   jg "  << false_label << "\n"; break;
-            case CmpExprType::GREATER_EQUAL: gen->m_output << "   jl "  << false_label << "\n"; break;
+            case ComparisonOp::EQUAL:         gen->m_output << "   jne " << false_label << "\n"; break;
+            case ComparisonOp::NOT_EQUAL:     gen->m_output << "   je "  << false_label << "\n"; break;
+            case ComparisonOp::LESS_THAN:     gen->m_output << "   jge " << false_label << "\n"; break;
+            case ComparisonOp::GREATER_THAN:  gen->m_output << "   jle " << false_label << "\n"; break;
+            case ComparisonOp::LESS_EQUAL:    gen->m_output << "   jg "  << false_label << "\n"; break;
+            case ComparisonOp::GREATER_EQUAL: gen->m_output << "   jl "  << false_label << "\n"; break;
             default: break;
          }
       }
 
       void operator()(const NodeLogicCondition* logic) {
-         if (logic->operation == CmpExprType::AND) {
+         if (logic->operation == LogicOp::AND) {
             gen->gen_cond(logic->left, false_label);
             gen->gen_cond(logic->right, false_label);
          }
-         else if (logic->operation == CmpExprType::OR) {
+         else if (logic->operation == LogicOp::OR) {
             std::string true_label = gen->make_label();
             gen->gen_cond_true(logic->left, true_label);
             gen->gen_cond(logic->right, false_label);
@@ -743,7 +748,7 @@ void ASMGenerator::gen_cond_true(const NodeCondition* cond, const std::string& t
       const std::string& true_label;
 
       void operator()(const NodeCmpCondition* cmp) {
-         if (cmp->operation == CmpExprType::NONE) {
+         if (cmp->operation == ComparisonOp::NONE) {
             gen->gen_expr(cmp->left);
             gen->pop("rax");
             gen->m_output << "   cmp rax, FALSE\n";
@@ -762,21 +767,21 @@ void ASMGenerator::gen_cond_true(const NodeCondition* cond, const std::string& t
          gen->m_output << "   cmp rax, rbx\n";
 
          switch (cmp->operation) {
-            case CmpExprType::EQUAL: gen->m_output         << "   je "  << true_label << "\n"; break;
-            case CmpExprType::NOT_EQUAL: gen->m_output     << "   jne " << true_label << "\n"; break;
-            case CmpExprType::LESS_THAN: gen->m_output     << "   jl "  << true_label << "\n"; break;
-            case CmpExprType::GREATER_THAN: gen->m_output  << "   jg "  << true_label << "\n"; break;
-            case CmpExprType::LESS_EQUAL: gen->m_output    << "   jle " << true_label << "\n"; break;
-            case CmpExprType::GREATER_EQUAL: gen->m_output << "   jge " << true_label << "\n"; break;
+            case ComparisonOp::EQUAL: gen->m_output         << "   je "  << true_label << "\n"; break;
+            case ComparisonOp::NOT_EQUAL: gen->m_output     << "   jne " << true_label << "\n"; break;
+            case ComparisonOp::LESS_THAN: gen->m_output     << "   jl "  << true_label << "\n"; break;
+            case ComparisonOp::GREATER_THAN: gen->m_output  << "   jg "  << true_label << "\n"; break;
+            case ComparisonOp::LESS_EQUAL: gen->m_output    << "   jle " << true_label << "\n"; break;
+            case ComparisonOp::GREATER_EQUAL: gen->m_output << "   jge " << true_label << "\n"; break;
             default: break;
          }
       }
 
       void operator()(const NodeLogicCondition* logic) {
-         if (logic->operation == CmpExprType::OR) {
+         if (logic->operation == LogicOp::OR) {
             gen->gen_cond_true(logic->left, true_label);
             gen->gen_cond_true(logic->right, true_label);
-         } else if (logic->operation == CmpExprType::AND) {
+         } else if (logic->operation == LogicOp::AND) {
             std::string false_label = gen->make_label();
             gen->gen_cond(logic->left, false_label);
             gen->gen_cond(logic->right, false_label);

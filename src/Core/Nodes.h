@@ -1,11 +1,12 @@
 #ifndef NODES_H
 #define NODES_H
 
+#include <optional>
 #include <variant>
 #include <vector>
 #include "Tokens.h"
 
-enum class DataType { NONE, INT, CHAR, STR, BOOL, FLOAT };
+enum class DataType { NONE, INT, CHAR, STR, BOOL, FLOAT, STRUCT, CLASS };
 
 struct TypeInfo {
    DataType base = DataType::NONE;
@@ -31,7 +32,7 @@ struct TypeInfo {
    }
 };
 
-enum class ReadKind { None, Char, Int, Float, Line }; // Line = String
+struct TypedName { Token name; bool has_type; std::optional<TypeInfo> type; };
 
 struct NodeExpr;
 struct NodeStmt;
@@ -67,13 +68,13 @@ struct NodeExprIndex {
 };
 
 struct NodeCmpCondition {
-   CmpExprType operation;
+   ComparisonOp operation;
    NodeExpr* left  = nullptr;
    NodeExpr* right = nullptr;
 };
 
 struct NodeLogicCondition {
-   CmpExprType operation;
+   LogicOp operation;
    NodeCondition* left  = nullptr;
    NodeCondition* right = nullptr;
 };
@@ -100,7 +101,7 @@ struct NodeExprCall {
 };
 
 struct NodeExprRead {
-   ReadKind kind = ReadKind::Char; // Defaulting to char (1 byte read)
+   DataType kind = DataType::CHAR; // Defaulting to char (1 byte read)
 };
 
 struct NodeExpr {
@@ -174,14 +175,6 @@ struct NodeStmtReturn {
    NodeExpr* expr = nullptr;
 };
 
-struct NodeFunction {
-   Token ret_type;
-   bool has_ret_type = false;
-   Token name;
-   std::vector<NodeParam> params;
-   NodeScopeBlock* body = nullptr;
-};
-
 struct NodeStmtPrint {
    NodeExpr* expr = nullptr;
    bool nwln      = false;
@@ -197,8 +190,45 @@ struct NodeStmt {
                 NodeStmtScope*, NodeStmtPrint*> variant;
 };
 
+
+// -------------- struct / class nodes ----------------
+struct NodeStructField {
+   Token name;
+   TypeInfo type = {};
+   int offset = 0;
+   /** FUTURE: default, visibility */
+};
+
+
+struct NodeStructDecl {
+   Token name;
+   std::vector<NodeStructField> vars = {};
+};
+
+// ------ TOP LEVEL NODES ---------------
+
+
+struct NodeFunction {
+   Token ret_type;
+   bool has_ret_type = false;
+   Token name;
+   std::vector<NodeParam> params;
+   NodeScopeBlock* body = nullptr;
+};
+
+
+struct NodeTypeDecl {
+   std::variant<NodeStructDecl*> variant; // NodeEnumDecl*, etc. WIP!!!!!
+};
+
+
+struct NodeTopLevel {
+   std::variant<NodeFunction*, NodeTypeDecl*> variant;
+};
+
 struct NodeProg {
    std::vector<NodeFunction*> functions;
+   std::vector<NodeTopLevel*> declarations;
 };
 
 #endif // NODES_H
