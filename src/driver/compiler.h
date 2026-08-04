@@ -118,13 +118,15 @@ public:
    Syscaller::Options          make_syscall_options();
 
 
-   bool errors(const std::string& source) { 
-      if (diagnostics.has_errors()) { 
-         diagnostics.report_all(source); 
-         m_logger.flush_to_file("compilation_log.txt"); 
-         return true; 
-      } 
-      return false; 
+   bool errors(const std::string& source) {
+      if (!m_logger.has_errors()) return false;
+      // Logger is the single source of truth (both Diagnostics-routed
+      // analyzer errors and Log::-routed lexer/parser errors land there).
+      // Diagnostics keeps its own maps only for report_all()'s caret
+      // rendering, so only render through it when it actually has entries.
+      if (diagnostics.has_errors()) diagnostics.report_all(source);
+      m_logger.flush_to_file("compilation_log.txt");
+      return true;
    }
 
    void do_flags();
@@ -133,13 +135,10 @@ public:
    void do_optimizer_logging(int, const std::string&);
    void do_preprocess(const std::string&);
 
+   // Formatting itself lives in debug/TokenPrinter.h / debug/ASTPrinter.h;
+   // these do_* methods just decide whether/where to print based on
+   // compiler_opts and m_logger state.
    std::string format_tokens(std::vector<Token>& tokens);
-   std::string format_raw(const std::vector<Token>& tokens);
-
-   void print_tokens(std::vector<Token>);
-   void print_tokens(std::ostringstream&, std::vector<Token>);
-   void print_ast(std::ostringstream&, const NodeProg);
-   void print_flags(std::ostringstream&, std::vector<Flags>);
 
    void fatal(CompPhase, int, int, int, const std::string&);
    void error(CompPhase, int, int, int, const std::string&);

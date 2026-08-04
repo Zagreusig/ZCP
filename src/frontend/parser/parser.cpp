@@ -525,7 +525,6 @@ std::optional<NodeStmt*> Parser::parse_exit() {
 std::optional<NodeStmt*> Parser::parse_have() {
    consume(); // have
    NodeStmtHave* stmt_have = m_compiler.allocator.alloc<NodeStmtHave>();
-   auto info = parse_typed_name();
 
    auto id = try_consume(TokenType::IDENTIFIER);
    if (!id.has_value()) { fail("Invalid identifier."); return {}; }

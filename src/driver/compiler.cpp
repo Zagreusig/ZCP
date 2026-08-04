@@ -20,6 +20,7 @@
 #include "debug/ASTPrinter.h"
 #include "debug/IRDebug.h"
 #include "debug/Log.h"
+#include "debug/TokenPrinter.h"
 #include "Logger.h"
 #include "Nodes.h"
 #include "TokenTable.h"
@@ -177,69 +178,21 @@ void Compiler::syscalls(Syscaller::Options options) {
 }
 
 
-void Compiler::print_tokens(std::vector<Token> tokens) {
-   std::ostringstream ss;
-   print_tokens(ss, tokens);
-   std::fstream file("raw_tokens.txt", std::ios::out);
-   if (!file.is_open()) return;
-   file << ss.str();
-}
-
-
 std::string Compiler::format_tokens(std::vector<Token>& tokens) {
-   std::ostringstream ss;
-   print_tokens(ss, tokens);
-   return ss.str();
-}
-
-
-std::string Compiler::format_raw(const std::vector<Token>& tokens) {
-   std::ostringstream ss;
-   for (auto& token : tokens)
-      ss << token.name() << ", ";
-   ss << "\n";
-   return ss.str();
-}
-
-
-void Compiler::print_tokens(std::ostringstream& ss, std::vector<Token> tokens) {
-   for (auto& token : tokens) {
-      ss << "{ " << to_string(token.type);
-      if     (token.is_text())  ss << ", " << token.text();
-      else if (token.is_int())  ss << ", " << token.int_val();
-      else if (token.is_char()) ss << ", " << token.char_val();
-      else if (token.is_bool()) ss << ", " << token.bool_val();
-   
-      ss <<  ", " << filename_by_id(token.fileId) << ":" 
-                 << token.line << ':' << token.col << " }\n";
-   }
-   ss << std::endl;
-} 
-
-
-void Compiler::print_flags(std::ostringstream& ss, std::vector<Flags> flags) {
-   for (auto& flag : flags) ss << to_str(flag) << " ";
-   ss << std::endl;
-}
-
-
-void Compiler::print_ast(std::ostringstream& ss, const NodeProg prog) {
-   ASTPrinter printer(prog, ss);
-   printer.print();
+   return TokenPrinter::format(tokens, [this](int id) { return filename_by_id(id); });
 }
 
 
 void Compiler::do_flags() {
-   std::ostringstream ss;
-   print_flags(ss, flag_arr);
-   if (compiler_opts.flags) std::cout << ss.str();
-   if (m_logger.enabled()) m_logger.set_flags(ss.str());
+   std::string s = TokenPrinter::format_flags(flag_arr);
+   if (compiler_opts.flags) std::cout << s;
+   if (m_logger.enabled()) m_logger.set_flags(s);
 }
 
 
 void Compiler::do_tokens(const std::vector<Token>& tokens) {
    std::ostringstream ss;
-   print_tokens(ss, tokens);
+   TokenPrinter::print(ss, tokens, [this](int id) { return filename_by_id(id); });
    if (compiler_opts.toks) std::cout << ss.str();
    if (m_logger.enabled()) {
       if (compiler_opts.raw) m_logger.set_raw(ss.str());
@@ -259,7 +212,7 @@ void Compiler::do_optimizer_logging(int passes, const std::string& source) {
 
 void Compiler::do_ast(NodeProg program) {
    std::ostringstream ss;
-   print_ast(ss, program);
+   ASTPrinter(program, ss).print();
    if (compiler_opts.ast) std::cout << ss.str();
    if (m_logger.enabled()) m_logger.set_ast(ss.str());
 }

@@ -54,6 +54,10 @@ public:
 
    // -- q entries --
    void log(CompPhase phase, Severity sev, std::string msg, std::string file_name, int line = 0, int col = 0) {
+      // Error tracking is unconditional: Compiler::errors() must see it even
+      // when -d/DEBUG wasn't passed. Only the verbose dump (m_entries, below)
+      // is gated on m_enabled.
+      if (sev == Severity::Error) { m_error_count++; mark_failed(phase); }
       if (!m_enabled) return;
       Severity threshold = m_default_threshold;
       if (auto iterator = m_thresholds.find(phase); iterator != m_thresholds.end())
@@ -61,6 +65,8 @@ public:
       if (sev < threshold) return; // ignore, below severity threshold.
       m_entries.push_back(LogEntry{ phase, sev, std::move(msg), std::move(file_name), line, col });
    }
+
+   bool has_errors() const { return m_error_count > 0; }
 
    // wrappers :]
    void trace(CompPhase p, std::string m, std::string fn, int l = 0, int c = 0);
@@ -108,6 +114,7 @@ private:
    Severity m_default_threshold = Severity::Trace;
 
    int m_opt_passes = 0;
+   int m_error_count = 0;
    bool m_failed = false;
    CompPhase m_failed_phase = CompPhase::Lexing;
    CompPhase m_last_phase   = CompPhase::Lexing;

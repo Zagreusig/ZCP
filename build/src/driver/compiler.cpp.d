@@ -10,8 +10,8 @@ build/./src/driver/compiler.cpp.o: src/driver/compiler.cpp \
  src/backend/optimizations/optimizer.h src/backend/codegen/backend.h \
  src/IR/Lowerer.h src/IR/../Core/IRDefs.h src/IR/../Core/Nodes.h \
  src/debug/ASTPrinter.h src/debug/IRDebug.h src/debug/Log.h \
- src/debug/Logger.h src/Core/Nodes.h src/Core/TokenTable.h \
- src/utils/phase.h src/Core/ErrorHandler.h
+ src/debug/TokenPrinter.h src/debug/Logger.h src/Core/Nodes.h \
+ src/Core/TokenTable.h src/utils/phase.h src/Core/ErrorHandler.h
 src/driver/compiler.h:
 src/Core/Nodes.h:
 src/Core/Tokens.h:
@@ -42,6 +42,7 @@ src/IR/../Core/Nodes.h:
 src/debug/ASTPrinter.h:
 src/debug/IRDebug.h:
 src/debug/Log.h:
+src/debug/TokenPrinter.h:
 src/debug/Logger.h:
 src/Core/Nodes.h:
 src/Core/TokenTable.h:
