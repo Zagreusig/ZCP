@@ -66,9 +66,10 @@ void ASTPrinter::print_struct_decl(const NodeStructDecl* decl, int depth) {
    m_out << pad(depth) << "Struct: " << decl->name.text() << std::endl;
    if (!decl->vars.empty()) {
       for (const auto& var : decl->vars) {
+         const TypeInfo& type = var.decl.type.value(); // parser guarantees struct fields have a type
          m_out << pad(depth + 1)
-               << var.name.text() << ": " << Symbols::datatype_to_str(var.type.base);
-         if (var.type.is_array) m_out << "[" << std::to_string(var.type.array_len) << "]";
+               << var.decl.name.text() << ": " << Symbols::datatype_to_str(type.base);
+         if (type.is_array) m_out << "[" << std::to_string(type.array_len) << "]";
          m_out << " offset: " << var.offset << "\n";
       }
    }
@@ -113,7 +114,7 @@ void ASTPrinter::print_stmt(const NodeStmt* stmt, int depth) {
          p->print_expr(s->expr, depth + 1);
       }
       void operator()(const NodeStmtHave* s) {
-         p->m_out << pad(depth) << "Have: " << s->ident.text();
+         p->m_out << pad(depth) << "Have: " << s->decl.name.text();
          if (s->resolved.is_array) { 
             p->m_out << "     Array type: " 
                       << to_string(Symbols::datatype_to_token(s->resolved.base)) << std::endl;

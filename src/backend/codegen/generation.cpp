@@ -301,16 +301,16 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
       
       
       void operator()(const NodeStmtHave* h) {
-         if (gen->get_var(h->ident.text()).has_value()) {
+         if (gen->get_var(h->decl.name.text()).has_value()) {
             std::cerr << "Identifier aleady used (have): " 
-                      << h->ident.text() << std::endl;
+                      << h->decl.name.text() << std::endl;
             gen->total_fail();
          }
          
          const TypeInfo& type = h->resolved;
          if (type.base == DataType::STR) {
             int base = gen->m_current_offset;
-            gen->m_vars.push_back(Var{ .name = h->ident.text(), .offset = base, .type = type });
+            gen->m_vars.push_back(Var{ .name = h->decl.name.text(), .offset = base, .type = type });
             gen->m_current_offset += 16; // fat pointer
          
             if (h->expr) {
@@ -349,7 +349,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
          if (type.is_array) {
             int element_size   = type.element_size(); // array base size
             int base  = gen->m_current_offset; // this array's element 0
-            gen->m_vars.push_back(Var { .name = h->ident.text(), .offset = base, 
+            gen->m_vars.push_back(Var { .name = h->decl.name.text(), .offset = base, 
                                         .type = type });
             gen->m_current_offset += type.byte_size();
             if (h->expr) {
@@ -377,7 +377,7 @@ void ASMGenerator::gen_stmt(const NodeStmt* stmt) {
          // Scalar
          int off = gen->m_current_offset;
          gen->m_vars.push_back(Var { 
-            .name = h->ident.text(), 
+            .name = h->decl.name.text(), 
             .offset = off, .type = type 
          });
          
@@ -1039,8 +1039,8 @@ TypeInfo ASMGenerator::resolve_have_type(NodeStmtHave* h) {
    if (h->is_resolved) return h->resolved;
 
    TypeInfo info;
-   if (h->has_type)
-      info = h->decl_type;
+   if (h->decl.type.has_value())
+      info = h->decl.type.value();
    else if (auto* lit = std::get_if<NodeExprArrayLit*>(&h->expr->variant)) {
       const auto& elems = (*lit)->elements;
       if (elems.empty()) { std::cerr << "Elements are empty.\n"; total_fail(); }

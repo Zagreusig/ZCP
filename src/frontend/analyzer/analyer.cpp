@@ -53,15 +53,15 @@ void Analyzer::analyze() {
 void Analyzer::analyze_have(NodeStmtHave* h) {
    TypeInfo info;
 
-   if (!h->has_type && h->expr == nullptr) {
+   if (!h->decl.type.has_value() && h->expr == nullptr) {
       m_compiler.error
-      (CompPhase::Analysis, h->ident.fileId, h->ident.line, h->ident.col,
+      (CompPhase::Analysis, h->decl.name.fileId, h->decl.name.line, h->decl.name.col,
        "Declaration needs type of initializer.");
       return;
    }
 
-   if (h->has_type) {
-      info = h->decl_type; // { base=INT, is_array=false }
+   if (h->decl.type.has_value()) {
+      info = h->decl.type.value(); // { base=INT, is_array=false }
       if (h->expr) {
          // is this array lit?
          if (auto* lit = std::get_if<NodeExprArrayLit*>(&h->expr->variant)) {
@@ -70,18 +70,18 @@ void Analyzer::analyze_have(NodeStmtHave* h) {
                TypeInfo et = type_of(elems[i]);
                if (et.base != info.base) {
                   m_compiler.error
-                  (CompPhase::Analysis, h->ident.fileId, h->ident.line, h->ident.col,
+                  (CompPhase::Analysis, h->decl.name.fileId, h->decl.name.line, h->decl.name.col,
                    "Array literal has mismatched element types.");
-                  break;   
-               } 
+                  break;
+               }
             }
-      
+
             // Annotation gave element type; lit gives shape
             if (info.is_array) {
                // annotation was int[N] - N must be equal lit's len
                if (info.array_len != (int)elems.size())
                   m_compiler.error
-                  (CompPhase::Analysis, h->ident.fileId, h->ident.line, h->ident.col,
+                  (CompPhase::Analysis, h->decl.name.fileId, h->decl.name.line, h->decl.name.col,
                    "Array literals doesn't match declared length.");
             } else {
                info.is_array = true;
@@ -91,7 +91,7 @@ void Analyzer::analyze_have(NodeStmtHave* h) {
             TypeInfo init = type_of(h->expr);
             if (!types_match(info, init))
                m_compiler.error
-               (CompPhase::Analysis, h->ident.fileId, h->ident.line, h->ident.col, 
+               (CompPhase::Analysis, h->decl.name.fileId, h->decl.name.line, h->decl.name.col,
                 "Array type mismatch.");
          }
       }
@@ -102,14 +102,14 @@ void Analyzer::analyze_have(NodeStmtHave* h) {
       const auto& elems = (*lit)->elements;
       if (elems.empty()) {
          m_compiler.error
-         (CompPhase::Analysis, h->ident.fileId, h->ident.line, h->ident.col,
+         (CompPhase::Analysis, h->decl.name.fileId, h->decl.name.line, h->decl.name.col,
           "Cannot infer type of empty array.");
       } else {
          TypeInfo et = type_of(elems[0]);
          for (size_t i = 1; i < elems.size(); i++) {
             if (!types_match(et, type_of(elems[i]))) {
                m_compiler.error
-               (CompPhase::Analysis, h->ident.fileId, h->ident.line, h->ident.col,
+               (CompPhase::Analysis, h->decl.name.fileId, h->decl.name.line, h->decl.name.col,
                 "Array literal has mismatched element types.");
                break;
             }
@@ -125,7 +125,7 @@ void Analyzer::analyze_have(NodeStmtHave* h) {
 
    h->resolved = info;
    h->is_resolved = true;
-   declare(h->ident, info);
+   declare(h->decl.name, info);
 }
 
 
@@ -154,8 +154,8 @@ void Analyzer::analyze_struct(NodeStructDecl* decl) {
 
    for (auto& field : decl->vars) {
       FieldInfo info;
-      info.name = field.name.text();
-      info.type = field.type;
+      info.name = field.decl.name.text();
+      info.type = field.decl.type.value(); // parser guarantees struct fields have a type
       info.offset = layout.size;
       layout.size += info.type.byte_size();
       layout.fields.push_back(info);

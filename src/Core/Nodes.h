@@ -32,7 +32,7 @@ struct TypeInfo {
    }
 };
 
-struct TypedName { Token name; bool has_type; std::optional<TypeInfo> type; };
+struct TypedName { Token name; std::optional<TypeInfo> type; };
 
 struct NodeExpr;
 struct NodeStmt;
@@ -124,13 +124,11 @@ struct NodeStmtExit {
 };
 
 struct NodeStmtHave {
-   Token ident;
-   bool has_type = false;
-   TypeInfo decl_type;       // valid when has_type
+   TypedName decl;
    NodeExpr* expr = nullptr; // init, nullptr if not.
 
    TypeInfo resolved;        // Stashed type
-   bool is_resolved;         // Computed yet?
+   bool is_resolved = false; // Computed yet?
 };
 
 struct NodeStmtAssign {
@@ -193,8 +191,7 @@ struct NodeStmt {
 
 // -------------- struct / class nodes ----------------
 struct NodeStructField {
-   Token name;
-   TypeInfo type = {};
+   TypedName decl;
    int offset = 0;
    /** FUTURE: default, visibility */
 };

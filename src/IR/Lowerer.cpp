@@ -103,7 +103,7 @@ void Lowerer::lower_stmt(const NodeStmt* stmt) {
             if (s->resolved.base == DataType::STR) emit_copy_str(addr, val);
             else emit_store(addr, val);
          }
-         declare_var(s->ident.text(), addr, s->resolved.base == DataType::STR);
+         declare_var(s->decl.name.text(), addr, s->resolved.base == DataType::STR);
          (void)t;
       }
       else if constexpr (std::is_same_v<T, NodeStmtAssign>) {

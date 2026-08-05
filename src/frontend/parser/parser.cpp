@@ -77,8 +77,8 @@ std::optional<NodeStructDecl*> Parser::parse_struct_decl() {
          NodeStructField field;
          std::cerr << type.value().name.text() << ": " << (type.value().type.has_value() ? Symbols::datatype_to_str(type.value().type.value().base) : "null") << std::endl;
 
-         if (!type.value().has_type) { fail("Expected type notation for struct field."); return {}; }
-         def->vars.push_back(NodeStructField{ .name = type.value().name, .type = type.value().type.value()});
+         if (!type.value().type.has_value()) { fail("Expected type notation for struct field."); return {}; }
+         def->vars.push_back(NodeStructField{ .decl = type.value() });
          if (!try_consume(TokenType::SEMICOLON)) { fail("Expected ';' after field declaration."); return {}; }
       }
    }
@@ -169,14 +169,16 @@ std::optional<TypeInfo> Parser::parse_type() {
 
 
 std::optional<TypedName> Parser::parse_typed_name() {
-   Token name = consume(); // Could be issue, no bounds check :]
-   if (!try_consume(TokenType::COLON)) return TypedName{ .name = name, .has_type = false, .type = std::nullopt };
-   
+   auto id = try_consume(TokenType::IDENTIFIER);
+   if (!id.has_value()) { fail("Expected identifier."); return {}; }
+   Token name = id.value();
+   if (!try_consume(TokenType::COLON)) return TypedName{ .name = name, .type = std::nullopt };
+
    TypeInfo info;
    if (auto type = parse_type(); type.has_value()) info = type.value();
-   else return TypedName{ .name = name, .has_type = false, .type = std::nullopt };
-   
-   return TypedName{ .name = name, .has_type = true, .type = info };
+   else return TypedName{ .name = name, .type = std::nullopt };
+
+   return TypedName{ .name = name, .type = info };
 }
 
 
@@ -526,27 +528,18 @@ std::optional<NodeStmt*> Parser::parse_have() {
    consume(); // have
    NodeStmtHave* stmt_have = m_compiler.allocator.alloc<NodeStmtHave>();
 
-   auto id = try_consume(TokenType::IDENTIFIER);
-   if (!id.has_value()) { fail("Invalid identifier."); return {}; }
-   stmt_have->ident = id.value();
+   auto decl = parse_typed_name();
+   if (!decl.has_value()) return {}; // parse_typed_name()/parse_type() already reported the error.
+   stmt_have->decl = decl.value();
+   // array syntax here later
 
-   if (try_consume(TokenType::COLON)) {
-      if (auto t = parse_type()) {
-         stmt_have->has_type = true;
-         stmt_have->decl_type = t.value();
-      } else {
-         return {};
-      }
-      // array syntax here later
-   }
-
-   if (try_consume(TokenType::OPERATOR_EQUALS)) { 
+   if (try_consume(TokenType::OPERATOR_EQUALS)) {
       if (auto expr = parse_expr()) stmt_have->expr = expr.value();
       else { fail("Expected value after '='.\n"); return {}; }
    }
-   
-   if (!stmt_have->has_type && stmt_have->expr == nullptr) {
-      fail("Declaration of '" + stmt_have->ident.text() +
+
+   if (!stmt_have->decl.type.has_value() && stmt_have->expr == nullptr) {
+      fail("Declaration of '" + stmt_have->decl.name.text() +
            "' needs type annotation or initializer value.");
       return {};
    }
