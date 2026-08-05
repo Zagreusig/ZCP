@@ -1,0 +1,16 @@
+fn add(int a, int b) -> int {
+   return a + b;
+}
+
+fn fact(int n) -> int {
+   if (n <= 1) {
+      return 1;
+   }
+   return n * fact(n - 1);
+}
+
+fn main() -> int {
+   have x = add(3, 4);      // 7
+   have y = fact(4);        // 24
+   return x + y;            // 31
+}

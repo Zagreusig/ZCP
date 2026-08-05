@@ -13,10 +13,9 @@
 enum class BinExprType;
 enum class ComparisonOp;
 enum class LogicOp;
+enum class UnaryExprType;
 enum class TokenType;
 struct TypedName;
-
-// enum class UnaryExprType { NEGATIVE };
 
 class Compiler;
 
@@ -67,6 +66,7 @@ private:
    std::optional<NodeStmt*>       parse_cmpd_assign();
 
 
+   std::optional<NodeExpr*>       parse_unary();
    std::optional<NodeExpr*>       parse_primary();
    std::optional<NodeExpr*>       parse_ident_expr();
    std::optional<NodeExpr*>       parse_prefix_incdec();

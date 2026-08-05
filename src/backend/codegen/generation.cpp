@@ -276,6 +276,11 @@ void ASMGenerator::gen_expr(const NodeExpr* expr) {
       void operator()(const NodeExprArrayLit* arr) {
          return;
       }
+
+      void operator()(const NodeExprUnary* u) {
+         std::cerr << "Unary expressions are not implemented in this codegen path.\n";
+         gen->total_fail();
+      }
    };
 
    ExprVisitor visitor({ .gen = this });

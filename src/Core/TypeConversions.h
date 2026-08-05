@@ -116,6 +116,14 @@ namespace Symbols {
       }
    }
 
+   inline UnaryExprType token_to_unop(TokenType t) {
+      switch (t) {
+         case TokenType::OPERATOR_BANG: return UnaryExprType::NOT;
+         case TokenType::OPERATOR_DASH: return UnaryExprType::NEGATE;
+         default:                       return UnaryExprType::NONE;
+      }
+   }
+
    inline IROp binop_to_ir(BinExprType op) {
       switch (op) {
          case BinExprType::ADDITION:       return IROp::Add;

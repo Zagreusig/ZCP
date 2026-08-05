@@ -20,14 +20,18 @@ std::optional<NodeProg> Parser::parse_prog() {
       while (peek().has_value()) {
          NodeTopLevel* decl = m_compiler.allocator.alloc<NodeTopLevel>();
          if (is_next(TokenType::FUNC)){
-            if (auto func = parse_func())
+            if (auto func = parse_func()) {
                decl->variant = func.value();
+               prog.declarations.push_back(decl);
+            }
             else
                sync_next_top_level();
          }
          else if (is_next(TokenType::UDEF_STRUCT) || is_next(TokenType::UDEF_CLASS)) {
-            if (auto type = parse_type_decl())
+            if (auto type = parse_type_decl()) {
                decl->variant = type.value();
+               prog.declarations.push_back(decl);
+            }
          }
          // else if (is_next(ENUMS)), else if (is_next(GLOBAL))
          else {
@@ -183,7 +187,7 @@ std::optional<TypedName> Parser::parse_typed_name() {
 
 
 std::optional<NodeExpr*> Parser::parse_expr(int min_prec = 0) {
-   auto left = parse_primary();
+   auto left = parse_unary();
    if (!left.has_value()) return {};
 
    while (peek().has_value()) {
@@ -203,6 +207,23 @@ std::optional<NodeExpr*> Parser::parse_expr(int min_prec = 0) {
       left = wrap_expr(bin);
    }
    return left;
+}
+
+
+std::optional<NodeExpr*> Parser::parse_unary() {
+   UnaryExprType op = peek().has_value() ? Symbols::token_to_unop(peek().value().type) : UnaryExprType::NONE;
+   if (op != UnaryExprType::NONE) {
+      consume();
+
+      auto operand = parse_unary(); // right-assoc: !!x, -(-x) via nesting
+      if (!operand.has_value()) { fail("Expected expression after unary operator."); return {}; }
+
+      NodeExprUnary* u = m_compiler.allocator.alloc<NodeExprUnary>();
+      u->op = op;
+      u->operand = operand.value();
+      return wrap_expr(u);
+   }
+   return parse_primary();
 }
 
 
@@ -610,7 +631,6 @@ std::optional<NodeStmt*> Parser::parse_cmpd_assign() {
    assign->target = id_wrapped;
    assign->expr = bin_wrap;
 
-   if (!try_consume(TokenType::SEMICOLON)) { fail("Expected ';'"); return {}; }
    NodeStmt* stmt = m_compiler.allocator.alloc<NodeStmt>();
    stmt->variant = assign;
    return stmt;

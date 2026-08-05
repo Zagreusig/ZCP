@@ -67,6 +67,12 @@ enum class LogicOp {
    OR
 };
 
+enum class UnaryExprType {
+   NONE,
+   NOT,     // !
+   NEGATE   // -
+};
+
 enum class TokenCategory { 
    KEYWORD,      // Control-flow & decl: if, while, fn, have, return, etc.
    TYPE,         // int, char, str, bool (also kwrds)

@@ -58,7 +58,7 @@ int Compiler::run() {
    if (errors(source_text)) return exit_code(CompPhase::Analysis);
 
    m_logger.mark_phase(CompPhase::Lowering);
-   // if (compiler_opts.ir) {
+   if (compiler_opts.ir) {
       IRModule mod = IR();
 
       if (isLoggingEnabled()) {
@@ -67,18 +67,18 @@ int Compiler::run() {
          printer.print(mod);
          m_logger.set_ir_mod(out.str());
       }
-      
+
       m_logger.mark_phase(CompPhase::CodeGen);
       {
          ScopedPhaseTimer t(m_logger, CompPhase::CodeGen);
          Backend generator;
          m_orig = generator.generate(mod);
       }
-   // else {
-   //    m_orig = generate();
-   //    if (m_logger.enabled()) m_logger.set_orig_asm(m_orig);
-   //    if (errors(source_text)) return exit_code(CompPhase::CodeGen);
-   // }
+   } else {
+      m_orig = generate();
+      if (m_logger.enabled()) m_logger.set_orig_asm(m_orig);
+      if (errors(source_text)) return exit_code(CompPhase::CodeGen);
+   }
    // auto returned = optimize();
    // m_asm_out = returned.first; optimizer_passes = returned.second;
    m_asm_out = m_orig; optimizer_passes = 0;
@@ -241,13 +241,14 @@ void Compiler::fatal(CompPhase phase, int fileId, int line, int col, const std::
 
 void Compiler::error(CompPhase phase, int fileId, int line, int col, const std::string& msg) {
    std::string file = filename_by_id(fileId);
-   Log::error(phase, msg, file, line, col);
+   // diagnostics.error() already forwards into Logger for recording, and
+   // report_all() renders it (with carets) to stderr - don't also go through
+   // Log::error(), which would both double-record and double-print.
    diagnostics.error(phase, file, line, col, msg);
 }
 
 
 void Compiler::warn(CompPhase phase, int fileId, int line, int col, const std::string& msg) {
    std::string file = filename_by_id(fileId);
-   Log::warn(phase, msg, file, line, col);
    diagnostics.warn(phase, file, line, col, msg);
 }

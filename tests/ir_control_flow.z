@@ -1,0 +1,26 @@
+fn main() -> int {
+   have total = 0;
+   have i = 0;
+   while (i < 5) {
+      total = total + i;
+      i++;
+   }
+   // total = 0+1+2+3+4 = 10
+
+   for (have j = 0; j < 3; j++) {
+      total = total + 1;
+   }
+   // total = 13
+
+   if (total > 10 && total < 20) {
+      total = total + 100;
+   }
+   // total = 113
+
+   if (total == 1 || total == 113) {
+      total = total + 1;
+   }
+   // total = 114
+
+   return total;
+}

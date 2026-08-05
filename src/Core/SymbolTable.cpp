@@ -21,6 +21,12 @@ bool SymbolTable::declare(const Symbol& symbol) {
 }
 
 
+void SymbolTable::replace_in_current(const Symbol& symbol) {
+   assert(!m_scopes.empty());
+   m_scopes.back()[symbol.name] = symbol;
+}
+
+
 const Symbol* SymbolTable::lookup(const std::string& name) const {
    for (auto it = m_scopes.rbegin(); it != m_scopes.rend(); ++it)
       if (it->count(name) > 0) return &it->find(name)->second;

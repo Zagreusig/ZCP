@@ -1,0 +1,17 @@
+fn main() -> int {
+   have flag: bool = false;
+   have result = 0;
+
+   if (!flag) { result = result + 1; }       // !false = true -> 1
+   if (!(!flag)) { result = result + 100; }  // !!false = false -> no-op
+
+   have a = -5;
+   have b = 10;
+   have c = a + b;                            // -5 + 10 = 5
+   result = result + c;                       // 6
+
+   have d = -(a);                             // -(-5) = 5
+   result = result + d;                       // 11
+
+   return result;
+}

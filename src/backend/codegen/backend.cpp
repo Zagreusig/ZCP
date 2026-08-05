@@ -453,6 +453,7 @@ std::string Backend::runtime_print_str() {
 "   lea rsi, [rbp - 8]\n"
 "   mov rdx, 1\n"
 "   mov rdi, 1\n"
+"   mov rax, 1\n"                 // rax clobbered by the syscall above - SYS_write again
 "   syscall\n"
 ".print_str_done:\n"
 "   mov rsp, rbp\n"

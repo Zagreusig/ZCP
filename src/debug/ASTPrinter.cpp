@@ -44,6 +44,14 @@ std::string ASTPrinter::bin_name(BinExprType op) {
    }
 }
 
+std::string ASTPrinter::unop_name(UnaryExprType op) {
+   switch (op) {
+      case UnaryExprType::NOT:    return "NOT";
+      case UnaryExprType::NEGATE: return "NEGATE";
+      default:                    return "?";
+   }
+}
+
 void ASTPrinter::print_top(const NodeTopLevel* node, int depth) {
    if (node == nullptr) { m_out << pad(depth) << "<null top-decl>\n"; return; }
    if (std::holds_alternative<NodeFunction*>(node->variant))
@@ -244,6 +252,10 @@ void ASTPrinter::print_expr(const NodeExpr* expr, int depth) {
          p->m_out << pad(depth) << "Index Expr:\n";
          p->m_out << pad(depth + 1) << "Ident: " << i->ident.text() << "\n";
          p->print_expr(i->index, depth + 2);
+      }
+      void operator()(const NodeExprUnary* u) {
+         p->m_out << pad(depth) << "Unary: " << unop_name(u->op) << "\n";
+         p->print_expr(u->operand, depth + 1);
       }
    };
    std::visit(Visitor{ this, depth }, expr->variant);

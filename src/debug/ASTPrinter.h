@@ -10,6 +10,7 @@
 enum class BinExprType;
 enum class ComparisonOp;
 enum class LogicOp;
+enum class UnaryExprType;
 
 class ASTPrinter {
 public:
@@ -27,6 +28,7 @@ public:
    static std::string cmp_name(ComparisonOp);
    static std::string logic_name(LogicOp);
    static std::string bin_name(BinExprType);
+   static std::string unop_name(UnaryExprType);
 
 private:
    const NodeProg& m_prog;

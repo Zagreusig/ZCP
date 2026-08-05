@@ -1,0 +1,11 @@
+fn main() -> int {
+   print("A:");
+   println(42);
+   print("B:");
+   println('x');
+   print("C:");
+   println(true);
+   print("D:");
+   println("hello");
+   return 0;
+}

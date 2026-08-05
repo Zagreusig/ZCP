@@ -52,6 +52,7 @@ public:
    void push_scope();
    void pop_scope();
    bool declare(const Symbol& symbol);    // false if redeclared in current scope
+   void replace_in_current(const Symbol& symbol); // overwrite regardless (e.g. stub -> real definition)
    const Symbol* lookup(const std::string& name) const;  // nearest enclosing, or null
    const Symbol* lookup_in_current(const std::string& name) const; // for redcl checks
 };

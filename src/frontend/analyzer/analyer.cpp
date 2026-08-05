@@ -26,14 +26,17 @@ void Analyzer::analyze() {
                func.params.push_back(p.type);
 
             func.definition = decl; func.origin_file = decl->name.fileId;
-         
-            if (auto redef = m_symbols.lookup(func.name))
-               if (redef->is_function() && redef->as_function().definition)
-                  m_compiler.error(CompPhase::Analysis, decl->name.fileId, decl->name.line, decl->name.col,
-                                 "Redefinition of function \"" + decl->name.text() + "\".");
-            
+
             Symbol construct; construct.name = func.name; construct.decl = decl->name; construct.info = func;
-            m_symbols.declare(construct);
+
+            auto redef = m_symbols.lookup(func.name);
+            if (redef && redef->is_function() && redef->as_function().definition->body)
+               m_compiler.error(CompPhase::Analysis, decl->name.fileId, decl->name.line, decl->name.col,
+                                 "Redefinition of function \"" + decl->name.text() + "\".");
+            else if (redef && redef->is_function())
+               m_symbols.replace_in_current(construct); // stub -> real definition
+            else
+               m_symbols.declare(construct);
       } else continue;
    }
 
@@ -130,13 +133,14 @@ void Analyzer::analyze_have(NodeStmtHave* h) {
 
 
 void Analyzer::analyze_function(NodeFunction* f) {
+   if (!f->body) return; // declaration-only stub: nothing to analyze, params never get read.
+
    push_scope();
    for (const NodeParam& p : f->params)
       declare(p.name, p.type);
 
-   if (f->body) 
-      for (auto* stmt : f->body->stmts)
-         analyze_stmt(stmt);
+   for (auto* stmt : f->body->stmts)
+      analyze_stmt(stmt);
    pop_scope();
 }
 
@@ -325,7 +329,7 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
             return {};
          }
       
-         if (!symbol->is_function() || symbol->as_function().definition) { 
+         if (!symbol->is_function() || !symbol->as_function().definition) {
             m_compiler.error
             (CompPhase::Analysis, node->name.fileId, node->name.line, node->name.col,
              "No matching definition for \"" + symbol->name + "\".");
@@ -387,6 +391,12 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
          return TypeInfo { .base = (arr.value().base == DataType::STR ? DataType::CHAR : arr.value().base) }; // is_array = false (default)
       }
    
+      else if constexpr (std::is_same_v<T, NodeExprUnary>) {
+         TypeInfo operand_t = type_of(node->operand);
+         if (node->op == UnaryExprType::NOT) return TypeInfo { .base = DataType::BOOL };
+         return operand_t; // NEGATE: same type as operand
+      }
+
       else static_assert(always_false<T>, "Unhandled node.");
    }, expr->variant);
 }

@@ -1,0 +1,9 @@
+fn main() -> int {
+   have a = 5;
+   have b: int = 3;
+   have c = a + b * 2 - 1;
+   c += 4;
+   c -= 2;
+   have d = c % 5;
+   return d;
+}

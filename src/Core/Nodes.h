@@ -104,10 +104,16 @@ struct NodeExprRead {
    DataType kind = DataType::CHAR; // Defaulting to char (1 byte read)
 };
 
+struct NodeExprUnary {
+   UnaryExprType op;
+   NodeExpr* operand = nullptr;
+};
+
 struct NodeExpr {
    std::variant<NodeExprIntLit*, NodeExprCharLit*, NodeExprStrLit*, NodeExprBoolLit*,
                 NodeExprIdent*, NodeExprIndex*, NodeExprRead*,
-                NodeExprIncDec*, NodeBinExpr*, NodeExprCall*, NodeExprArrayLit*> variant;
+                NodeExprIncDec*, NodeBinExpr*, NodeExprCall*, NodeExprArrayLit*,
+                NodeExprUnary*> variant;
 
    TypeInfo resolved;
    bool is_resolved = false;

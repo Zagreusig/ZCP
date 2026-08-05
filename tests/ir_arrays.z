@@ -1,0 +1,18 @@
+fn main() -> int {
+   have arr: int[5];
+   for (have i = 0; i < 5; i++) {
+      arr[i] = i * 2;
+   }
+
+   have sum = 0;
+   for (have i = 0; i < 5; i++) {
+      sum = sum + arr[i];
+   }
+   // arr = [0,2,4,6,8], sum = 20
+
+   arr[2] = 99;
+   sum = sum + arr[2] - 4;
+   // sum = 20 + 99 - 4 = 115
+
+   return sum;
+}

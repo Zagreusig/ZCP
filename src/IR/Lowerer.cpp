@@ -11,8 +11,11 @@
 #include "utils/msc.h"
 
 IRModule Lowerer::lower(const NodeProg& prog) {
-   for (const NodeFunction* function : prog.functions) 
-      m_module.functions.push_back(lower_function(function));
+   for (const NodeTopLevel* tl : prog.declarations) {
+      if (auto* function = std::get_if<NodeFunction*>(&tl->variant))
+         m_module.functions.push_back(lower_function(*function));
+      // NodeTypeDecl*: struct/type declarations don't lower to IR yet.
+   }
    return m_module;
 }
 
@@ -277,10 +280,17 @@ void Lowerer::lower_condition(const NodeCondition* cond, int true_id, int false_
       using T = std::decay_t<decltype(*c)>;
       
       if constexpr (std::is_same_v<T, NodeCmpCondition>) {
-         VReg l = lower_expr(c->left), r = lower_expr(c->right);
-         VReg res = fresh(IRType::I64);
-         emit_binop(Symbols::cmp_to_ir(c->operation), res, l, r);
-         emit_condbr(res, true_id, false_id);
+         if (c->operation == ComparisonOp::NONE) {
+            // Bare expr used as a condition (e.g. "if (x)"): no right-hand
+            // side to compare against - branch on its truthiness directly.
+            VReg l = lower_expr(c->left);
+            emit_condbr(l, true_id, false_id);
+         } else {
+            VReg l = lower_expr(c->left), r = lower_expr(c->right);
+            VReg res = fresh(IRType::I64);
+            emit_binop(Symbols::cmp_to_ir(c->operation), res, l, r);
+            emit_condbr(res, true_id, false_id);
+         }
       }
       else if constexpr (std::is_same_v<T, NodeLogicCondition>) 
          lower_logop(m_block->id, c->operation, c->left, c->right, true_id, false_id);
@@ -457,10 +467,21 @@ VReg Lowerer::lower_expr(const NodeExpr* expr) {
          emit(call);
          return dest;
       }
+      else if constexpr (std::is_same_v<T, NodeExprUnary>) {
+         VReg operand = lower_expr(e->operand);
+         VReg dest = fresh(Symbols::ir_type_of(expr->resolved));
+         if (e->op == UnaryExprType::NOT)
+            emit_one_reg(IROp::Not, dest, operand);
+         else { // NEGATE: 0 - x. Correct even for INT64_MIN (wraps at the bit level via sub).
+            VReg zero = fresh(IRType::I64);
+            emit_const(zero, 0);
+            emit_binop(IROp::Sub, dest, zero, operand);
+         }
+         return dest;
+      }
       else
          return VReg{};
-      // NodeExprStrLit, NodeExprArrayLit, NodeExprRead: deferred
-      // (strings -> globals + ptr, reads -> runtime calls).
+      // NodeExprArrayLit: deferred.
    }, expr->variant);
 }
 
