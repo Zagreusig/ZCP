@@ -6,7 +6,7 @@ Inside of the *semantics* directory, there's a vague overview of how the program
 ## Current functionality
 
 ### Functions:  
-Currently, functions can only accept and return integers, and have a cap of 6 arguments.  
+Currently, functions are able to accept all primative types, but are not able to accept or return arrays. They have a cap of 6 arguments.  
 Declare a function using either `fn` or `func` keywords. Optionally, you are able to specify what type your function returns with either the `:` symbol or the `->` symbol. 
 ```
 fn foo() {}
@@ -14,9 +14,32 @@ func bar(int x): int {}
 fn example(int a, int b, int c) -> int {}
 ``` 
 
+### NOTE:  
+If you use recursion between two different functions, at LEAST one must be type annotated.
+```
+fn foo() {
+   return bar();
+}
+
+func bar() {
+   return foo();         // THIS WILL ERROR AND NOT COMPILE!
+}
+
+
+func foo(): int {
+   return bar();
+}
+
+
+func bar() {
+   return foo();        // This will work!
+}
+```
+
+
 ### Conditions:  
 Boolean and logical conditions are both supported, as well as if statements.
-- `!=` (Solo not operator not yet supported)
+- `!=` 
 - `||`
 - `&&`
 - `>`/`>=`
@@ -24,6 +47,8 @@ Boolean and logical conditions are both supported, as well as if statements.
 - `==`
 ```
 if (a == b && b != c)
+if (IsFunction())
+if (!d)
 ```
 
 ### Increment / Decrement and Compound operators:  
@@ -42,10 +67,11 @@ for (have i = 0; i <= 10; i++)
 ```
 
 ### Variables:  
-Currently, only integers and single characters are supported when declaring a variable, although you can create stack allocated arrays. You can do so like the example below.  
+Integers, characters, strings, booleans, and stack arrays are all implemented!  
 ```
 have x = 9;
 have y = 'z';
+have z: bool = true;      // NOTE: booleans are not first-class expressions yet, so z = (a != b) will NOT work!
 have arr: int[5];
 have arr2 = ['h', 'i'];
 ```
@@ -67,11 +93,9 @@ println(readi());
 
 # Planned Features:
 1. If / while / for not requiring a {} pair
-2. Float & bool types
-3. #define
-4. #include & headers
-5. structs -> later classes
-6. Ternary operators
+3. Float types
+4. structs -> later classes
+5. Ternary operators
 
 
 # Compiler Flags:
@@ -87,6 +111,7 @@ You are able to combine multiple flags into one, or keep them as separate statem
 - `-s` Prints a visual representation of the parser's AST
 - `-f` Prints the flags passed to the program
 - `-o` Declare the name of the final executable `./zcp -o myProg file.z`
+- `-d` Debug mode, writes all outputs to a single file, `compilation_log.txt`
 
 # Compiler Warnings:  
 I tried to create a similar style of error to that of g++ / gcc, however the error it points to is usually the statement AFTER the actual issue.

@@ -174,7 +174,8 @@ enum class TokenCategory {
    Z(INVALID,                 "invalid",      TokenCategory::UNIQUE,        0,  BinExprType::NONE)           \
    Z(CONST,                   "const",        TokenCategory::KEYWORD,       0,  BinExprType::NONE)           \
    Z(GLOBAL,                  "global",       TokenCategory::KEYWORD,       0,  BinExprType::NONE)           \
-   Z(POUND,                   "#",            TokenCategory::OPERATOR,      0,  BinExprType::NONE)
+   Z(POUND,                   "#",            TokenCategory::OPERATOR,      0,  BinExprType::NONE)           \
+   Z(OPERATOR_SCOPE,          "::",           TokenCategory::OPERATOR,      0,  BinExprType::NONE) 
 
 
 // ---------------------------------------------------------------------------

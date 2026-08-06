@@ -2,6 +2,10 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <utility>
+#include <vector>
+
+#include "IRDefs.h"
 
 // Positional argument/parameter registers, per the (informal) calling
 // convention every Call/param-spill in this backend follows: operand i (after

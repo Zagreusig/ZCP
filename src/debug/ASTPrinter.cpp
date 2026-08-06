@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <string_view>
 #include <variant>
+#include <optional>
 
 #include "Core/EscapeChars.h"
 #include "Core/TypeConversions.h"

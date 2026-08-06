@@ -1,0 +1,14 @@
+fn foo(int a): int {
+   if (a <= 5) { return a; }
+   return bar(a - 5);
+}
+
+fn bar(int b) {
+   if (b > 10) { return foo(b / 2); }
+   return b;
+}
+
+
+fn main() {
+   return foo(200);
+}

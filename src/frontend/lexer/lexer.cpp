@@ -8,7 +8,6 @@
 
 #include "debug/Log.h"
 #include "Core/EscapeChars.h"
-#include "ErrorHandler.h"
 #include "TokenTable.h"
 #include "Tokens.h"
 #include "phase.h"
@@ -156,9 +155,14 @@ std::vector<Token> Lexer::tokenize() {
 
 inline Token Lexer::resolveSymbol(char symbol) {
    switch (symbol) {
-   case  ';': return tok::make(TokenType::SEMICOLON, m_file_id, m_line, m_col); 
-   case  ':': return tok::make(TokenType::COLON,     m_file_id, m_line, m_col); 
-   case  '?': return tok::make(TokenType::QUESTION,  m_file_id, m_line, m_col); 
+   case  ';': return tok::make(TokenType::SEMICOLON,     m_file_id, m_line, m_col); 
+   case  ':': 
+      if (peek_eval(':')) {
+         consume();
+         return tok::make(TokenType::OPERATOR_SCOPE,     m_file_id, m_line, m_col);
+      }
+      return tok::make(TokenType::COLON,                 m_file_id, m_line, m_col); 
+   case  '?': return tok::make(TokenType::QUESTION,      m_file_id, m_line, m_col); 
    case  '!': 
       if (peek_eval('=')) {
          consume();
@@ -180,61 +184,61 @@ inline Token Lexer::resolveSymbol(char symbol) {
          consume();
          return tok::make(TokenType::OPERATOR_EQUAL_EQUAL, m_file_id, m_line, m_col); 
       }
-      return tok::make(TokenType::OPERATOR_EQUALS, m_file_id, m_line, m_col); 
+      return tok::make(TokenType::OPERATOR_EQUALS,       m_file_id, m_line, m_col); 
    
       case  '+': 
       if (peek_eval('+')) {
          consume();
-         return tok::make(TokenType::OPERATOR_INCR, m_file_id, m_line, m_col); 
+         return tok::make(TokenType::OPERATOR_INCR,      m_file_id, m_line, m_col); 
       }
       else if (peek_eval('=')) {
          consume();
-         return tok::make(TokenType::OPERATOR_ADD_EQ, m_file_id, m_line, m_col); 
+         return tok::make(TokenType::OPERATOR_ADD_EQ,    m_file_id, m_line, m_col); 
       }
-      return tok::make(TokenType::OPERATOR_PLUS, m_file_id, m_line, m_col); 
+      return tok::make(TokenType::OPERATOR_PLUS,         m_file_id, m_line, m_col); 
    
       case  '*':
       if (peek_eval('=')) {
          consume();
-         return tok::make(TokenType::OPERATOR_MUL_EQ, m_file_id, m_line, m_col); 
+         return tok::make(TokenType::OPERATOR_MUL_EQ,    m_file_id, m_line, m_col); 
       }
       else if (peek_eval('/')) {
          consume();
-         return tok::make(TokenType::END_COMMENT_BLOCK, m_file_id, m_line, m_col); 
+         return tok::make(TokenType::END_COMMENT_BLOCK,  m_file_id, m_line, m_col); 
       }
-      return tok::make(TokenType::OPERATOR_ASTERISK, m_file_id, m_line, m_col); 
+      return tok::make(TokenType::OPERATOR_ASTERISK,     m_file_id, m_line, m_col); 
    
       case  '/':
       if (peek_eval('=')) {
          consume();
-         return tok::make(TokenType::OPERATOR_DIV_EQ, m_file_id, m_line, m_col); 
+         return tok::make(TokenType::OPERATOR_DIV_EQ,    m_file_id, m_line, m_col); 
       }
       else if (peek_eval('/')) {
          consume();
-         return tok::make(TokenType::COMMENT, m_file_id, m_line, m_col); 
+         return tok::make(TokenType::COMMENT,            m_file_id, m_line, m_col); 
       }
       else if (peek_eval('*')) {
          consume();
          return tok::make(TokenType::START_COMMENT_BLOCK, m_file_id, m_line, m_col); 
       }
-      return tok::make(TokenType::OPERATOR_ASTERISK, m_file_id, m_line, m_col); 
+      return tok::make(TokenType::OPERATOR_ASTERISK,     m_file_id, m_line, m_col); 
    
    case  '%': return tok::make(TokenType::OPERATOR_PERCENT, m_file_id, m_line, m_col); 
    
    case  '-': 
       if (peek_eval('>')) {
          consume();
-         return tok::make(TokenType::OPERATOR_ARROW, m_file_id, m_line, m_col); 
+         return tok::make(TokenType::OPERATOR_ARROW,      m_file_id, m_line, m_col); 
       }
       else if (peek_eval('-')) {
          consume();
-         return tok::make(TokenType::OPERATOR_DECR, m_file_id, m_line, m_col); 
+         return tok::make(TokenType::OPERATOR_DECR,       m_file_id, m_line, m_col); 
       }
       else if (peek_eval('=')) {
          consume();
-         return tok::make(TokenType::OPERATOR_SUB_EQ, m_file_id, m_line, m_col); 
+         return tok::make(TokenType::OPERATOR_SUB_EQ,     m_file_id, m_line, m_col); 
       }
-      return tok::make(TokenType::OPERATOR_DASH, m_file_id, m_line, m_col); 
+      return tok::make(TokenType::OPERATOR_DASH,          m_file_id, m_line, m_col); 
    
    case  '^': return tok::make(TokenType::OPERATOR_CARET, m_file_id, m_line, m_col); 
    
@@ -243,31 +247,31 @@ inline Token Lexer::resolveSymbol(char symbol) {
          consume();
          return tok::make(TokenType::OPERATOR_GREATER_EQUAL, m_file_id, m_line, m_col); 
       }
-      return tok::make(TokenType::OPERATOR_GT, m_file_id, m_line, m_col); 
+      return tok::make(TokenType::OPERATOR_GT,            m_file_id, m_line, m_col); 
    
    case  '<': 
       if (peek_eval('=') ) {
          consume();
          return tok::make(TokenType::OPERATOR_LESS_EQUAL, m_file_id, m_line, m_col); 
       }
-      return tok::make(TokenType::OPERATOR_LT, m_file_id, m_line, m_col); 
+      return tok::make(TokenType::OPERATOR_LT,            m_file_id, m_line, m_col); 
    
    case  '|':
       if (peek_eval('|')) {
          consume();
          return tok::make(TokenType::OPERATOR_LOGICAL_OR, m_file_id, m_line, m_col); 
       }
-      return tok::make(TokenType::PIPE, m_file_id, m_line, m_col); 
+      return tok::make(TokenType::PIPE,                   m_file_id, m_line, m_col); 
    
    case '&':
       if (peek_eval('&')) {
          consume();
          return tok::make(TokenType::OPERATOR_LOGICAL_AND, m_file_id, m_line, m_col); 
       } 
-      return tok::make(TokenType::AMPERSAND, m_file_id, m_line, m_col); 
-   case '#': return tok::make(TokenType::POUND, m_file_id, m_line, m_col); 
+      return tok::make(TokenType::AMPERSAND,              m_file_id, m_line, m_col); 
+   case '#': return tok::make(TokenType::POUND,           m_file_id, m_line, m_col); 
    default:  Log::error(CompPhase::Lexing, "Unknown symbol.", m_file_name, m_line, m_col); 
-             return tok::make(TokenType::INVALID, m_file_id, m_line, m_col); 
+             return tok::make(TokenType::INVALID,         m_file_id, m_line, m_col); 
    }
 }
 

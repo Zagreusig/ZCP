@@ -56,12 +56,12 @@ struct Token {
    bool is_text() const   { return std::holds_alternative<std::string>(value); }
    bool is_bool() const   { return std::holds_alternative<bool>(value); }
 
-   int64_t int_val()  const  { if (is_int()) return std::get<int64_t>(value); std::cerr << "NOT AN INT!\n"; }
-   char    char_val() const  { if (is_char()) return std::get<char>(value); std::cerr << "NOT A CHAR!\n"; }
-   bool    bool_val() const  { if (is_bool()) return std::get<bool>(value); std::cerr << "NOT A BOOL!\n"; }
+   int64_t int_val()  const  { return std::get<int64_t>(value); }
+   char    char_val() const  { return std::get<char>(value); }
+   bool    bool_val() const  { return std::get<bool>(value); }
 
    // Returns a reference to avoid copying the string.
-   const std::string& text()     const { if (is_text()) return std::get<std::string>(value); std::cerr << "NOT A STRING!\n"; }
+   const std::string& text()     const { return std::get<std::string>(value); }
 
    // Non-throwing variants: return nullptr if payload isn't that type.
    const int64_t*     try_int()  const { return std::get_if<int64_t>(&value); }
@@ -79,6 +79,14 @@ struct Token {
 
    std::string name() const {
       return std::string(to_string(type));
+   }
+
+   std::string value_str() const {
+      if      (is_int())  return std::to_string(int_val());
+      else if (is_char()) return std::to_string(char_val());
+      else if (is_bool()) return std::to_string(bool_val());
+      else if (is_text()) return text();
+      else return "";
    }
 };
 

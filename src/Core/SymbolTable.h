@@ -39,7 +39,6 @@ struct Symbol {
    bool is_function() const { return std::holds_alternative<FunctionSymbol>(info); }
    bool is_type()     const { return std::holds_alternative<TypeSymbol>(info); }
 
-   // std::get throws std::bad_variant_access on mismatch (compiler bug, not a user error).
    const FunctionSymbol& as_function() const { return std::get<FunctionSymbol>(info); }
    const VariableSymbol& as_variable() const { return std::get<VariableSymbol>(info); }
    const TypeSymbol&     as_type()     const { return std::get<TypeSymbol>(info); }
@@ -52,9 +51,11 @@ public:
    void push_scope();
    void pop_scope();
    bool declare(const Symbol& symbol);    // false if redeclared in current scope
-   void replace_in_current(const Symbol& symbol); // overwrite regardless (e.g. stub -> real definition)
+   void replace_in_current(const Symbol& symbol);
+   void replace_in_global(const Symbol& symbol); 
    const Symbol* lookup(const std::string& name) const;  // nearest enclosing, or null
    const Symbol* lookup_in_current(const std::string& name) const; // for redcl checks
+   FunctionSymbol* get_function_global(const std::string& name);
 };
 
 #endif // SYMBOLTABLE_H

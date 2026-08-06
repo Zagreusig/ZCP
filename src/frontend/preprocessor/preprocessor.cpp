@@ -6,14 +6,10 @@
 
 #include "frontend/lexer/lexer.h"
 #include "driver/compiler.h"
-#include "debug/Log.h"
 #include "utils/file_util.h"
 #include "Core/TokenTable.h"
 #include "Core/Tokens.h"
 #include "utils/phase.h"
-
-using Clock    = std::chrono::steady_clock;
-using Duration = std::chrono::nanoseconds;
 
 std::vector<Token> Preprocessor::process() {
    std::vector<Token> out;
@@ -76,10 +72,7 @@ void Preprocessor::handle_include(std::vector<Token>& out, int dir_line) {
       return;
    }
 
-   auto t1 = Clock::now();
    auto source = read_file(path);
-   auto t2 = Clock::now();
-   std::cout << "handle_include: " << Duration(t2 - t1) << std::endl;
    if (!source) {
       m_compiler.error(CompPhase::Preprocessing, path_token.fileId, path_token.line, path_token.col,
                               "Cannot open \"" + path + "\".");
@@ -187,10 +180,7 @@ void Preprocessor::handle_define(int dir_line) {
 
 
 std::vector<Token> Preprocessor::lex_file(const std::string& path, int fileID) {
-   auto t1 = Clock::now();
    std::optional<std::string> source = read_file(path);
-   auto t2 = Clock::now();
-   std::cout << "lex_file: " << Duration(t2 - t1) << std::endl;
    if (!source.has_value()) { return {}; }
    Lexer lex(*source, m_file_name, fileID);
    return lex.lex();

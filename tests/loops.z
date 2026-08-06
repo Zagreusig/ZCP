@@ -1,6 +1,6 @@
 #include "tests/test_header.zh"
 
-fn loops() {
+fn loops() -> int {
    have arr: int[10];
    have st = "Hello!";
    for (have i = 0; i < 10; i++) {
@@ -21,7 +21,12 @@ fn loops() {
    }
    println('\n');
 
-   return 0;
+   return 42069;
+}
+
+
+fn main() -> int {
+   return loops();
 }
 
 /*

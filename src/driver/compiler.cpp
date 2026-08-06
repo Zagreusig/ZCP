@@ -4,7 +4,6 @@
 #include <iostream>
 #include <optional>
 #include <sstream>
-#include <string_view>
 
 #include "frontend/lexer/lexer.h"
 #include "frontend/preprocessor/preprocessor.h"
@@ -20,10 +19,9 @@
 #include "debug/ASTPrinter.h"
 #include "debug/IRDebug.h"
 #include "debug/Log.h"
-#include "debug/TokenPrinter.h"
+#include "debug/Format.h"
 #include "Logger.h"
 #include "Nodes.h"
-#include "TokenTable.h"
 #include "Tokens.h"
 #include "phase.h"
 #include "ErrorHandler.h"
@@ -36,16 +34,16 @@ int Compiler::run() {
 
    m_tokens = lex();
    if (isRawTokensEnabled()) {
-      std::string temp = "Lexed " + m_tokens.size();
-      Log::info(CompPhase::Lexing, temp + " tokens");
+      // std::string temp = "Lexed " + m_tokens.size();
+      // Log::info(CompPhase::Lexing, temp + " tokens");
       do_tokens(m_tokens);
    }
    if (errors(source_text)) return exit_code(CompPhase::Lexing);
 
    m_tokens = preprocess();
    if (isTokenPrintingEnabled()) {
-      std::string temp = "Preprocessor token vector size: " + m_tokens.size();
-      Log::info(CompPhase::Preprocessing, temp + " tokens");
+      // std::string temp = "Preprocessor token vector size: " + m_tokens.size();
+      // Log::info(CompPhase::Preprocessing, temp + " tokens");
       do_tokens(m_tokens);
    }
    if (errors(source_text)) return exit_code(CompPhase::Preprocessing);
@@ -58,7 +56,7 @@ int Compiler::run() {
    if (errors(source_text)) return exit_code(CompPhase::Analysis);
 
    m_logger.mark_phase(CompPhase::Lowering);
-   if (compiler_opts.ir) {
+   // if (compiler_opts.ir) {
       IRModule mod = IR();
 
       if (isLoggingEnabled()) {
@@ -74,11 +72,11 @@ int Compiler::run() {
          Backend generator;
          m_orig = generator.generate(mod);
       }
-   } else {
-      m_orig = generate();
-      if (m_logger.enabled()) m_logger.set_orig_asm(m_orig);
-      if (errors(source_text)) return exit_code(CompPhase::CodeGen);
-   }
+   // } else {
+   //    m_orig = generate();
+   //    if (m_logger.enabled()) m_logger.set_orig_asm(m_orig);
+   //    if (errors(source_text)) return exit_code(CompPhase::CodeGen);
+   // }
    // auto returned = optimize();
    // m_asm_out = returned.first; optimizer_passes = returned.second;
    m_asm_out = m_orig; optimizer_passes = 0;
@@ -86,6 +84,11 @@ int Compiler::run() {
    //    do_optimizer_logging(optimizer_passes, m_asm_out);
    // }
 
+   // std::fstream comp_log("compilation_log.txt", std::ios::out);
+   // if (!comp_log.is_open()) { std::cerr << "Comp log not open." << std::endl; return -99; }
+
+   // m_logger.flush(comp_log);
+   // comp_log.close();
    write_files();
 
    syscalls(make_syscall_options());
@@ -97,16 +100,16 @@ int Compiler::run() {
 
 
 std::vector<Token> Compiler::lex() {
-   m_logger.mark_phase(CompPhase::Lexing);
+   mark_phase(CompPhase::Lexing);
    ScopedPhaseTimer timer(m_logger, CompPhase::Lexing);
-   Lexer lexer(source_text, get_filename(), 0);
+   Lexer lexer(source_text, get_filename(), current_file_ID);
    return lexer.lex();
 }
 
 
 /** TODO: Figure a way to get this out */
 std::vector<Token> Compiler::preprocess() {
-   m_logger.mark_phase(CompPhase::Preprocessing);
+   mark_phase(CompPhase::Preprocessing);
    Preprocessor preprocessor(*this, m_tokens, get_filename());
    std::vector<Token> temp;
    {
@@ -119,7 +122,7 @@ std::vector<Token> Compiler::preprocess() {
 
 
 std::optional<NodeProg> Compiler::parse() {
-   m_logger.mark_phase(CompPhase::Parsing);
+   mark_phase(CompPhase::Parsing);
    ScopedPhaseTimer timer(m_logger, CompPhase::Parsing);
    Parser parser(*this, m_tokens, get_filename());
    return parser.parse_prog();
@@ -127,7 +130,7 @@ std::optional<NodeProg> Compiler::parse() {
 
 
 void Compiler::analyze() {
-   m_logger.mark_phase(CompPhase::Analysis);
+   mark_phase(CompPhase::Analysis);
    ScopedPhaseTimer t(m_logger, CompPhase::Analysis);
    Analyzer analyzer(*this, *m_program);
    analyzer.analyze();
@@ -135,7 +138,7 @@ void Compiler::analyze() {
 
 
 IRModule Compiler::IR() {
-   m_logger.mark_phase(CompPhase::Lowering);
+   mark_phase(CompPhase::Lowering);
    ScopedPhaseTimer t(m_logger, CompPhase::Lowering);
    Lowerer lowerer;
    return lowerer.lower(*m_program);
@@ -143,7 +146,7 @@ IRModule Compiler::IR() {
 
 
 std::string Compiler::generate() {
-   m_logger.mark_phase(CompPhase::CodeGen);
+   mark_phase(CompPhase::CodeGen);
    ScopedPhaseTimer t(m_logger, CompPhase::CodeGen);
    ASMGenerator generator(*this, *m_program);
    return generator.build();
@@ -152,7 +155,7 @@ std::string Compiler::generate() {
 
 std::pair<std::string, int> Compiler::optimize() {
    if (compiler_opts.ir || compiler_opts.log) return { m_orig, 0 };
-   m_logger.mark_phase(CompPhase::Optimization);
+   mark_phase(CompPhase::Optimization);
    ScopedPhaseTimer timer(m_logger, CompPhase::Optimization);
    Optimizer optimizer(m_orig);
    optimizer.optimize();
@@ -179,24 +182,24 @@ void Compiler::syscalls(Syscaller::Options options) {
 
 
 std::string Compiler::format_tokens(std::vector<Token>& tokens) {
-   return TokenPrinter::format(tokens, [this](int id) { return filename_by_id(id); });
+   return Format::print(tokens, [this](int id) { return filename_by_id(id); });
+   // return TokenPrinter::format(tokens, [this](int id) { return filename_by_id(id); });
 }
 
 
 void Compiler::do_flags() {
-   std::string s = TokenPrinter::format_flags(flag_arr);
-   if (compiler_opts.flags) std::cout << s;
+   std::string s = Format::print(flag_arr);
+   if (compiler_opts.flags) std::cout << s << std::endl;
    if (m_logger.enabled()) m_logger.set_flags(s);
 }
 
 
 void Compiler::do_tokens(const std::vector<Token>& tokens) {
-   std::ostringstream ss;
-   TokenPrinter::print(ss, tokens, [this](int id) { return filename_by_id(id); });
-   if (compiler_opts.toks) std::cout << ss.str();
+   std::string str = Format::print(tokens, [this](int id) { return filename_by_id(id); });
+   if (compiler_opts.toks) std::cout << str << std::endl;
    if (m_logger.enabled()) {
-      if (compiler_opts.raw) m_logger.set_raw(ss.str());
-      m_logger.set_tokens(ss.str());
+      if (compiler_opts.raw) m_logger.set_raw(str);
+      m_logger.set_tokens(str);
    }
 }
 
@@ -213,7 +216,7 @@ void Compiler::do_optimizer_logging(int passes, const std::string& source) {
 void Compiler::do_ast(NodeProg program) {
    std::ostringstream ss;
    ASTPrinter(program, ss).print();
-   if (compiler_opts.ast) std::cout << ss.str();
+   if (compiler_opts.ast) std::cout << ss.str() << std::endl;
    if (m_logger.enabled()) m_logger.set_ast(ss.str());
 }
 
@@ -239,16 +242,23 @@ void Compiler::fatal(CompPhase phase, int fileId, int line, int col, const std::
 }
 
 
+
+
 void Compiler::error(CompPhase phase, int fileId, int line, int col, const std::string& msg) {
    std::string file = filename_by_id(fileId);
-   // diagnostics.error() already forwards into Logger for recording, and
-   // report_all() renders it (with carets) to stderr - don't also go through
-   // Log::error(), which would both double-record and double-print.
-   diagnostics.error(phase, file, line, col, msg);
+   diagnostics.error(file, line, col, msg);
+   // diagnostics.error(phase, file, line, col, msg);
 }
 
 
 void Compiler::warn(CompPhase phase, int fileId, int line, int col, const std::string& msg) {
    std::string file = filename_by_id(fileId);
-   diagnostics.warn(phase, file, line, col, msg);
+   diagnostics.warn(file, line, col, msg);
+   // diagnostics.warn(phase, file, line, col, msg);
+}
+
+
+void Compiler::mark_phase(CompPhase phase) {
+   m_logger.mark_phase(phase);
+   diagnostics.set_phase(phase);
 }

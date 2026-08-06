@@ -117,6 +117,7 @@ public:
 
    Syscaller::Options          make_syscall_options();
 
+   void                        mark_phase(CompPhase phase);
 
    bool errors(const std::string& source) {
       if (!m_logger.has_errors()) return false;

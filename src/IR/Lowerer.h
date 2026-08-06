@@ -21,6 +21,8 @@ struct NodeStmt;
 struct NodeStmtFor;
 struct NodeStmtIf;
 struct NodeStmtWhile;
+struct NodeStmtExit;
+struct NodeStmtPrint;
 
 // ===========================================================================
 // Lowerer - Walks the AST and produces three-address IR.

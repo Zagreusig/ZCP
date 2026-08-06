@@ -16,7 +16,6 @@ enum class LogicOp;
 enum class UnaryExprType;
 enum class TokenType;
 struct TypedName;
-
 class Compiler;
 
 class Parser {

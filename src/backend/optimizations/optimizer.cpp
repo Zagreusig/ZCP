@@ -10,6 +10,12 @@
 
 #include "utils/msc.h"
 
+/***
+ * 
+ * NOTE: THIS CURRENTLY DOES FUCK ALL !!!!!
+ *  - need to update it to work with the new codegen that the IR version does
+ *  (going back to rbp-bytes).
+ */
 void Optimizer::optimize() {
    m_optimized = m_orig;
    std::string prev;
@@ -33,6 +39,7 @@ std::string Optimizer::peephole() {
       const std::string& current = lines[i];
       const std::string* next = (i + 1 < lines.size() ? &lines[i+1] : nullptr);
 
+      // this no longer functions as not everything is pushed to the stack
       // try to match push/pop pair in adj lines (cur + next)
       std::string current_register, next_register;
       if (next && is_push(current, current_register) && is_pop(*next, next_register)) {
@@ -126,9 +133,8 @@ bool Optimizer::is_boundary(const std::string& line) {
    if (semicolon != std::string::npos) { token = token.substr(0, semicolon); trim(token); }
    if (token.empty()) return false;
    
-   if (token.back() == ':') return true;
-   if (token.starts_with("section ")) return true;
-   if (token.front() == '.') return true;
+   if (token.back() == ':' || token.starts_with("section ") || token.starts_with("_") ||
+       token.starts_with("global") || token.starts_with("extern") || token.front() == '.') return true;
    return false;
 }
 

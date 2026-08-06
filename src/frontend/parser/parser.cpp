@@ -70,6 +70,7 @@ std::optional<NodeStructDecl*> Parser::parse_struct_decl() {
    
    if (!is_next(TokenType::IDENTIFIER)) { fail("Expected struct identifier."); return {}; }
    Token name = consume();
+   def->name = name;
 
    if (!is_next(TokenType::OPEN_BRACE) && is_next(TokenType::SEMICOLON)) 
       return def; // foreward declaration.
@@ -910,6 +911,8 @@ NodeTypeDecl* Parser::wrap_type(auto* node) {
 
 
 std::optional<NodeExpr*> Parser::parse_member_access(Token token) {
+   Log::error(CompPhase::Parsing, "No struct member access implemented.");
+   return {};
    /**
    * ident.field = 4;
    *

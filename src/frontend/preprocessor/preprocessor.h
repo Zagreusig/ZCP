@@ -51,8 +51,7 @@ struct Macro {
    std::vector<std::string> params;
    bool is_function_like = false;
    std::vector<Token> content;
-   int origin_file = 0;
-   int line = 0;
+   int origin_file = 0, line = 0;
 };
 
 class Preprocessor {

@@ -24,7 +24,7 @@ COMMON_FLAGS := $(INC_FLAGS) -MMD -MP -std=c++23
 ifeq ($(BUILD_MODE),live)
 	CPPFLAGS := $(COMMON_FLAGS) -O2
 else
-	CPPFLAGS := $(COMMON_FLAGS) -Wextra -Wall -Og
+	CPPFLAGS := $(COMMON_FLAGS) -Wextra -Wall -Og -g
 endif
 
 
