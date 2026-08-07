@@ -21,7 +21,7 @@ fn loops() -> int {
    }
    println('\n');
 
-   return 42069;
+   return 9;
 }
 
 

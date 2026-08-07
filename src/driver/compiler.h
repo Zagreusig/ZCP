@@ -64,7 +64,7 @@ public:
       : file_name(fname), prog_name(pnm), source_text(src), flag_arr(arr), allocator(1024 * 1024 * 4) {
          for (auto& flag : arr) _flags = flag | _flags;
          compiler_opts.log = has_flag(Flags::DEBUG); set_bools();
-         if (compiler_opts.log) m_logger.enable(true);
+         if (compiler_opts.log) m_logger.enable();
          diagnostics.attach_logger(&m_logger);
          main_file_ID = add_file(file_name, source_text);
       }

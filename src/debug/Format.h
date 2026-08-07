@@ -24,18 +24,6 @@ namespace Format {
       return os.str();
    }
 
-   
-   inline std::string print(const std::vector<Token>& tokens) {
-      std::ostringstream os;
-      for (const auto& token : tokens) {
-         os << "{" << to_string(token.type);
-         if (token.has_value()) os << ", " << token.value_str();
-         os << "}\n";
-      }
-
-      return os.str();
-   }
-
 
    inline std::string print(const std::vector<Flags>& flags) {
       std::ostringstream os;

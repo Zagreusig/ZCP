@@ -35,8 +35,10 @@ void SymbolTable::replace_in_global(const Symbol& symbol) {
 
 
 const Symbol* SymbolTable::lookup(const std::string& name) const {
-   for (auto it = m_scopes.rbegin(); it != m_scopes.rend(); ++it)
-      if (it->count(name) > 0) return &it->find(name)->second;
+   for (auto& scope : m_scopes) {
+      auto found = scope.find(name);
+      if (found != scope.end()) return &found->second;
+   }
    return nullptr; // undeclared
 }
 

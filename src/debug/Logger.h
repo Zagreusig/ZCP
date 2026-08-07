@@ -46,7 +46,7 @@ public:
    }
 
 
-   void enable(bool on) { m_enabled = on; }
+   void enable() { m_enabled = true; }
    bool enabled() const { return m_enabled; }
 
    void set_threshold(CompPhase phase, Severity severity) { m_thresholds[phase] = severity; }
@@ -135,7 +135,7 @@ public:
    ~ScopedPhaseTimer() {
       m_log.record_time(m_phase, Logger::Clock::now() - m_start);
    }
-   ScopedPhaseTimer(const ScopedPhaseTimer&) = delete;
+   ScopedPhaseTimer(const ScopedPhaseTimer&)            = delete;
    ScopedPhaseTimer& operator=(const ScopedPhaseTimer&) = delete;
 
 private:
