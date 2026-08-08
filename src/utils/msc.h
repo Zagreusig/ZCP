@@ -9,7 +9,7 @@ template <class> inline constexpr bool always_false = false;
 
 #define BIT(x) (1 << x)
 #define UCHAR(x) (static_cast<unsigned char>(x))
-#define SINT(x) (static_cast<int>(x))
+#define INT(x) (static_cast<int>(x))
 #define UI8(x)  (static_cast<uint8_t>(x))
 #define UI16(x) (static_cast<uint16_t>(x))
 #define UI32(x) (static_cast<uint32_t>(x))

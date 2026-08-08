@@ -7,6 +7,7 @@
 #include <stdexcept>
 
 #include "IRDefs.h"
+#include "utils/msc.h"
 
 static const char* arg_regs[] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
 
@@ -81,7 +82,7 @@ void Backend::plan_frame(const IRFunction& fn) {
    int buffer_area = 0;
    for (const IRBasicBlock& block : fn.blocks)
       for (const IRInstruction& instr : block.instructions)
-         if (instr.op == IROp::Alloca) buffer_area += (int)instr.imm;
+         if (instr.op == IROp::Alloca) buffer_area += INT(instr.imm);
 
    m_spill_area = spill_area;
    m_frame_size = (spill_area + buffer_area + 15) & ~15;
@@ -170,7 +171,7 @@ void Backend::gen_function(const IRFunction& fn) {
 
 
 void Backend::gen_block(const IRBasicBlock& block) {
-   clear_cache();
+   clear_cache(); // m_rax_holds & m_rbx_holds = -1;
    m_output << block_label(block) << ":\n";
    for (const IRInstruction& instr : block.instructions)
       gen_instruction(instr);
@@ -280,26 +281,8 @@ void Backend::gen_instruction(const IRInstruction& instr) {
          store_reg(instr.dest, "rax");
          break;
 
-      case IROp::Add:
-         // load_operand(instr.operands[0], "rax"); load_operand(instr.operands[1], "rbx");
-         // m_output << "   add rax, rbx\n"; store_reg(instr.dest, "rax");
-         // break;
-      case IROp::Sub:
-         // load_operand(instr.operands[0], "rax"); load_operand(instr.operands[1], "rbx");
-         // m_output << "   sub rax, rbx\n"; store_reg(instr.dest, "rax");
-         // break;
-      case IROp::Mul:
-         // load_operand(instr.operands[0], "rax"); load_operand(instr.operands[1], "rbx");
-         // m_output << "   imul rax, rbx\n"; store_reg(instr.dest, "rax");
-         // break;
-      case IROp::Div:
-         // load_operand(instr.operands[0], "rax"); load_operand(instr.operands[1], "rbx");
-         // m_output << "   cqo\n   idiv rbx\n"; store_reg(instr.dest, "rax");
-         // break;
-      case IROp::Mod:
-         // load_operand(instr.operands[0], "rax"); load_operand(instr.operands[1], "rbx");
-         // m_output << "   cqo\n   idiv rbx\n"; store_reg(instr.dest, "rdx");
-         // break;
+      case IROp::Add: case IROp::Sub:
+      case IROp::Mul: case IROp::Div: case IROp::Mod:
          gen_binop(instr, "rax", "rbx"); break;
 
       case IROp::CmpEq: gen_cmp(instr, "sete");  break;
@@ -324,7 +307,7 @@ void Backend::gen_instruction(const IRInstruction& instr) {
          break;
 
       case IROp::Alloca: {
-         m_alloca_used += (int)instr.imm;
+         m_alloca_used += INT(instr.imm);
          int offset = m_spill_area + m_alloca_used; // low address of this buffer
          m_output << "   lea rax, [rbp-" << offset << "]\n";
          store_reg(instr.dest, "rax");
@@ -386,7 +369,7 @@ void Backend::emit_data_section(const IRModule& module) {
       }
       for (size_t i = 0; i < g.bytes.size(); i++) {
          if (i) m_output << ", ";
-         m_output << (int)g.bytes[i];
+         m_output << INT(g.bytes[i]);
       }
       m_output << "\n";
    }
@@ -397,7 +380,7 @@ void Backend::emit_used_runtime() {
    for (auto& routine : m_used_routines) {
       if (!routine.second) continue;
 
-      if (routine.first == "print_int")
+      if      (routine.first == "print_int")
          m_output << runtime_print_int();
       else if (routine.first == "print_char")
          m_output << runtime_print_char();
@@ -417,6 +400,8 @@ void Backend::emit_used_runtime() {
 }
 
 
+/** TODO: Figure out a better way to do this, could REALLY eat performance. 
+ *  condition in a loop in a loop in a loop */
 void Backend::scan_used_routines(const IRModule& module) {
    for (auto& function : module.functions)
       for (auto& block : function.blocks)
@@ -499,7 +484,7 @@ std::string Backend::runtime_print_str() {
 "print_str:                    ; rdi = ptr, rsi = len, rdx = newline flag\n"
 "   push rbp\n"
 "   mov rbp, rsp\n"
-"   push rdx\n"                   // save newline flag across the syscall
+"   push rdx\n"                    // save newline flag across the syscall
 "   mov rdx, rsi\n"                // rdx = len (write's 3rd arg)
 "   mov rsi, rdi\n"                // rsi = ptr (write's 2nd arg)
 "   mov rax, 1\n"

@@ -89,7 +89,7 @@ std::optional<NodeStructDecl*> Parser::parse_struct_decl() {
       }
    }
    if (!try_consume(TokenType::CLOSE_BRACE)) { fail("Expected closing '}' in struct declaration"); return {}; }
-   if (!try_consume(TokenType::SEMICOLON)) { fail("Expected ';' after struct declaration."); return {}; }
+   if (!try_consume(TokenType::SEMICOLON))   { fail("Expected ';' after struct declaration."); return {}; }
 
    return def;
 }
@@ -329,7 +329,7 @@ std::optional<NodeExpr*> Parser::parse_ident_expr() {
       return wrap_expr(node);
    }
 
-   if (is_next(TokenType::FULL_STOP)) {
+   if (is_next(TokenType::FULL_STOP)) { // ident.member ( eventually ident->member )
       consume();
       return parse_member_access(id);
    }

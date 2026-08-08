@@ -132,4 +132,6 @@ test:
 	@./$(TARGET_EXEC) -d ./tests/test.z
 	@./out
 
+benchmark:
+	@python3 benchmark.py --runs 20 --cmd "./zcp-dev -d tests/test.z" --log compilation_log.txt
 -include $(DEPS)

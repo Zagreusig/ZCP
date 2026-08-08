@@ -6,3 +6,13 @@ working on includes
 merge all the random log classes functionality into a single class
 
 cannot init bool var from comparison, only literal true / false
+  - need to make them first class expressions
+
+ternarys!!!!!
+ cond ? then : else
+
+ if (cond) { then } { else }
+
+struct member access & use
+
+ptrs, heap allocation, pass by reference. (fn my_func(MyStruct& addr, MyPtr* ptr) -> ThisStruct&)

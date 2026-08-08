@@ -2,19 +2,6 @@
 #define PREPROCESSOR_H
 
 /**
-* include import with
-* # .. \\
-* define(def) undef ifndef
-* pragma once
-* if elif else fi
-* error warning
-* # turns macro to string
-* ## concats macro toks
-* <> "" for files
-* <> system, "" use current dir
-*/
-
-/**
 * Lexer -> preprocessor -> parser ...
 * Parse all of the headers for definitions, create a sort of global table of definitions
 * unordered map?
@@ -29,7 +16,7 @@
 * }
 *
 *
-* IFNDEF THIS_H <- macro
+* IFNDEF THIS_H <- macro TODO: IF ELSE ELSEIF ENDIF IFNDEF IFDEF UNDEF
 * Find the matching .z file, 
 */
 

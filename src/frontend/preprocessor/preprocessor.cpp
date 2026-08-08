@@ -49,7 +49,6 @@ void Preprocessor::expand_into(const std::vector<Token>& input,
 
 
 void Preprocessor::handle_include(std::vector<Token>& out, int dir_line) {
-
    if (m_index >= m_tokens.size() || m_tokens[m_index].line != dir_line) {
       m_compiler.error(m_compiler.current_file_ID, dir_line, 1, "Expected file path after #include.");
       return;

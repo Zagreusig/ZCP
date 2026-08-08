@@ -8,7 +8,6 @@ Usage:
 
     Lexing:       20.318 us
     Preprocessing:216.296 us
-    Optimization: 305.988 us
 i.e. "<PhaseName>:<whitespace?><number> <unit>", unit one of ns/us/ms/s.
 Adjust PHASE_LINE_RE below if your format differs.
 """

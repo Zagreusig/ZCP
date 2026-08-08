@@ -33,9 +33,7 @@ private:
    inline void consume(int n) { for (int i = 0; i < n; i++) consume(); }
    bool is_next(TokenType type, int offset = 0);
    int get_precidence(BinExprType op);
-   // BinExprType bin_type_convert(TokenType);
 
-   // BinExprType comp_to_binop(const TokenType&);
    bool is_compound_assign(const TokenType& token);
    static bool is_type(const TokenType& token);
    static bool valid_for_increment(const NodeStmt* statement);
