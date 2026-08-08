@@ -12,7 +12,7 @@
 #include "utils/phase.h"
 
 std::vector<Token> Preprocessor::process() {
-   std::vector<Token> out;
+   std::vector<Token> out; out.reserve(500);
    std::set<std::string> active;
    while (m_index < m_tokens.size()) {
       if (at_directive()) {

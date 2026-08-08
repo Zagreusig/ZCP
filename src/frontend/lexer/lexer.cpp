@@ -39,8 +39,15 @@ std::vector<Token> Lexer::lex() {
       std::cerr << "At " << e.line() << ":" << e.col() << ": " << e.what() << std::endl;
       return tokens;
    }
+   catch (const std::logic_error& e) {
+      std::cerr << "Lexing logic errror: " << e.what() << std::endl;
+      return tokens; 
+   }
+   catch (const std::runtime_error& e){
+      std::cerr << "Lexing runtime error: " << e.what() << std::endl;
+      return tokens;
+   }
 }
-
 
 
 [[nodiscard]] std::optional<char> Lexer::peek(int offset = 0) const {
@@ -57,21 +64,21 @@ bool Lexer::peek_eval(char ch, int offset = 0) {
 std::vector<Token> Lexer::tokenize() {
    std::string buf {};
 
+   // pre-allocating 500 token spaces to avoid early vector reallocation.
+   tokens.reserve(500);
+
    while (peek().has_value()) {
       if (!tokens.empty() && tokens.back().type == TokenType::COMMENT) {
-         while (!peek_eval('\n')) consume();
+         while (peek().has_value() && !peek_eval('\n')) consume();
          consume(); // '\n'
          tokens.pop_back();
       }
       else if (!tokens.empty() && tokens.back().type == TokenType::START_COMMENT_BLOCK) {
          tokens.pop_back();
          while(peek().has_value()) {
-            if (peek_eval('*') && peek_eval('/', 1)) break;
+            if (peek_eval('*') && peek_eval('/', 1)) { consume(); consume(); break;}
             consume();
          }
-         if (peek_eval('*') && peek_eval('/', 1)) { consume(); consume(); }
-         else
-            Log::error(CompPhase::Lexing, "Unterminated comment block.", m_file_name, m_line, m_col);
       }
       else if (std::isalpha(peek().value())) { 
          int tok_line = m_line, tok_col = m_col;        

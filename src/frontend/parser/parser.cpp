@@ -16,6 +16,7 @@
 
 std::optional<NodeProg> Parser::parse_prog() {
    NodeProg prog;
+   prog.declarations.reserve(100);
    try {
       while (peek().has_value()) {
          NodeTopLevel* decl = m_compiler.allocator.alloc<NodeTopLevel>();

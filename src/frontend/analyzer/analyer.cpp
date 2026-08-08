@@ -418,7 +418,9 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
             return {};
          }
       
-         if (!symbol->is_function() || !symbol->as_function().definition) {
+         /** WARN: This will cause issues for bodiless stubs when each TU has separate compilation
+          *        instead of the merging of tokens that the preprocessor currently does. */
+         if (!symbol->is_function() || !symbol->as_function().definition->body) {
             m_compiler.error
             (CompPhase::Analysis, node->name.fileId, node->name.line, node->name.col,
              "No matching definition for \"" + symbol->name + "\".");

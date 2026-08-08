@@ -48,6 +48,8 @@ struct Symbol {
 class SymbolTable {
    std::vector<std::unordered_map<std::string, Symbol>> m_scopes;
 public:
+   SymbolTable() { m_scopes.reserve(50); }
+   
    void push_scope();
    void pop_scope();
    bool declare(const Symbol& symbol);    // false if redeclared in current scope

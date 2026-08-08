@@ -26,6 +26,7 @@ fn loops() -> int {
 
 
 fn main() -> int {
+   have num = this_errors(5, 5);
    return loops();
 }
 
