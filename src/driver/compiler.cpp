@@ -10,7 +10,6 @@
 #include "frontend/parser/parser.h"
 #include "frontend/analyzer/analyer.h"
 #include "backend/codegen/generation.h"
-#include "backend/optimizations/optimizer.h"
 #include "backend/codegen/backend.h"
 #include "IR/Lowerer.h"
 #include "Core/IRDefs.h"
@@ -56,39 +55,21 @@ int Compiler::run() {
    if (errors(source_text)) return exit_code(CompPhase::Analysis);
 
    m_logger.mark_phase(CompPhase::Lowering);
-   // if (compiler_opts.ir) {
-      IRModule mod = IR();
+   IRModule mod = IR();
 
-      if (isLoggingEnabled()) {
-         std::ostringstream out;
-         IRPrinter printer(out);
-         printer.print(mod);
-         m_logger.set_ir_mod(out.str());
-      }
+   if (isLoggingEnabled()) {
+      std::ostringstream out;
+      IRPrinter printer(out);
+      printer.print(mod);
+      m_logger.set_ir_mod(out.str());
+   }
 
-      m_logger.mark_phase(CompPhase::CodeGen);
-      {
-         ScopedPhaseTimer t(m_logger, CompPhase::CodeGen);
-         Backend generator;
-         m_orig = generator.generate(mod);
-      }
-   // } else {
-   //    m_orig = generate();
-   //    if (m_logger.enabled()) m_logger.set_orig_asm(m_orig);
-   //    if (errors(source_text)) return exit_code(CompPhase::CodeGen);
-   // }
-   // auto returned = optimize();
-   // m_asm_out = returned.first; optimizer_passes = returned.second;
-   m_asm_out = m_orig; optimizer_passes = 0;
-   // if (m_logger.enabled()) {
-   //    do_optimizer_logging(optimizer_passes, m_asm_out);
-   // }
-
-   // std::fstream comp_log("compilation_log.txt", std::ios::out);
-   // if (!comp_log.is_open()) { std::cerr << "Comp log not open." << std::endl; return -99; }
-
-   // m_logger.flush(comp_log);
-   // comp_log.close();
+   m_logger.mark_phase(CompPhase::CodeGen);
+   {
+      ScopedPhaseTimer t(m_logger, CompPhase::CodeGen);
+      Backend generator;
+      m_asm_out = generator.generate(mod);
+   }
    write_files();
 
    syscalls(make_syscall_options());
@@ -153,24 +134,11 @@ std::string Compiler::generate() {
 }
 
 
-std::pair<std::string, int> Compiler::optimize() {
-   if (compiler_opts.ir || compiler_opts.log) return { m_orig, 0 };
-   mark_phase(CompPhase::Optimization);
-   ScopedPhaseTimer timer(m_logger, CompPhase::Optimization);
-   Optimizer optimizer(m_orig);
-   optimizer.optimize();
-   return { optimizer.finish(), optimizer.passes() };
-}
-
-
 int Compiler::write_files() {
    std::fstream _asm; _asm.open(prog_name + ".asm", std::ios::out);
-   std::fstream _orig; _orig.open(prog_name + "_preop.asm", std::ios::out);
    if (!_asm.is_open())  { std::cerr << "asm file failed to open.\n";     return FILE_ERROR; }
-   if (!_orig.is_open()) {std::cerr << "orig.asm file failed to open.\n"; return FILE_ERROR; }
 
    _asm << m_asm_out;
-   _orig << m_orig;
    return SUCCESS;
 }
 
@@ -183,7 +151,6 @@ void Compiler::syscalls(Syscaller::Options options) {
 
 std::string Compiler::format_tokens(std::vector<Token>& tokens) {
    return Format::print(tokens, [this](int id) { return filename_by_id(id); });
-   // return TokenPrinter::format(tokens, [this](int id) { return filename_by_id(id); });
 }
 
 
@@ -204,15 +171,6 @@ void Compiler::do_tokens(const std::vector<Token>& tokens) {
 }
 
 
-void Compiler::do_optimizer_logging(int passes, const std::string& source) {
-   m_logger.record_passes(passes);
-   m_logger.set_opt_asm(source);
-
-   std::fstream _logger("compilation_log.txt", std::ios::out);
-   m_logger.flush(_logger);
-}
-
-
 void Compiler::do_ast(NodeProg program) {
    std::ostringstream ss;
    ASTPrinter(program, ss).print();
@@ -230,31 +188,28 @@ Syscaller::Options Compiler::make_syscall_options() {
    return Syscaller::Options {
       .keep_asm   = has_flag(Flags::LEAVE_ASM),
       .keep_obj   = has_flag(Flags::LEAVE_OBJ),
-      .keep_preop = has_flag(Flags::PRESERVE_PRE_OP),
       .debug_enbl = m_logger.enabled()
    };
 }
 
 
-void Compiler::fatal(CompPhase phase, int fileId, int line, int col, const std::string& msg) {
+void Compiler::fatal(int fileId, int line, int col, const std::string& msg) {
    std::string file = filename_by_id(fileId);
-   diagnostics.fatal(phase, file, line, col, msg);
+   diagnostics.fatal(file, line, col, msg);
 }
 
 
 
 
-void Compiler::error(CompPhase phase, int fileId, int line, int col, const std::string& msg) {
+void Compiler::error(int fileId, int line, int col, const std::string& msg) {
    std::string file = filename_by_id(fileId);
    diagnostics.error(file, line, col, msg);
-   // diagnostics.error(phase, file, line, col, msg);
 }
 
 
-void Compiler::warn(CompPhase phase, int fileId, int line, int col, const std::string& msg) {
+void Compiler::warn(int fileId, int line, int col, const std::string& msg) {
    std::string file = filename_by_id(fileId);
    diagnostics.warn(file, line, col, msg);
-   // diagnostics.warn(phase, file, line, col, msg);
 }
 
 

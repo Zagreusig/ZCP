@@ -4,14 +4,10 @@
 #include <iostream>
 #include <utility>
 #include <vector>
+#include <stdexcept>
 
 #include "IRDefs.h"
 
-// Positional argument/parameter registers, per the (informal) calling
-// convention every Call/param-spill in this backend follows: operand i (after
-// the callee symbol) <-> arg_regs[i]. STR values simply take 2 consecutive
-// slots (ptr, len) - the Lowerer is responsible for emitting the right number
-// of operands/params, this backend only ever consumes them positionally.
 static const char* arg_regs[] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
 
 
@@ -30,18 +26,26 @@ std::string Backend::generate(const IRModule& module) {
 
    m_output << "global _start\n"
             << "_start:\n"
-            << (module.functions.size() > 0 ? "   call main\n" : "")
+            << (module.functions.size() > 0 ? "   call main\n" : "") /** TODO: this needs to change */
             << "   mov rdi, rax\n"
             << "   mov rax, 60\n"
             << "   syscall\n\n";
 
  
-
-   for (const IRFunction& fn : module.functions) {
-      if (fn.is_declaration) continue;
-      gen_function(fn);
+   try {
+      for (const IRFunction& fn : module.functions) {
+         if (fn.is_declaration) continue;
+         gen_function(fn);
+      }
    }
-
+   catch (const std::runtime_error& e) {
+      std::cerr << "Backend RTE: " << e.what() << std::endl;
+      return m_output.str();
+   }
+   catch (const std::logic_error& e) {
+      std::cerr << "Backend LogE: " << e.what() << std::endl;
+      return m_output.str();
+   }
    emit_data_section(module);
 
    return m_output.str();
@@ -100,20 +104,35 @@ std::string Backend::block_label(const IRBasicBlock& b) const {
 }
 
 
+void Backend::set_holds(const std::string& reg, int vreg_id) {
+   if      (reg == "rax") m_rax_holds = vreg_id;
+   else if (reg == "rbx") m_rbx_holds = vreg_id;
+}
+
+
 void Backend::load_operand(const IROperand& op, const std::string& reg) {
-   switch (op.kind) {
-      case IROperand::Kind::Reg:
-         m_output << "   mov " << reg << ", " << slot(op.reg) << "\n";
-         break;
-      case IROperand::Kind::ConstInt:
-         m_output << "   mov " << reg << ", " << op.const_int << "\n";
-         break;
-      case IROperand::Kind::Symbol:
-         m_output << "   lea " << reg << ", [" << op.symbol << "]\n";
-         break;
-      default:
-         break;
+   if (op.kind == IROperand::Kind::Reg) {
+      int want = op.reg.id;
+      // already in trgt register 
+      if (reg == "rax" && m_rax_holds == want) return;
+      if (reg == "rbx" && m_rbx_holds == want) return;
+
+      // in OTHER register?
+      if (reg == "rax" && m_rbx_holds == want)
+         { m_output << "   mov rax, rbx\n"; m_rax_holds = want; return; }
+      if (reg == "rbx" && m_rax_holds == want)
+         { m_output << "   mov rbx, rax\n"; m_rbx_holds = want; return; }
+
+      // not cached: real load and bookkeeping
+      m_output << "   mov " << reg << ", " << slot(op.reg) << "\n";
+      set_holds(reg, want);
    }
+   else if (op.kind == IROperand::Kind::ConstInt) {
+      m_output << "   mov " << reg << ", " << op.const_int << "\n";
+      set_holds(reg, -1); // const isn't a VReg, clear cache
+   }
+   else if (op.kind == IROperand::Kind::Symbol)
+      m_output << "   lea " << reg << ", [" << op.symbol << "]\n";
 }
 
 
@@ -124,6 +143,7 @@ void Backend::load_reg_slot(VReg v, const std::string& reg) {
 
 void Backend::store_reg(VReg dest, const std::string& reg) {
    m_output << "   mov " << slot(dest) << ", " << reg << "\n";
+   set_holds(reg, dest.id); // cached result
 }
 
 
@@ -150,6 +170,7 @@ void Backend::gen_function(const IRFunction& fn) {
 
 
 void Backend::gen_block(const IRBasicBlock& block) {
+   clear_cache();
    m_output << block_label(block) << ":\n";
    for (const IRInstruction& instr : block.instructions)
       gen_instruction(instr);
@@ -158,10 +179,15 @@ void Backend::gen_block(const IRBasicBlock& block) {
 
 void Backend::gen_cmp(const IRInstruction& instr, const char* setcc) {
    load_operand(instr.operands[0], "rax");
-   load_operand(instr.operands[1], "rbx");
-   m_output << "   cmp rax, rbx\n"
-             << "   " << setcc << " al\n"
-             << "   movzx rax, al\n";
+   if (instr.operands[1].kind != IROperand::Kind::ConstInt) {
+      load_operand(instr.operands[1], "rbx");
+      m_output << "   cmp rax, rbx\n";
+   }
+   else 
+      m_output << "   cmp rax, " << instr.operands[1].const_int << "\n"; // Emit instr directly, rather than load into rbx
+   
+   m_output << "   " << setcc << " al\n"
+            << "   movzx rax, al\n";
    store_reg(instr.dest, "rax");
 }
 
@@ -213,6 +239,35 @@ void Backend::gen_call(const IRInstruction& instr) {
 }
 
 
+void Backend::gen_binop(const IRInstruction& instr, const std::string& reg1, const std::string& reg2) {
+   load_operand(instr.operands[0], "rax");
+   bool const_int = instr.operands[1].kind == IROperand::Kind::ConstInt;
+   if (!const_int) load_operand(instr.operands[1], "rbx");
+   
+   switch (instr.op) {
+      case IROp::Add:
+         m_output << "   add " << reg1 << ", "; break;
+      case IROp::Sub:
+         m_output << "   sub " << reg1 << ", "; break;
+      case IROp::Mul:
+         m_output << "   imul " << reg1 << ", "; break;
+      case IROp::Div:
+      case IROp::Mod:
+         m_output << "   cqo\n   idiv ";
+         m_output << (const_int ? std::to_string(instr.operands[1].const_int) : reg2);
+         break;
+      default: return;
+   }
+
+   if (instr.op == IROp::Div || instr.op == IROp::Mod)
+      m_output << reg1 << "\n";
+   else
+      m_output << (const_int ? std::to_string(instr.operands[1].const_int) : reg2) << "\n"; 
+
+   store_reg(instr.dest, (instr.op == IROp::Mod ? "rdx" : "rax"));
+}
+
+
 void Backend::gen_instruction(const IRInstruction& instr) {
    switch (instr.op) {
       case IROp::Const:
@@ -226,25 +281,26 @@ void Backend::gen_instruction(const IRInstruction& instr) {
          break;
 
       case IROp::Add:
-         load_operand(instr.operands[0], "rax"); load_operand(instr.operands[1], "rbx");
-         m_output << "   add rax, rbx\n"; store_reg(instr.dest, "rax");
-         break;
+         // load_operand(instr.operands[0], "rax"); load_operand(instr.operands[1], "rbx");
+         // m_output << "   add rax, rbx\n"; store_reg(instr.dest, "rax");
+         // break;
       case IROp::Sub:
-         load_operand(instr.operands[0], "rax"); load_operand(instr.operands[1], "rbx");
-         m_output << "   sub rax, rbx\n"; store_reg(instr.dest, "rax");
-         break;
+         // load_operand(instr.operands[0], "rax"); load_operand(instr.operands[1], "rbx");
+         // m_output << "   sub rax, rbx\n"; store_reg(instr.dest, "rax");
+         // break;
       case IROp::Mul:
-         load_operand(instr.operands[0], "rax"); load_operand(instr.operands[1], "rbx");
-         m_output << "   imul rax, rbx\n"; store_reg(instr.dest, "rax");
-         break;
+         // load_operand(instr.operands[0], "rax"); load_operand(instr.operands[1], "rbx");
+         // m_output << "   imul rax, rbx\n"; store_reg(instr.dest, "rax");
+         // break;
       case IROp::Div:
-         load_operand(instr.operands[0], "rax"); load_operand(instr.operands[1], "rbx");
-         m_output << "   cqo\n   idiv rbx\n"; store_reg(instr.dest, "rax");
-         break;
+         // load_operand(instr.operands[0], "rax"); load_operand(instr.operands[1], "rbx");
+         // m_output << "   cqo\n   idiv rbx\n"; store_reg(instr.dest, "rax");
+         // break;
       case IROp::Mod:
-         load_operand(instr.operands[0], "rax"); load_operand(instr.operands[1], "rbx");
-         m_output << "   cqo\n   idiv rbx\n"; store_reg(instr.dest, "rdx");
-         break;
+         // load_operand(instr.operands[0], "rax"); load_operand(instr.operands[1], "rbx");
+         // m_output << "   cqo\n   idiv rbx\n"; store_reg(instr.dest, "rdx");
+         // break;
+         gen_binop(instr, "rax", "rbx"); break;
 
       case IROp::CmpEq: gen_cmp(instr, "sete");  break;
       case IROp::CmpNe: gen_cmp(instr, "setne"); break;
@@ -372,7 +428,7 @@ void Backend::scan_used_routines(const IRModule& module) {
 
 std::string Backend::runtime_print_int() {
    return
-"print_int:                    ; rdi = num, rsi = newline flag (0/1)\n"
+"print_int:                     ; rdi = num, rsi = newline flag (0/1)\n"
 "   mov r11, rsi                ; save flag, rsi gets clobbered below\n"
 "   mov rax, rdi\n"
 "   mov byte [IO_buf+31], 10\n"

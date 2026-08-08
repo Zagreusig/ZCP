@@ -8,7 +8,6 @@
 #include "Core/TypeConversions.h"
 #include "utils/msc.h"
 #include "Nodes.h"
-#include "phase.h"
 #include "Layout.h"
 #include "SymbolTable.h"
 #include "TokenTable.h"
@@ -53,10 +52,10 @@ void Analyzer::function_pass() {
 
       else if (redef->is_function()) {
          if (redef->as_function().definition->body)
-            m_compiler.error(CompPhase::Analysis, decl->name.fileId, decl->name.line, decl->name.col,
+            m_compiler.error(decl->name.fileId, decl->name.line, decl->name.col,
                               "Redefinition of function \"" + decl->name.text() + "\".");
          else if (!functions_match(redef->as_function(), func))
-            m_compiler.error(CompPhase::Analysis, decl->name.fileId, decl->name.line, decl->name.col,
+            m_compiler.error(decl->name.fileId, decl->name.line, decl->name.col,
                               "Definition of \"" + decl->name.text() + "\" does not match its declaration.");
          else
             m_symbols.replace_in_current(Symbol(func, decl->name)); // stub!
@@ -70,7 +69,7 @@ void Analyzer::analyze_have(NodeStmtHave* h) {
 
    if (!h->decl.type.has_value() && h->expr == nullptr) {
       m_compiler.error
-      (CompPhase::Analysis, h->decl.name.fileId, h->decl.name.line, h->decl.name.col,
+      (h->decl.name.fileId, h->decl.name.line, h->decl.name.col,
        "Declaration needs type of initializer.");
       return;
    }
@@ -85,7 +84,7 @@ void Analyzer::analyze_have(NodeStmtHave* h) {
                TypeInfo et = type_of(elems[i]);
                if (et.base != info.base) {
                   m_compiler.error
-                  (CompPhase::Analysis, h->decl.name.fileId, h->decl.name.line, h->decl.name.col,
+                  (h->decl.name.fileId, h->decl.name.line, h->decl.name.col,
                    "Array literal has mismatched element types.");
                   break;
                }
@@ -96,7 +95,7 @@ void Analyzer::analyze_have(NodeStmtHave* h) {
                // annotation was int[N] - N must be equal lit's len
                if (info.array_len != (int)elems.size())
                   m_compiler.error
-                  (CompPhase::Analysis, h->decl.name.fileId, h->decl.name.line, h->decl.name.col,
+                  (h->decl.name.fileId, h->decl.name.line, h->decl.name.col,
                    "Array literals doesn't match declared length.");
             } else {
                info.is_array = true;
@@ -106,7 +105,7 @@ void Analyzer::analyze_have(NodeStmtHave* h) {
             TypeInfo init = type_of(h->expr);
             if (!types_match(info, init))
                m_compiler.error
-               (CompPhase::Analysis, h->decl.name.fileId, h->decl.name.line, h->decl.name.col,
+               (h->decl.name.fileId, h->decl.name.line, h->decl.name.col,
                 "Array type mismatch.");
          }
       }
@@ -117,14 +116,14 @@ void Analyzer::analyze_have(NodeStmtHave* h) {
       const auto& elems = (*lit)->elements;
       if (elems.empty()) {
          m_compiler.error
-         (CompPhase::Analysis, h->decl.name.fileId, h->decl.name.line, h->decl.name.col,
+         (h->decl.name.fileId, h->decl.name.line, h->decl.name.col,
           "Cannot infer type of empty array.");
       } else {
          TypeInfo et = type_of(elems[0]);
          for (size_t i = 1; i < elems.size(); i++) {
             if (!types_match(et, type_of(elems[i]))) {
                m_compiler.error
-               (CompPhase::Analysis, h->decl.name.fileId, h->decl.name.line, h->decl.name.col,
+               (h->decl.name.fileId, h->decl.name.line, h->decl.name.col,
                 "Array literal has mismatched element types.");
                break;
             }
@@ -172,7 +171,7 @@ void Analyzer::analyze_function(NodeFunction* f) {
 TypeInfo Analyzer::find_ret_type(NodeFunction* f) {
    if (!f->body) return TypeInfo{ .base = DataType::NONE };
    if (is_in_prog(f->name.text())) {
-      m_compiler.error(CompPhase::Analysis, f->name.fileId, f->name.line, f->name.col, "Mutual recursion found.");
+      m_compiler.error(f->name.fileId, f->name.line, f->name.col, "Mutual recursion found.");
       return {};
    }
    
@@ -262,7 +261,7 @@ void Analyzer::analyze_stmt(NodeStmt* s) {
          TypeInfo rhs_t    = type_of(s->expr);
          if (!types_match(target_t, rhs_t))
             m_compiler.error
-            (CompPhase::Analysis, s->ident.fileId, s->ident.line, s->ident.col,
+            (s->ident.fileId, s->ident.line, s->ident.col,
              "Type mismatch in assignment to '" + s->ident.text() + "'.");
       }
       
@@ -282,7 +281,7 @@ void Analyzer::analyze_stmt(NodeStmt* s) {
 
          if (m_curr_func.back().ret_type.base != DataType::NONE && !types_match(ret, m_curr_func.back().ret_type))
             m_compiler.error
-            (CompPhase::Analysis, m_curr_func.back().origin_file, m_func_coords.back().first, m_func_coords.back().second,
+            (m_curr_func.back().origin_file, m_func_coords.back().first, m_func_coords.back().second,
              "Return type mismatch.");
       }
 
@@ -363,7 +362,7 @@ void Analyzer::declare(Token ident, const TypeInfo& t) {
    Symbol symbol(var, ident);
    if (!m_symbols.declare(symbol))
       m_compiler.error
-      (CompPhase::Analysis, ident.fileId, ident.line, ident.col,
+      (ident.fileId, ident.line, ident.col,
        "Redeclaration of '" + ident.text() + "' in this scope.");
 }
 
@@ -399,7 +398,7 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
          auto found = lookup(node->ident.text());
          if (found.has_value()) return found.value();
          m_compiler.error
-         (CompPhase::Analysis, node->ident.fileId, node->ident.line, node->ident.col,
+         (node->ident.fileId, node->ident.line, node->ident.col,
           "Use of undeclared identifier '" + node->ident.text() + "'.");
          return {};
       }
@@ -412,7 +411,7 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
          
          auto symbol = m_symbols.lookup(node->name.text());
          if (!symbol) { m_compiler.error
-            (CompPhase::Analysis, node->name.fileId, node->name.line, node->name.col,
+            (node->name.fileId, node->name.line, node->name.col,
              "Call made to undeclared function '" + node->name.text() + "'.");
             for (auto* arg : node->args) type_of(arg); // still walk args to grab extra problems
             return {};
@@ -422,7 +421,7 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
           *        instead of the merging of tokens that the preprocessor currently does. */
          if (!symbol->is_function() || !symbol->as_function().definition->body) {
             m_compiler.error
-            (CompPhase::Analysis, node->name.fileId, node->name.line, node->name.col,
+            (node->name.fileId, node->name.line, node->name.col,
              "No matching definition for \"" + symbol->name + "\".");
             return {};
          }
@@ -431,7 +430,7 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
             NodeFunction* target = symbol->as_function().definition;
             if (is_in_prog(target->name.text())) {
                m_compiler.error
-               (CompPhase::Analysis, node->name.fileId, node->name.line, node->name.col,
+               (node->name.fileId, node->name.line, node->name.col,
                 "Mutual recursion found.");
                return {};
             }
@@ -450,7 +449,7 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
          // arg count check
          if (node->args.size() != symbol->as_function().params.size()) {
             m_compiler.error
-            (CompPhase::Analysis, node->name.fileId, node->name.line, node->name.col,
+            (node->name.fileId, node->name.line, node->name.col,
              std::to_string(symbol->as_function().params.size()) + " argument(s) expected, got " + 
              std::to_string(node->args.size()) + ".");
          }
@@ -460,7 +459,7 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
             TypeInfo at = type_of(node->args[i]);
             if (i < symbol->as_function().params.size() && !types_match(symbol->as_function().params[i], at)) {
                m_compiler.error
-               (CompPhase::Analysis, node->name.fileId, node->name.line, node->name.col,
+               (node->name.fileId, node->name.line, node->name.col,
                 "Argument " + std::to_string(i + 1) + " to '" + node->name.text() + 
                 "' has mismatched type.");
             }
@@ -490,11 +489,11 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
          auto arr = lookup(node->ident.text());
          if (!arr.has_value()) { 
             m_compiler.error
-            (CompPhase::Analysis, node->ident.fileId, node->ident.line, node->ident.col,
+            (node->ident.fileId, node->ident.line, node->ident.col,
              "Undeclared array: " + node->ident.text()); return {}; }
          if (!arr.value().is_array && arr.value().base != DataType::STR) 
             { m_compiler.error
-               (CompPhase::Analysis, node->ident.fileId, node->ident.line, node->ident.col,
+               (node->ident.fileId, node->ident.line, node->ident.col,
                 "Cannot index non-array."); return {}; }
          // indexing array yields its ELEMENT type (scalar, not array)
          return TypeInfo { .base = (arr.value().base == DataType::STR ? DataType::CHAR : arr.value().base) }; // is_array = false (default)

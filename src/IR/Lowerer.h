@@ -45,21 +45,13 @@ struct NodeStmtPrint;
 class Lowerer {
 public:
    IRModule lower(const NodeProg& prog);
+   Lowerer() { m_module.functions.reserve(100); m_module.globals.reserve(100); }
 private:
    IRFunction*   m_function = nullptr;
    IRBasicBlock* m_block = nullptr;   
 
-   // scope stack: name -> address VReg (the variable's alloca). Innermost last.
    std::vector<std::unordered_map<std::string, VReg>> m_scopes;
 
-   // parallel scope stack (pushed/popped in lockstep with m_scopes) tracking
-   // which names are STR-typed. Kept separate rather than folded into
-   // m_scopes's value type so lookup_var and its many call sites stay
-   // untouched. Needed because NodeExprIndex must tell a STR base ("s[i]")
-   // apart from a char-array base ("arr[i]") - both produce a CHAR element
-   // with element_size 1, but only STR's data lives behind an extra pointer
-   // indirection, and nothing else (not resolved(), not a symbol table -
-   // there isn't one) carries that distinction by the time we're lowering.
    std::vector<std::unordered_map<std::string, bool>> m_str_vars;
    
    // string lit map
@@ -186,10 +178,7 @@ private:
    //       end:
    //          ... continues here ...
    void lower_while(const NodeStmtWhile* stmt);
-
    void lower_for(const NodeStmtFor* stmt);
-
-   // Lower 'cond" so control flows to 'true_id' if true, else 'false_id.
    void lower_condition(const NodeCondition* cond, int true_id, int false_id);
 
 

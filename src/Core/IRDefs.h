@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 // ===========================================================================
@@ -36,7 +37,7 @@ inline const char* ir_type_str(IRType t) {
 // opposed to a bare int lets me attach defining instructions later on.
 // ===========================================================================
 struct VReg {
-   int    id = -1;             // -1 = "no reg" (void result)
+   int    id   = -1;             // -1 = "no reg" (void result)
    IRType type = IRType::Void;
 
    bool valid() const { return id >= 0; }
@@ -108,19 +109,23 @@ enum class IROp {
 
 inline const char* ir_op_str(IROp op) {
    switch (op) {
-      case IROp::Const: return "const"; case IROp::Copy: return "copy";
-      case IROp::Add: return "add"; case IROp::Sub: return "sub";
-      case IROp::Mul: return "mul"; case IROp::Div: return "div"; case IROp::Mod: return "mod";
-      case IROp::CmpEq: return "cmp.eq"; case IROp::CmpNe: return "cmp.ne";
-      case IROp::CmpLt: return "cmp.lt"; case IROp::CmpGt: return "cmp.gt";
-      case IROp::CmpLe: return "cmp.le"; case IROp::CmpGe: return "cmp.ge";
-      case IROp::And: return "and"; case IROp::Or: return "or"; case IROp::Not: return "not";
-      case IROp::Alloca: return "alloca"; case IROp::Load: return "load"; case IROp::Store: return "store";
+      case IROp::Const:      return "const";  case IROp::Copy:  return "copy";
+      case IROp::Add:        return "add";    case IROp::Sub:   return "sub";
+      case IROp::Mul:        return "mul";    case IROp::Div:   return "div"; 
+      case IROp::Mod:        return "mod";
+      case IROp::CmpEq:      return "cmp.eq"; case IROp::CmpNe: return "cmp.ne";
+      case IROp::CmpLt:      return "cmp.lt"; case IROp::CmpGt: return "cmp.gt";
+      case IROp::CmpLe:      return "cmp.le"; case IROp::CmpGe: return "cmp.ge";
+      case IROp::And:        return "and";    case IROp::Or:    return "or"; 
+      case IROp::Not:        return "not";
+      case IROp::Alloca:     return "alloca"; case IROp::Load:  return "load"; 
+      case IROp::Store:      return "store";
       case IROp::GlobalAddr: return "global_addr";
       case IROp::GetElemPtr: return "getelemptr";
-      case IROp::Call: return "call";
-      case IROp::Br: return "br"; case IROp::CondBr: return "condbr"; case IROp::Ret: return "ret"; case IROp::Exit: return "exit";
-      default: return "????";
+      case IROp::Call:       return "call";
+      case IROp::Br:         return "br";     case IROp::CondBr: return "condbr"; 
+      case IROp::Ret:        return "ret";    case IROp::Exit:   return "exit";
+      default:               return "????";
    }
 }
 
@@ -136,10 +141,10 @@ inline bool ir_IsTerminator(IROp op) {
 // small immediate (used by Alloca for size, GetElemPtr for element size)
 // ===========================================================================
 struct IRInstruction {
-   IROp op;
-   VReg dest;
+   IROp                   op;
+   VReg                   dest;
    std::vector<IROperand> operands;
-   int64_t imm = 0;
+   int64_t                imm = 0;
 
    IRInstruction(IROp o) : op(o) {}
    IRInstruction(IROp o, VReg d) : op(o), dest(d) {}
@@ -151,7 +156,7 @@ struct IRInstruction {
 // instructiond ending in a terminator.
 // ===========================================================================
 struct IRBasicBlock {
-   int id;
+   int id = -1;
    std::string label;
    std::vector<IRInstruction> instructions;
 
@@ -176,11 +181,10 @@ struct IRFunction {
    std::vector<IRBasicBlock> blocks;
 
    // fresh-id allocation during lowering.
-   int next_vreg  = 0;
-   int next_block = 0;
+   int next_vreg  = 0, next_block = 0;
 
    VReg fresh_vreg(IRType t) {
-      VReg v; v.id = next_vreg++; v.type = t; return v;
+      return VReg { .id = next_vreg++, .type = t };
    }
 
    IRBasicBlock& new_block(const std::string& label) {

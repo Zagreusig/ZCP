@@ -1,0 +1,11 @@
+fn main() -> int {
+   have s = 19;
+   have x: int = 5;
+
+   if (s == 19) { println("Hello!!"); }
+   s -= 5;
+
+   if (s >= 5) { println("Second Hello!"); }
+
+   return 0;
+}

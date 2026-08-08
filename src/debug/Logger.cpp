@@ -93,13 +93,9 @@ void Logger::flush(std::ostream& out) const {
       rule(out);
       out << "IR\n\n" << m_ir_dump << "\n";
    }
-   if (!m_orig_asm.empty()) {
+   if (!m_asm.empty()) {
       rule(out);
-      out << "ORIGINAL ASM\n\n" << m_orig_asm << "\n";
-   }
-   if (!m_opt_asm.empty()) {
-      rule(out);
-      out << "OPTIMIZED ASM\n\n" << m_opt_asm << "\n";
+      out << "ASM\n\n" << m_asm << "\n";
    }
 
    // 4. Timing summary
@@ -109,7 +105,7 @@ void Logger::flush(std::ostream& out) const {
    // Print in pipeline order, not hash order
    const CompPhase order[] = {
       CompPhase::Lexing, CompPhase::Preprocessing, CompPhase::Parsing, 
-      CompPhase::Analysis, CompPhase::Lowering, CompPhase::CodeGen, CompPhase::Optimization
+      CompPhase::Analysis, CompPhase::Lowering, CompPhase::CodeGen
    };
 
    Duration total(0);
@@ -123,8 +119,6 @@ void Logger::flush(std::ostream& out) const {
       for (size_t i = name.size(); i < 13; i++) out << " ";
       out << fmt_duration(it->second);
 
-      if (p == CompPhase::Optimization && m_opt_passes > 0)
-         out << ", " << m_opt_passes << " pass" << (m_opt_passes == 1 ? "" : "es");
       out << "\n";
    }
 

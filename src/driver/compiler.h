@@ -29,7 +29,6 @@ struct Options {
    bool toks  = false;
    bool ast   = false;
    bool raw   = false;
-   bool ir    = false;
 };
 
 class Compiler {
@@ -43,13 +42,11 @@ public:
 
    Flags              _flags = Flags::NONE;
    std::string        m_asm_out;
-   std::string        m_orig;
 
    std::string        m_macros;
 
    std::vector<Token>      m_tokens;
    std::optional<NodeProg> m_program;
-   int                     optimizer_passes = 0;
 
    Options compiler_opts;
    Logger  m_logger;
@@ -92,7 +89,6 @@ public:
       compiler_opts.flags = has_flag(Flags::PRINT_FLAGS);
       compiler_opts.ast   = has_flag(Flags::PRINT_AST);
       compiler_opts.toks  = has_flag(Flags::PRINT_TOKENS);
-      compiler_opts.ir    = has_flag(Flags::USE_IR);
    }
 
    bool isRawTokensEnabled()     { return compiler_opts.log || compiler_opts.raw;   }
@@ -111,7 +107,6 @@ public:
    void                        analyze();
    IRModule                    IR();
    std::string                 generate();
-   std::pair<std::string, int> optimize(); // <optimised asm, number of passes>
    int                         write_files();
    void                        syscalls(Syscaller::Options);
 
@@ -133,7 +128,6 @@ public:
    void do_flags();
    void do_tokens(const std::vector<Token>&);
    void do_ast(NodeProg);
-   void do_optimizer_logging(int, const std::string&);
    void do_preprocess(const std::string&);
 
    // Formatting itself lives in debug/TokenPrinter.h / debug/ASTPrinter.h;
@@ -141,9 +135,9 @@ public:
    // compiler_opts and m_logger state.
    std::string format_tokens(std::vector<Token>& tokens);
 
-   void fatal(CompPhase, int, int, int, const std::string&);
-   void error(CompPhase, int, int, int, const std::string&);
-   void warn (CompPhase, int, int, int, const std::string&);
+   void fatal(int, int, int, const std::string&);
+   void error(int, int, int, const std::string&);
+   void warn (int, int, int, const std::string&);
 };
 
 

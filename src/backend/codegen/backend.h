@@ -34,10 +34,14 @@ private:
    int m_spill_area  = 0; // bytes reserved for vreg slots; alloca buffers start right after
    int m_alloca_used = 0; // running cursor within the alloca-buffer region, reset per function
 
+   int m_rax_holds = -1, m_rbx_holds = -1; // cache that tracks what vreg id is already
+                                           // loaded into the scratch registers.
+
    void plan_frame(const IRFunction& fn);
    void gen_function(const IRFunction& fn);
    void gen_block(const IRBasicBlock& block);
    void gen_instruction(const IRInstruction& instr);
+   void gen_binop(const IRInstruction& instr, const std::string& reg1, const std::string& reg2);
 
    // ----- operand / slot helpers --------------------------------------------
    std::string slot(VReg v) const;                    // "[rbp-N]"
@@ -48,6 +52,10 @@ private:
    void load_reg_slot(VReg v, const std::string& reg);             // reg <- [slot(v)]
    void store_reg(VReg dest, const std::string& reg);              // [slot(dest)] <- reg
 
+   // ----- cache helpers -----------------------------------------------------
+   void set_holds(const std::string& reg, int vreg_id);
+   void clear_cache() { m_rax_holds = m_rbx_holds = -1; }
+
    void gen_call(const IRInstruction& instr);
    void gen_getelemptr(const IRInstruction& instr);
    void gen_load(const IRInstruction& instr);
@@ -55,10 +63,6 @@ private:
    void gen_cmp(const IRInstruction& instr, const char* setcc);
 
    // ----- module-level sections ---------------------------------------------
-   // routine name -> is it actually called anywhere in this module. Scanned
-   // once up front so emit_used_runtime only emits bodies that are needed -
-   // a subset can always be emitted independently (each body is self-
-   // contained, see the runtime_* functions below).
    std::unordered_map<std::string, bool> m_used_routines = {
       { "print_int",  false }, { "print_char", false }, { "print_str", false },
       { "print_nl",   false }, { "sys_exit",   false },

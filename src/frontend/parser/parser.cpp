@@ -630,6 +630,7 @@ std::optional<NodeStmt*> Parser::parse_cmpd_assign() {
    bin_wrap->variant = bin;
 
    NodeStmtAssign* assign = m_compiler.allocator.alloc<NodeStmtAssign>();
+   assign->ident = ident;
    assign->target = id_wrapped;
    assign->expr = bin_wrap;
 

@@ -168,7 +168,7 @@ void ASTPrinter::print_stmt(const NodeStmt* stmt, int depth) {
          p->print_expr(s->expr, depth + 1);
       }
       void operator()(const NodeStmtAssign* s) {
-         p->m_out << pad(depth) << "Assign: " << s->ident.text() << "\n";
+         p->m_out << pad(depth) << "Assign: " << (s->ident.is_text() ? s->ident.text() : "<NULL IDENT>") << "\n";
          p->print_expr(s->expr, depth + 1);
       }
       void operator()(const NodeStmtReturn* s) {

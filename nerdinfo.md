@@ -1,7 +1,7 @@
 # Compiler Process  
 Here are the general steps the compiler takes when given a file:
 
-## Lex -> Parse -> Analyze -> Lower -> Generate (assembly) -> Optimize  
+## Lex -> Parse -> Analyze -> Lower to IR -> Generate (assembly)
 
 ### Lexing
 The lexing stage is very straightforward. Unless the compiler comes across a symbol that could be used in a compound symbol (think something like `+=` or `->`), it pushes a token into a vector that contains the token's type (enumerator), an optional value (std::string), as well as its line # and the column it begins at. 

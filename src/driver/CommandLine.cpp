@@ -13,12 +13,10 @@ namespace {
       { 's', "ast",        Flags::PRINT_AST,       false, "Print the abstract syntax tree." },
       { 'f', "flags",      Flags::PRINT_FLAGS,     false, "Print the flags that were passed in." },
       { 't', "tokens",     Flags::PRINT_TOKENS,    false, "Print the lexer's tokens." },
-      { 'p', "keep-preop", Flags::PRESERVE_PRE_OP, false, "Keep the pre-optimization .asm" },
       { 'o', "output",     Flags::USER_NAME,       true,  "Set the output program name (-o <name>)" },
       { 'h', "help",       Flags::HALLLLLPUH,      false, "Print this help and exit." },
       { 'd', "debug",      Flags::DEBUG,           false, "Logs every action for debugging." },
       { 'r', "raw",        Flags::RAW_TOKENS,      false, "Print the token list before it hits the preprocessor."},
-      { 'i', "use-ir",     Flags::USE_IR,          false, "Use Intermediate Representation" },
    };
 
 

@@ -34,12 +34,8 @@ IRFunction Lowerer::lower_function(const NodeFunction* function) {
    IRBasicBlock& entry = out.new_block("entry");
    m_block = &entry;
 
-   // parameters: each -> a VReg, stored into an alloca so the body reads
-   // it uniformly via load. Param type vary (NodeParam::type)/
    for (const NodeParam& param : function->params) {
       if (param.type.base == DataType::STR) {
-         // STR params take 2 incoming regs (ptr, len), matching the old
-         // codegen's ABI - see NodeExprCall below for the caller side.
          VReg ptr_vreg = fresh(IRType::Ptr), len_vreg = fresh(IRType::I64);
          out.params.push_back(ptr_vreg);
          out.params.push_back(len_vreg);
@@ -421,12 +417,6 @@ VReg Lowerer::lower_expr(const NodeExpr* expr) {
 
          if (expr->resolved.base != DataType::STR) return dest;
 
-         // STR return: rax (already captured as `dest`) is the ptr half;
-         // rdx (the len half) has nowhere to land on this instruction (one
-         // dest per IRInstruction) so CallResult - which MUST immediately
-         // follow this Call - captures it separately. Then repackage both
-         // into a fresh 16-byte struct, same shape as NodeExprStrLit, so a
-         // STR VReg keeps meaning "address of the {ptr,len} struct".
          VReg len_reg = fresh(IRType::I64);
          emit(IRInstruction(IROp::CallResult, len_reg));
 

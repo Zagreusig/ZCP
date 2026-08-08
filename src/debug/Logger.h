@@ -93,8 +93,7 @@ public:
    void set_tokens(std::string s)         { m_tokens_dump = s; }
    void set_ast(std::string s)            { m_ast_dump    = s; }
    void set_ir_mod(std::string s)         { m_ir_dump     = s; }
-   void set_orig_asm(std::string s)       { m_orig_asm    = s; }
-   void set_opt_asm(const std::string s)  { m_opt_asm     = s; }
+   void set_asm(const std::string s)      { m_asm     = s; }
    void set_macros(const std::string s)   { m_macro_toks  = s; }
 
    // -- rendering --
@@ -119,7 +118,7 @@ private:
    CompPhase m_failed_phase = CompPhase::Lexing;
    CompPhase m_last_phase   = CompPhase::Lexing;
 
-   std::string m_flags, m_tokens_dump, m_macro_toks, m_raw_tokens, m_ast_dump, m_ir_dump, m_orig_asm, m_opt_asm;
+   std::string m_flags, m_tokens_dump, m_macro_toks, m_raw_tokens, m_ast_dump, m_ir_dump, m_asm;
 };
 
 // ============================================================================
