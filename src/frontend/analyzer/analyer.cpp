@@ -519,7 +519,8 @@ std::optional<TypeInfo> Analyzer::lookup(const std::string& ident) {
 bool Analyzer::types_match(TypeInfo t1, TypeInfo t2) {
    return t1.base == t2.base && ((t1.is_array == t2.is_array &&
           t1.array_len == t2.array_len) || t1.is_ptr == t2.is_ptr ||
-          t1.is_signed == t2.is_signed);
+          t1.is_signed == t2.is_signed || 
+          (t1.struct_layout && t2.struct_layout && t1.struct_layout == t2.struct_layout));
 }
 
 

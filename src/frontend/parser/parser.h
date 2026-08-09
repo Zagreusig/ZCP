@@ -84,9 +84,17 @@ private:
    void synchronize();
    void fail(const std::string& msg);
 
+
+   bool declared_obj(const std::string& ident);
+   void decl_obj(const std::string& ident, const TypeInfo& info);
+   std::optional<TypeInfo> get_obj_info(const std::string& ident);
+
+
    const std::vector<Token> m_tokens;
    size_t m_index = 0;
    
+   std::unordered_map<std::string, TypeInfo> m_obj_decls;
+
    std::string m_file_name;
    Compiler& m_compiler;
 };

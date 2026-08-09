@@ -28,7 +28,8 @@ const std::unordered_map<std::string, TokenType> KEYWORDS = {
    { "global", TokenType::GLOBAL }, { "const", TokenType::CONST },
    { "true", TokenType::TRUE }, { "false", TokenType::FALSE },
    { "struct", TokenType::UDEF_STRUCT }, { "class", TokenType::UDEF_CLASS },
-   { "skeleton", TokenType::UDEF_STRUCT }
+   { "skeleton", TokenType::UDEF_STRUCT },
+   { "new", TokenType::NEW }, /** DELETE:, WEN:, DEALLOC:, FREE: */
 };
 
 

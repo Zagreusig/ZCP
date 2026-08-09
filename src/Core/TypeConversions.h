@@ -30,15 +30,16 @@ namespace Symbols {
    inline DataType token_to_datatype(TokenType t) {
       switch (t) {
          case TokenType::INT:
-         case TokenType::INT_LIT:  return DataType::INT;
+         case TokenType::INT_LIT:     return DataType::INT;
          case TokenType::CHAR:
-         case TokenType::CHAR_LIT: return DataType::CHAR;
+         case TokenType::CHAR_LIT:    return DataType::CHAR;
          case TokenType::STR:
-         case TokenType::STR_LIT:  return DataType::STR;
+         case TokenType::STR_LIT:     return DataType::STR;
          case TokenType::BOOL:     
          case TokenType::FALSE:
-         case TokenType::TRUE:     return DataType::BOOL;
-         default:                  return DataType::NONE;
+         case TokenType::TRUE:        return DataType::BOOL;
+         case TokenType::UDEF_STRUCT: return DataType::STRUCT;
+         default:                     return DataType::NONE;
       }
    }
 

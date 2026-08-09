@@ -6,6 +6,6 @@ fn main() -> int {
    print("C:");
    println(true);
    print("D:");
-   println("hello");
+   println("Hellaur Honi");
    return 0;
 }

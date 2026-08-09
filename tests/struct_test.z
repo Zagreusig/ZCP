@@ -5,7 +5,7 @@ struct MyStruct {
 };
 
 fn main() -> int {
-   MyStruct this_will_error;
+   have this_will_error: MyStruct;
    this_will_error.s = 5;
    this_will_error.y = 'c';
    this_will_error.z = true;

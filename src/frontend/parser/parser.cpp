@@ -78,13 +78,14 @@ std::optional<NodeStructDecl*> Parser::parse_struct_decl() {
    consume();
    /** TODO: this */
    
+   int struct_size = 0;
    while (peek().has_value() && peek().value().type != TokenType::CLOSE_BRACE) {
       if (auto type = parse_typed_name(); type.has_value()) {
          NodeStructField field;
-         std::cerr << type.value().name.text() << ": " << (type.value().type.has_value() ? Symbols::datatype_to_str(type.value().type.value().base) : "null") << std::endl;
 
          if (!type.value().type.has_value()) { fail("Expected type notation for struct field."); return {}; }
-         def->vars.push_back(NodeStructField{ .decl = type.value() });
+         def->vars.push_back(NodeStructField{ .decl = type.value() , .offset = struct_size});
+         struct_size += type.value().type.value().byte_size();
          if (!try_consume(TokenType::SEMICOLON)) { fail("Expected ';' after field declaration."); return {}; }
       }
    }
@@ -151,7 +152,8 @@ bool Parser::is_init_stmt(const NodeStmt* s) {
 
 bool Parser::is_lval(const NodeExpr* x) {
    return std::holds_alternative<NodeExprIdent*>(x->variant) ||
-          std::holds_alternative<NodeExprIndex*>(x->variant);
+          std::holds_alternative<NodeExprIndex*>(x->variant) ||
+          std::holds_alternative<NodeExprField*>(x->variant);
 }
 
 

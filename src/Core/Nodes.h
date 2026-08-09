@@ -2,11 +2,15 @@
 #define NODES_H
 
 #include <optional>
+#include <string>
+#include <unordered_map>
 #include <variant>
 #include <vector>
 #include "Tokens.h"
 
 enum class DataType { NONE, INT, CHAR, STR, BOOL, FLOAT, STRUCT, CLASS };
+
+struct StructLayout; // frwrd decl
 
 struct TypeInfo {
    DataType base = DataType::NONE;
@@ -15,21 +19,14 @@ struct TypeInfo {
    bool is_array = false;
    int array_len = 0;
 
+   const StructLayout* struct_layout = nullptr;
+   std::string unresolved_name = "";
+
    // Element in bytes.
-   int element_size() const {
-      switch (base) {
-         case DataType::BOOL:
-         case DataType::CHAR: return 1;
-         case DataType::INT:  return 8;
-         default:             return 8;
-      }
-   }
+   int element_size() const;
 
    // total storage this var occupies on the stack.
-   int byte_size() const {
-      if (base == DataType::STR) return 16; // fat pointer: ptr(8) + len(8)
-      return is_array ? array_len * element_size() : element_size();
-   }
+   int byte_size() const;
 };
 
 struct TypedName { Token name; std::optional<TypeInfo> type; };
@@ -109,11 +106,16 @@ struct NodeExprUnary {
    NodeExpr* operand = nullptr;
 };
 
+struct NodeExprField {
+   NodeExpr* base = nullptr;
+   Token field;
+};
+
 struct NodeExpr {
    std::variant<NodeExprIntLit*, NodeExprCharLit*, NodeExprStrLit*, NodeExprBoolLit*,
                 NodeExprIdent*, NodeExprIndex*, NodeExprRead*,
                 NodeExprIncDec*, NodeBinExpr*, NodeExprCall*, NodeExprArrayLit*,
-                NodeExprUnary*> variant;
+                NodeExprUnary*, NodeExprField*> variant;
 
    TypeInfo resolved;
    bool is_resolved = false;
