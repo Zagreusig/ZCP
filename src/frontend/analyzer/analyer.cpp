@@ -262,7 +262,7 @@ void Analyzer::analyze_stmt(NodeStmt* s) {
          if (!types_match(target_t, rhs_t))
             m_compiler.error
             (s->ident.fileId, s->ident.line, s->ident.col,
-             "Type mismatch in assignment to '" + s->ident.text() + "'.");
+             "Type mismatch in assignment to '" + (s->ident.try_text() ? s->ident.text() : "ERR IDENT") + "'.");
       }
       
       else if constexpr (std::is_same_v<T, NodeStmtReturn>) {
@@ -329,14 +329,8 @@ void Analyzer::analyze_condition(const NodeCondition* cond) {
 }
 
 
-void Analyzer::push_scope() {
-   m_symbols.push_scope();
-}
-
-
-void Analyzer::pop_scope() {
-   m_symbols.pop_scope();
-}
+void Analyzer::push_scope() { m_symbols.push_scope(); }
+void Analyzer::pop_scope()  { m_symbols.pop_scope(); }
 
 
 void Analyzer::push_func() {
@@ -504,6 +498,14 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
          if (node->op == UnaryExprType::NOT) return TypeInfo { .base = DataType::BOOL };
          return operand_t; // NEGATE: same type as operand
       }
+
+      else if constexpr (std::is_same_v<T, NodeExprField>) {
+         TypeInfo member;
+         m_compiler.error(-1, 0, 0, "MEMBER FIELD WIP");
+         return {};
+      }
+
+      else if constexpr (std::is_same_v<T, NodeExprNew>) { m_compiler.error(-1, 0, 0, "NEW EXPR WIP"); return {}; }
       else static_assert(always_false<T>, "Unhandled node.");
    }, expr->variant);
 }
@@ -520,7 +522,7 @@ bool Analyzer::types_match(TypeInfo t1, TypeInfo t2) {
    return t1.base == t2.base && ((t1.is_array == t2.is_array &&
           t1.array_len == t2.array_len) || t1.is_ptr == t2.is_ptr ||
           t1.is_signed == t2.is_signed || 
-          (t1.struct_layout && t2.struct_layout && t1.struct_layout == t2.struct_layout));
+          (t1.struct_layout == t2.struct_layout));
 }
 
 

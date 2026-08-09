@@ -70,7 +70,9 @@ enum class LogicOp {
 enum class UnaryExprType {
    NONE,
    NOT,     // !
-   NEGATE   // -
+   NEGATE,  // -
+   ADDR_OF, // &
+   DEREF    // ->
 };
 
 enum class TokenCategory { 

@@ -35,6 +35,7 @@ private:
    int get_precidence(BinExprType op);
 
    bool is_compound_assign(const TokenType& token);
+   static bool is_primitive_type(const TokenType& token);
    static bool is_type(const TokenType& token);
    static bool valid_for_increment(const NodeStmt* statement);
    static bool is_init_stmt(const NodeStmt* statement);

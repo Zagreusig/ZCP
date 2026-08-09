@@ -119,8 +119,10 @@ namespace Symbols {
 
    inline UnaryExprType token_to_unop(TokenType t) {
       switch (t) {
-         case TokenType::OPERATOR_BANG: return UnaryExprType::NOT;
-         case TokenType::OPERATOR_DASH: return UnaryExprType::NEGATE;
+         case TokenType::OPERATOR_BANG:     return UnaryExprType::NOT;
+         case TokenType::OPERATOR_DASH:     return UnaryExprType::NEGATE;
+         case TokenType::AMPERSAND:         return UnaryExprType::ADDR_OF;
+         case TokenType::OPERATOR_ARROW:    return UnaryExprType::DEREF;
          default:                       return UnaryExprType::NONE;
       }
    }

@@ -258,6 +258,15 @@ void ASTPrinter::print_expr(const NodeExpr* expr, int depth) {
          p->m_out << pad(depth) << "Unary: " << unop_name(u->op) << "\n";
          p->print_expr(u->operand, depth + 1);
       }
+
+      void operator()(const NodeExprField* f) {
+         p->m_out << pad(depth) << "(WIP) Field: " << std::to_string(f->field.int_val()) << "\n";
+         p->print_expr(f->base, depth + 1);
+      }
+
+      void operator()(const NodeExprNew* n) {
+         p->m_out << pad(depth) << "New (wip)" << "\n";
+      }
    };
    std::visit(Visitor{ this, depth }, expr->variant);
 }

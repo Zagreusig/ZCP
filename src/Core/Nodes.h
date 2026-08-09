@@ -35,29 +35,12 @@ struct NodeExpr;
 struct NodeStmt;
 struct NodeCondition;
 
-struct NodeExprIntLit {
-   Token INT_LIT;
-};
-
-struct NodeExprCharLit {
-   Token CHAR_LIT;
-};
-
-struct NodeExprStrLit {
-   Token STR_LIT;
-};
-
-struct NodeExprBoolLit {
-   Token BOOL_LIT;
-};
-
-struct NodeExprIdent {
-   Token ident;
-};
-
-struct NodeExprArrayLit {
-   std::vector<NodeExpr*> elements;
-};
+struct NodeExprIntLit   { Token INT_LIT; };
+struct NodeExprCharLit  { Token CHAR_LIT; };
+struct NodeExprStrLit   { Token STR_LIT; };
+struct NodeExprBoolLit  { Token BOOL_LIT; };
+struct NodeExprIdent    { Token ident; };
+struct NodeExprArrayLit { std::vector<NodeExpr*> elements; };
 
 struct NodeExprIndex {
    Token ident;
@@ -111,11 +94,13 @@ struct NodeExprField {
    Token field;
 };
 
+struct NodeExprNew { Token type_name; };
+
 struct NodeExpr {
    std::variant<NodeExprIntLit*, NodeExprCharLit*, NodeExprStrLit*, NodeExprBoolLit*,
                 NodeExprIdent*, NodeExprIndex*, NodeExprRead*,
                 NodeExprIncDec*, NodeBinExpr*, NodeExprCall*, NodeExprArrayLit*,
-                NodeExprUnary*, NodeExprField*> variant;
+                NodeExprUnary*, NodeExprField*, NodeExprNew*> variant;
 
    TypeInfo resolved;
    bool is_resolved = false;
@@ -127,9 +112,7 @@ struct NodeExpr {
 
 
 
-struct NodeStmtExit {
-   NodeExpr* expr = nullptr;
-};
+struct NodeStmtExit { NodeExpr* expr = nullptr; };
 
 struct NodeStmtHave {
    TypedName decl;
@@ -145,13 +128,8 @@ struct NodeStmtAssign {
    NodeExpr* expr   = nullptr;
 };
 
-struct NodeScopeBlock {
-   std::vector<NodeStmt*> stmts;
-};
-
-struct NodeStmtScope {
-   NodeScopeBlock* scope = nullptr;
-};
+struct NodeScopeBlock { std::vector<NodeStmt*> stmts; };
+struct NodeStmtScope { NodeScopeBlock* scope = nullptr; };
 
 struct NodeStmtIf {
    NodeCondition*  condition = nullptr;
@@ -177,18 +155,14 @@ struct NodeParam {
    Token name;
 };
 
-struct NodeStmtReturn {
-   NodeExpr* expr = nullptr;
-};
+struct NodeStmtReturn { NodeExpr* expr = nullptr; };
 
 struct NodeStmtPrint {
    NodeExpr* expr = nullptr;
    bool nwln      = false;
 };
 
-struct NodeStmtExpr {
-   NodeExpr* expr = nullptr; 
-};
+struct NodeStmtExpr { NodeExpr* expr = nullptr;  };
 
 struct NodeStmt {
    std::variant<NodeStmtExit*, NodeStmtExpr*, NodeStmtHave*, NodeScopeBlock*, NodeStmtIf*, 

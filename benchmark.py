@@ -117,7 +117,7 @@ def main():
         sys.exit(1)
 
     # Preserve a sensible phase order if these names appear; unknown phases appended after.
-    preferred = ["Lexing", "Preprocessing", "Parsing", "Analysis", "CodeGen", "Optimization"]
+    preferred = ["Lexing", "Preprocessing", "Parsing", "Analysis", "Lowering", "CodeGen"]
     ordered = [p for p in preferred if p in samples] + \
               [p for p in samples if p not in preferred]
 

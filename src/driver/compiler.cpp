@@ -9,7 +9,7 @@
 #include "frontend/preprocessor/preprocessor.h"
 #include "frontend/parser/parser.h"
 #include "frontend/analyzer/analyer.h"
-#include "backend/codegen/generation.h"
+
 #include "backend/codegen/backend.h"
 #include "IR/Lowerer.h"
 #include "Core/IRDefs.h"
@@ -126,11 +126,10 @@ IRModule Compiler::IR() {
 }
 
 
+/** TODO: update to use new Backend::class */
 std::string Compiler::generate() {
    mark_phase(CompPhase::CodeGen);
    ScopedPhaseTimer t(m_logger, CompPhase::CodeGen);
-   ASMGenerator generator(*this, *m_program);
-   return generator.build();
 }
 
 

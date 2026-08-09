@@ -107,9 +107,14 @@ bool Parser::is_next(TokenType type, int offset) {
 }
 
 
-bool Parser::is_type(const TokenType& t) {
+bool Parser::is_primitive_type(const TokenType& t) {
    return t == TokenType::INT || t == TokenType::CHAR ||
           t == TokenType::STR || t == TokenType::BOOL /* || t == TokenType::FLOAT */;
+}
+
+
+bool Parser::is_type(const TokenType& t) {
+   return is_primitive_type(t); /** TEMP: */
 }
 
 
@@ -160,7 +165,12 @@ bool Parser::is_lval(const NodeExpr* x) {
 std::optional<TypeInfo> Parser::parse_type() {
    TypeInfo info;
    DataType base = Symbols::token_to_datatype(peek().has_value() ? peek().value().type : TokenType::NONE);
-   if (base == DataType::NONE) { fail("Expected a type."); return {}; }
+   if (peek().has_value() && peek().value().type == TokenType::IDENTIFIER) { 
+      base = DataType::STRUCT;
+      info.unresolved_name = peek().value().text();
+      std::cerr << "Struct!" << std::endl; 
+   }
+   else if (base == DataType::NONE) { fail("Expected a type."); return {}; }
    consume(); // type tok
    info.base = base;
 
@@ -332,7 +342,7 @@ std::optional<NodeExpr*> Parser::parse_ident_expr() {
    }
 
    if (is_next(TokenType::FULL_STOP)) { // ident.member ( eventually ident->member )
-      consume();
+      consume(); // .
       return parse_member_access(id);
    }
 
@@ -913,13 +923,13 @@ NodeTypeDecl* Parser::wrap_type(auto* node) {
    return type;
 }
 
+// foo.x = 5;
+std::optional<NodeExpr*> Parser::parse_member_access(Token identifier) {
+   // Log::error(CompPhase::Parsing, "No struct member access implemented.");
+   // return {};
 
-std::optional<NodeExpr*> Parser::parse_member_access(Token token) {
-   Log::error(CompPhase::Parsing, "No struct member access implemented.");
-   return {};
-   /**
-   * ident.field = 4;
-   *
-   * NodeExpr -> assign -> ????
-   */
+   NodeExprField* field = m_compiler.allocator.alloc<NodeExprField>();
+   if (is_next(TokenType::FULL_STOP)) consume(); // just in case
+   if (is_next(TokenType::IDENTIFIER)) field->field = consume();
+   return wrap_expr(field);
 }

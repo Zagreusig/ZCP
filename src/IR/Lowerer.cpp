@@ -469,6 +469,8 @@ VReg Lowerer::lower_expr(const NodeExpr* expr) {
          }
          return dest;
       }
+      else if constexpr (std::is_same_v<T, NodeExprField>) { return {}; }
+      else if constexpr (std::is_same_v<T, NodeExprNew>) { return {}; }
       else
          return VReg{};
       // NodeExprArrayLit: deferred.
