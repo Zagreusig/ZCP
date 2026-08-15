@@ -58,6 +58,11 @@ void IRPrinter::print_block(const IRBasicBlock& block) {
 }
 
 
+bool IRPrinter::operatorless(IROp op) {
+   return op == IROp::Alloca || op == IROp::CallResult || op == IROp::Exit || op == IROp::Ret; // Ret is optional
+}
+
+
 void IRPrinter::print_instruction(const IRInstruction& instruction) {
    m_out << "   ";
 
@@ -65,6 +70,9 @@ void IRPrinter::print_instruction(const IRInstruction& instruction) {
    if (instruction.dest.valid())
       m_out << reg(instruction.dest) << " = ";
    
+   if (instruction.operands.empty() && !operatorless(instruction.op)) { m_out << "NO OPERANDS IN INSTRUCTION OF TYPE: " << ir_op_str(instruction.op) << std::endl; }
+   else
+   /** This switch stmt */
    switch (instruction.op) {
       case IROp::Const:
          m_out << "const " << ir_type_str(instruction.dest.type) << " " << instruction.operands[0].const_int;
@@ -78,6 +86,7 @@ void IRPrinter::print_instruction(const IRInstruction& instruction) {
       case IROp::CmpEq: case IROp::CmpNe: case IROp::CmpLt:
       case IROp::CmpLe: case IROp::CmpGe: case IROp::CmpGt:
       case IROp::And: case IROp::Or:
+         if (instruction.operands.size() < 2) { m_out << "Missing operand for BinExpr / CmpExpr instruction.\n"; return; }
          m_out << ir_op_str(instruction.op) << " " << ir_type_str(instruction.dest.type) << " "
                << operand(instruction.operands[0]) << ", " << operand(instruction.operands[1]);
          break;
@@ -95,10 +104,12 @@ void IRPrinter::print_instruction(const IRInstruction& instruction) {
          break;
       
       case IROp::Store:
+         if (instruction.operands.size() < 2) { m_out << "Missing operand for store instruction.\n"; return; }
          m_out << "store " << operand(instruction.operands[1]) << " -> " << operand(instruction.operands[0]);
          break;
       
       case IROp::GetElemPtr:
+         if (instruction.operands.size() < 2) { m_out << "Missing operand for getelemptr instruction.\n"; return; }
          m_out << "getelemptr " << operand(instruction.operands[0])
                << "[" << operand(instruction.operands[1]) << " * " << instruction.imm << "]";
             break;
@@ -117,8 +128,8 @@ void IRPrinter::print_instruction(const IRInstruction& instruction) {
 
       case IROp::CondBr:
          m_out << "condbr " << operand(instruction.operands[0])
-               << " ? " << operand(instruction.operands[1])
-               << " : " << operand(instruction.operands[2]);
+               << " ? " << ((instruction.operands.size() > 1) ? operand(instruction.operands[1]) : "NULL OPERAND 1")
+               << " : " << (instruction.operands.size() > 2 ? operand(instruction.operands[2]) : "NULL OPERAND 2");
          break;
 
       case IROp::Ret:

@@ -1,11 +1,13 @@
 #include "analyer.h"
 
 #include <stddef.h>
+#include <source_location>
 #include <type_traits>
 #include <variant>
 
 #include "driver/compiler.h"
 #include "Core/TypeConversions.h"
+#include "Core/ErrorHandler.h"
 #include "utils/msc.h"
 #include "Nodes.h"
 #include "Layout.h"
@@ -262,7 +264,7 @@ void Analyzer::analyze_stmt(NodeStmt* s) {
          if (!types_match(target_t, rhs_t))
             m_compiler.error
             (s->ident.fileId, s->ident.line, s->ident.col,
-             "Type mismatch in assignment to '" + (s->ident.try_text() ? s->ident.text() : "ERR IDENT") + "'.");
+             "Type mismatch in assignment to '" + s->ident.text() + "'.");
       }
       
       else if constexpr (std::is_same_v<T, NodeStmtReturn>) {
@@ -376,7 +378,7 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
    return std::visit([this](auto* node) -> TypeInfo {
       using T = std::decay_t<decltype(*node)>;
 
-      if constexpr (std::is_same_v<T, NodeExprIntLit>)
+      if constexpr      (std::is_same_v<T, NodeExprIntLit>)
          return TypeInfo { .base = DataType::INT };
       
       else if constexpr (std::is_same_v<T, NodeExprCharLit>)
@@ -501,12 +503,14 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
 
       else if constexpr (std::is_same_v<T, NodeExprField>) {
          TypeInfo member;
+         if (auto info = lookup(node->field.text()); info.has_value()) member = info.value();
+         else { m_compiler.error(node->field.fileId, node->field.line, node->field.col, "Unknown field '" + node->field.text() + "'."); return {}; }
          m_compiler.error(-1, 0, 0, "MEMBER FIELD WIP");
          return {};
       }
 
       else if constexpr (std::is_same_v<T, NodeExprNew>) { m_compiler.error(-1, 0, 0, "NEW EXPR WIP"); return {}; }
-      else static_assert(always_false<T>, "Unhandled node.");
+      else variant_get<T>(node, std::source_location::current());
    }, expr->variant);
 }
 
@@ -519,10 +523,10 @@ std::optional<TypeInfo> Analyzer::lookup(const std::string& ident) {
 
 
 bool Analyzer::types_match(TypeInfo t1, TypeInfo t2) {
-   return t1.base == t2.base && ((t1.is_array == t2.is_array &&
-          t1.array_len == t2.array_len) || t1.is_ptr == t2.is_ptr ||
-          t1.is_signed == t2.is_signed || 
-          (t1.struct_layout == t2.struct_layout));
+   return t1.base == t2.base && t1.is_array == t2.is_array &&
+          t1.array_len == t2.array_len && t1.is_ptr == t2.is_ptr &&
+          t1.is_signed == t2.is_signed && 
+          t1.struct_layout == t2.struct_layout;
 }
 
 
@@ -573,4 +577,15 @@ void Analyzer::mark_in_prog(const FunctionSymbol& function) {
 void Analyzer::finished_function() {
    m_analyzed.push_back(m_in_prog.back());
    m_in_prog.pop_back();
+}
+
+
+void Analyzer::resolve_struct_type(TypeInfo& info, Token at) {
+   if (info.base != DataType::STRUCT || info.struct_layout) return; // already resolved
+   
+   const Symbol* sym = m_symbols.lookup(info.unresolved_name);
+   if (!sym || !sym->is_type())
+      m_compiler.error(at.fileId, at.line, at.col, "Unknown type '" + info.unresolved_name + "'.");
+   else
+      info.struct_layout = &sym->as_type().layout;
 }

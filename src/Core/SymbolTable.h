@@ -2,9 +2,11 @@
 #define SYMBOLTABLE_H
 
 #include <string>
+#include <source_location>
 #include <unordered_map>
 #include <variant>
 #include <vector>
+#include "ErrorHandler.h"
 #include "Tokens.h"
 #include "Nodes.h"
 #include "Layout.h"
@@ -39,9 +41,12 @@ struct Symbol {
    bool is_function() const { return std::holds_alternative<FunctionSymbol>(info); }
    bool is_type()     const { return std::holds_alternative<TypeSymbol>(info); }
 
-   const FunctionSymbol& as_function() const { return std::get<FunctionSymbol>(info); }
-   const VariableSymbol& as_variable() const { return std::get<VariableSymbol>(info); }
-   const TypeSymbol&     as_type()     const { return std::get<TypeSymbol>(info); }
+   // const FunctionSymbol& as_function() const { return std::get<FunctionSymbol>(info); }
+   // const VariableSymbol& as_variable() const { return std::get<VariableSymbol>(info); }
+   // const TypeSymbol&     as_type()     const { return std::get<TypeSymbol>(info); }
+   const FunctionSymbol& as_function(std::source_location loc = std::source_location::current()) const { return variant_get<FunctionSymbol>(info, loc); }
+   const VariableSymbol& as_variable(std::source_location loc = std::source_location::current()) const { return variant_get<VariableSymbol>(info, loc); }
+   const TypeSymbol&     as_type(std::source_location loc = std::source_location::current())     const { return variant_get<TypeSymbol>(info, loc); }
 };
 
 

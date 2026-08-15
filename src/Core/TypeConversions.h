@@ -122,8 +122,8 @@ namespace Symbols {
          case TokenType::OPERATOR_BANG:     return UnaryExprType::NOT;
          case TokenType::OPERATOR_DASH:     return UnaryExprType::NEGATE;
          case TokenType::AMPERSAND:         return UnaryExprType::ADDR_OF;
-         case TokenType::OPERATOR_ARROW:    return UnaryExprType::DEREF;
-         default:                       return UnaryExprType::NONE;
+         case TokenType::OPERATOR_ASTERISK: return UnaryExprType::DEREF;
+         default:                           return UnaryExprType::NONE;
       }
    }
 

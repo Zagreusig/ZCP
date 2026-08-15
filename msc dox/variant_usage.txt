@@ -1,0 +1,10 @@
+Keeping track of where I use the std::variants so that I can update them when adding a new variant.
+
+
+Analyzer
+Lowerer
+
+/ ------------------ /
+
+ASTPrinter
+IRDebug

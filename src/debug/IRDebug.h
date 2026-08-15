@@ -38,6 +38,8 @@ private:
 
    void print_block(const IRBasicBlock& block);
    void print_instruction(const IRInstruction& instruction);
+
+   bool operatorless(IROp op);
 };
 
 #endif // IRDEBUG_H

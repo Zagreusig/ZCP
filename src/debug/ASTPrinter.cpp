@@ -114,6 +114,7 @@ void ASTPrinter::print_scope(const NodeScopeBlock* scope, int depth) {
 }
 
 void ASTPrinter::print_stmt(const NodeStmt* stmt, int depth) {
+   if (stmt == nullptr) { m_out << pad(depth) << "<null stmt>\n"; return; }
    struct Visitor {
       ASTPrinter* p;
       int depth;
@@ -260,7 +261,7 @@ void ASTPrinter::print_expr(const NodeExpr* expr, int depth) {
       }
 
       void operator()(const NodeExprField* f) {
-         p->m_out << pad(depth) << "(WIP) Field: " << std::to_string(f->field.int_val()) << "\n";
+         p->m_out << pad(depth) << "(WIP) Field: " << f->field.text() << "\n";
          p->print_expr(f->base, depth + 1);
       }
 

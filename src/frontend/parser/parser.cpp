@@ -168,7 +168,6 @@ std::optional<TypeInfo> Parser::parse_type() {
    if (peek().has_value() && peek().value().type == TokenType::IDENTIFIER) { 
       base = DataType::STRUCT;
       info.unresolved_name = peek().value().text();
-      std::cerr << "Struct!" << std::endl; 
    }
    else if (base == DataType::NONE) { fail("Expected a type."); return {}; }
    consume(); // type tok
@@ -598,6 +597,8 @@ std::optional<NodeStmt*> Parser::finish_assign(NodeExpr* target) {
       assign->ident = (*id)->ident;
    else if (auto* idx = std::get_if<NodeExprIndex*>(&target->variant))
       assign->ident = (*idx)->ident;
+   else if (auto* fld = std::get_if<NodeExprField*>(&target->variant))
+      assign->ident = (*fld)->field;
 
    NodeStmt* stmt = m_compiler.allocator.alloc<NodeStmt>();
    stmt->variant = assign;
@@ -605,22 +606,6 @@ std::optional<NodeStmt*> Parser::finish_assign(NodeExpr* target) {
 }
 
 
-/*
-      x += 5;
-      x = x + 5;
-      ident, assign, binexpr
-   
-      IDENTIFIER OPERATOR_ADD_EQ INT_LIT SEMICOLON
-      
-      Assignment -> needs Ident & expr
-      wrap ident in NodeExprIdent
-      expr -> BinExpr
-
-      BinExpr -> needs operation, left & right NodeExpr
-      operation -> set from translated compound type
-      lhs -> the identifier Node (for its value), wrapped in NodeExpr
-      rhs -> the other value (such as INT_LIT) (which should also be NodeExpr)
-   */
 std::optional<NodeStmt*> Parser::parse_cmpd_assign() {
    Token ident = consume(); // Identifier
    TokenType optok = consume().type; // Operation + - / *
@@ -925,11 +910,12 @@ NodeTypeDecl* Parser::wrap_type(auto* node) {
 
 // foo.x = 5;
 std::optional<NodeExpr*> Parser::parse_member_access(Token identifier) {
-   // Log::error(CompPhase::Parsing, "No struct member access implemented.");
-   // return {};
-
    NodeExprField* field = m_compiler.allocator.alloc<NodeExprField>();
    if (is_next(TokenType::FULL_STOP)) consume(); // just in case
    if (is_next(TokenType::IDENTIFIER)) field->field = consume();
+   
+   NodeExprIdent* ident = m_compiler.allocator.alloc<NodeExprIdent>();
+   ident->ident = identifier; field->base = wrap_expr(ident);
+   
    return wrap_expr(field);
 }

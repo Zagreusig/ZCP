@@ -42,11 +42,11 @@ public:
 
    Flags              _flags = Flags::NONE;
    std::string        m_asm_out;
-
    std::string        m_macros;
 
    std::vector<Token>      m_tokens;
    std::optional<NodeProg> m_program;
+   IRModule                m_module;
 
    Options compiler_opts;
    Logger  m_logger;

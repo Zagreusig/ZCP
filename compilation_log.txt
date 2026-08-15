@@ -1,0 +1,110 @@
+=== COMPILATION LOG ===
+
+Analysis:    [ERROR] MEMBER FIELD WIP
+Analysis:    [ERROR] Type mismatch in assignment to 's'.  tests/struct_test.z:9:20
+Analysis:    [ERROR] MEMBER FIELD WIP
+Analysis:    [ERROR] Type mismatch in assignment to 'y'.  tests/struct_test.z:10:20
+Analysis:    [ERROR] MEMBER FIELD WIP
+Analysis:    [ERROR] Type mismatch in assignment to 'z'.  tests/struct_test.z:11:20
+
+Failed on phase: "Analysis"
+
+------------------------------------------------------------------------
+
+FLAGS
+
+DEBUG 
+
+
+------------------------------------------------------------------------
+
+MACRO TOKENS
+
+Number of macros: 0
+
+
+------------------------------------------------------------------------
+
+TOKENS
+
+{struct, tests/struct_test.z:1:1}
+{identifier, MyStruct, tests/struct_test.z:1:8}
+{{, tests/struct_test.z:1:17}
+{identifier, s, tests/struct_test.z:2:4}
+{:, tests/struct_test.z:2:5}
+{int, tests/struct_test.z:2:7}
+{;, tests/struct_test.z:2:10}
+{identifier, y, tests/struct_test.z:3:4}
+{:, tests/struct_test.z:3:5}
+{char, tests/struct_test.z:3:7}
+{;, tests/struct_test.z:3:11}
+{identifier, z, tests/struct_test.z:4:4}
+{:, tests/struct_test.z:4:5}
+{bool, tests/struct_test.z:4:7}
+{;, tests/struct_test.z:4:11}
+{}, tests/struct_test.z:5:1}
+{;, tests/struct_test.z:5:2}
+{func, tests/struct_test.z:7:1}
+{identifier, main, tests/struct_test.z:7:4}
+{(, tests/struct_test.z:7:8}
+{), tests/struct_test.z:7:9}
+{->, tests/struct_test.z:7:11}
+{int, tests/struct_test.z:7:14}
+{{, tests/struct_test.z:7:18}
+{have, tests/struct_test.z:8:4}
+{identifier, this_will_error, tests/struct_test.z:8:9}
+{:, tests/struct_test.z:8:24}
+{identifier, MyStruct, tests/struct_test.z:8:26}
+{;, tests/struct_test.z:8:34}
+{identifier, this_will_error, tests/struct_test.z:9:4}
+{., tests/struct_test.z:9:19}
+{identifier, s, tests/struct_test.z:9:20}
+{=, tests/struct_test.z:9:22}
+{int_lit, 5, tests/struct_test.z:9:24}
+{;, tests/struct_test.z:9:25}
+{identifier, this_will_error, tests/struct_test.z:10:4}
+{., tests/struct_test.z:10:19}
+{identifier, y, tests/struct_test.z:10:20}
+{=, tests/struct_test.z:10:22}
+{char_lit, 99, tests/struct_test.z:10:24}
+{;, tests/struct_test.z:10:27}
+{identifier, this_will_error, tests/struct_test.z:11:4}
+{., tests/struct_test.z:11:19}
+{identifier, z, tests/struct_test.z:11:20}
+{=, tests/struct_test.z:11:22}
+{true, tests/struct_test.z:11:24}
+{;, tests/struct_test.z:11:28}
+{}, tests/struct_test.z:12:1}
+
+
+------------------------------------------------------------------------
+
+AST
+
+Program
+  Struct: MyStruct
+    s: INT offset: 0
+    y: CHAR offset: 8
+    z: BOOL offset: 9
+  Function: main -> int
+    Body:
+      Have: this_will_error        <null>
+      Assign: s
+        IntLit: 5
+      Assign: y
+        CharLit: c
+      Assign: z
+        BoolLit: true
+
+
+------------------------------------------------------------------------
+
+TIME PER PHASE
+
+  Lexing:       30.555 us
+  Preprocessing:2.828 us
+  Parsing:      19.838 us
+  Analysis:     13.149 us
+
+ Total:         66.370 us
+

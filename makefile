@@ -14,6 +14,7 @@ SRC_DIRS := ./src
 
 SRCS := $(shell find $(SRC_DIRS) -name '*.cpp')
 OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
+SELFTEST_OBJS := $(filter-out $(BUILD_DIR)/./src/main.cpp.o,$(OBJS)) $(BUILD_DIR)/tests/selftest/selftest.cpp.o
 DEPS := $(OBJS:.o=.d)
 
 INC_DIRS := $(shell find $(SRC_DIRS) -type d)
@@ -28,7 +29,8 @@ else
 endif
 
 
-.PHONY: all live clean deldir rmExecs rmFiles run test
+
+.PHONY: all live clean deldir rmExecs rmFiles run test selftest
 
 all: live
 
@@ -131,6 +133,9 @@ val:
 test:
 	@./$(TARGET_EXEC) -d ./tests/test.z
 	@./out
+
+selftest: $(SELFTEST_OBJS)
+	@$(CXX) $(SELFTEST_OBJS) -o zcp-selftest $(LDFLAGS)
 
 benchmark:
 	@python3 benchmark.py --runs 20 --cmd "./zcp-dev -d tests/test.z" --log compilation_log.txt

@@ -34,8 +34,9 @@ private:
    TypeInfo compute_type_of(const NodeExpr*); // resolving expression types
 
    TypeInfo find_ret_type(NodeFunction*);
-   TypeInfo find_ret_type(NodeStmt*);
    TypeInfo find_ret_type(NodeScopeBlock*);
+
+   void resolve_struct_type(TypeInfo& info, Token at);
 
    void push_scope();
    void pop_scope();

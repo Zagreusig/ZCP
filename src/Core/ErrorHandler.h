@@ -1,10 +1,15 @@
 #ifndef ERRORHANDLER_H
 #define ERRORHANDLER_H
 
+#include <cxxabi.h>
+#include <cstdlib>
+#include <memory>
+#include <source_location>
 #include <stddef.h>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
 #include "utils/phase.h"
@@ -70,6 +75,36 @@ private:
 
    Logger* m_log = nullptr;
 };
+
+
+/**
+* This helps with debugging variant visits & gets :D
+* because seing "'what()': std::bad_variant_access" is pmo
+*/
+struct BadVariantAccess : std::runtime_error {
+   BadVariantAccess(const char* expected, size_t held_index, std::source_location loc)
+      : std::runtime_error(build_msg(expected, held_index, loc)) {}
+
+      private:
+   inline std::string build_msg(const char* expected, size_t held_index, std::source_location loc) {
+      return "\nbad variant access: expected " + demangle(expected) +
+             ", held index " + std::to_string(held_index) +
+             ", at " + loc.file_name() + ":" + std::to_string(loc.line()) +
+             " in " + loc.function_name();
+   }
+   std::string demangle(const char* mangled) const {
+      int status = 0;
+      std::unique_ptr<char, decltype(&std::free)> buf (
+         abi::__cxa_demangle(mangled, nullptr, nullptr, &status), std::free);
+      return (status == 0) ? std::string(buf.get()) : std::string(mangled);
+   }
+};
+
+template<typename T, typename Variant>
+decltype(auto) variant_get(const Variant& v, std::source_location loc = std::source_location::current()) {
+   if (auto* p = std::get_if<T>(&v)) return *p;
+   throw BadVariantAccess(typeid(T).name(), v.index(), loc);
+}
 
 
 #endif // ERRORHANDLER_H

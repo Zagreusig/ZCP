@@ -72,7 +72,7 @@ enum class UnaryExprType {
    NOT,     // !
    NEGATE,  // -
    ADDR_OF, // &
-   DEREF    // ->
+   DEREF    // *
 };
 
 enum class TokenCategory { 

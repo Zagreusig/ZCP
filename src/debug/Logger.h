@@ -103,6 +103,8 @@ public:
    // Convinience: open path & flush it. Return false on open failure.
    bool flush_to_file(const std::string& path) const;
 
+   CompPhase phase() { return m_last_phase; }
+
 private:
    bool m_enabled = false;
 

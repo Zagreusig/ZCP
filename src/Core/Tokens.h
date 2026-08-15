@@ -2,9 +2,11 @@
 #define TOKENS_H
 
 #include "TokenTable.h"
+#include "ErrorHandler.h"
 
 #include <iostream>
 #include <cstdint>
+#include <source_location>
 #include <stdexcept>
 #include <string>
 #include <variant>
@@ -56,12 +58,18 @@ struct Token {
    bool is_text() const   { return std::holds_alternative<std::string>(value); }
    bool is_bool() const   { return std::holds_alternative<bool>(value); }
 
-   int64_t int_val()  const  { return std::get<int64_t>(value); }
-   char    char_val() const  { return std::get<char>(value); }
-   bool    bool_val() const  { return std::get<bool>(value); }
+   // int64_t int_val()  const  { return std::get<int64_t>(value); }
+   // char    char_val() const  { return std::get<char>(value); }
+   // bool    bool_val() const  { return std::get<bool>(value); }
+
+   int64_t int_val (std::source_location loc = std::source_location::current()) const { return variant_get<int64_t>(value, loc); }
+   char    char_val(std::source_location loc = std::source_location::current()) const { return variant_get<char>(value, loc); }
+   bool    bool_val(std::source_location loc = std::source_location::current()) const { return variant_get<bool>(value, loc); }
 
    // Returns a reference to avoid copying the string.
-   const std::string& text()     const { return std::get<std::string>(value); }
+   // const std::string& text()     const { return std::get<std::string>(value); }
+   const std::string& text(std::source_location loc = std::source_location::current()) 
+      const { return variant_get<std::string>(value, loc); }
 
    // Non-throwing variants: return nullptr if payload isn't that type.
    const int64_t*     try_int()  const { return std::get_if<int64_t>(&value); }

@@ -29,54 +29,51 @@
 int Compiler::run() {
    Log::set_sink(&m_logger);
    struct SinkGuard { ~SinkGuard() { Log::set_sink(nullptr); } } guard; // clears on throw
-   if (isFlagPrintingEnabled()) do_flags();
+   try {
+      if (isFlagPrintingEnabled()) do_flags();
 
-   m_tokens = lex();
-   if (isRawTokensEnabled()) {
-      // std::string temp = "Lexed " + m_tokens.size();
-      // Log::info(CompPhase::Lexing, temp + " tokens");
-      do_tokens(m_tokens);
+      m_tokens = lex();
+      if (isRawTokensEnabled()) {
+         do_tokens(m_tokens);
+      }
+      if (errors(source_text)) return exit_code(CompPhase::Lexing);
+
+      m_tokens = preprocess();
+      if (isTokenPrintingEnabled()) {
+         do_tokens(m_tokens);
+      }
+      if (errors(source_text)) return exit_code(CompPhase::Preprocessing);
+
+      m_program = parse();
+      if (isASTPrintingEnabled() && m_program) { 
+         do_ast(*m_program);
+      }
+      if (errors(source_text)) return exit_code(CompPhase::Parsing);
+      analyze();
+
+      if (errors(source_text)) return exit_code(CompPhase::Analysis);
+
+      m_module = IR();
+      
+      if (isLoggingEnabled()) {
+         std::ostringstream out;
+         IRPrinter printer(out);
+         printer.print(m_module);
+         m_logger.set_ir_mod(out.str());
+      }
+
+      m_asm_out = generate();
+      write_files();
+
+      syscalls(make_syscall_options());
+
+      if (err_code != 0)
+         std::cerr << "ERR: " << (err_code == 1 ? "nasm " : "ld ") << "failed.\n";
+      return err_code;
+   } catch (const std::exception& e) {
+      std::cerr << "Internal compiler error in phase " << phase_str(m_logger.phase()) << ": " << e.what() << std::endl;
+      return -1;
    }
-   if (errors(source_text)) return exit_code(CompPhase::Lexing);
-
-   m_tokens = preprocess();
-   if (isTokenPrintingEnabled()) {
-      // std::string temp = "Preprocessor token vector size: " + m_tokens.size();
-      // Log::info(CompPhase::Preprocessing, temp + " tokens");
-      do_tokens(m_tokens);
-   }
-   if (errors(source_text)) return exit_code(CompPhase::Preprocessing);
-
-   m_program = parse();
-   if (isASTPrintingEnabled() && m_program) do_ast(*m_program);
-   if (errors(source_text)) return exit_code(CompPhase::Parsing);
-
-   analyze();
-   if (errors(source_text)) return exit_code(CompPhase::Analysis);
-
-   m_logger.mark_phase(CompPhase::Lowering);
-   IRModule mod = IR();
-
-   if (isLoggingEnabled()) {
-      std::ostringstream out;
-      IRPrinter printer(out);
-      printer.print(mod);
-      m_logger.set_ir_mod(out.str());
-   }
-
-   m_logger.mark_phase(CompPhase::CodeGen);
-   {
-      ScopedPhaseTimer t(m_logger, CompPhase::CodeGen);
-      Backend generator;
-      m_asm_out = generator.generate(mod);
-   }
-   write_files();
-
-   syscalls(make_syscall_options());
-
-   if (err_code != 0)
-      std::cerr << "ERR: " << (err_code == 1 ? "nasm " : "ld ") << "failed.\n";
-   return err_code;
 }
 
 
@@ -130,6 +127,8 @@ IRModule Compiler::IR() {
 std::string Compiler::generate() {
    mark_phase(CompPhase::CodeGen);
    ScopedPhaseTimer t(m_logger, CompPhase::CodeGen);
+   Backend generator;
+   return generator.generate(m_module);
 }
 
 
