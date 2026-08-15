@@ -114,7 +114,6 @@ void test_nodes() {
    try {
       auto* n = A.alloc<NodeExprField>();
       n->base       = wrap_expr(build_ident("obj"));
-      n->identifier = tok::make_ident("obj",0,0,0);
       n->field      = tok::make_ident("member",0,0,0);
       std::string out = print_one_expr(wrap_expr(n));
       CHECK(!out.empty(), "NodeExprField failed.");

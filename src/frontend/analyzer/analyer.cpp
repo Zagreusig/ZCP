@@ -8,7 +8,6 @@
 #include "driver/compiler.h"
 #include "Core/TypeConversions.h"
 #include "Core/ErrorHandler.h"
-#include "utils/msc.h"
 #include "Nodes.h"
 #include "Layout.h"
 #include "SymbolTable.h"
@@ -264,7 +263,8 @@ void Analyzer::analyze_stmt(NodeStmt* s) {
          if (!types_match(target_t, rhs_t))
             m_compiler.error
             (s->ident.fileId, s->ident.line, s->ident.col,
-             "Type mismatch in assignment to '" + s->ident.text() + "'.");
+             "Type mismatch in assignment to '" + s->ident.text() + "'. Expected " + 
+             Symbols::datatype_to_str(target_t.base) + ", was given " + Symbols::datatype_to_str(rhs_t.base) + ".");
       }
       
       else if constexpr (std::is_same_v<T, NodeStmtReturn>) {
@@ -502,14 +502,25 @@ TypeInfo Analyzer::compute_type_of(const NodeExpr* expr) {
       }
 
       else if constexpr (std::is_same_v<T, NodeExprField>) {
-         TypeInfo member;
-         if (auto info = lookup(node->field.text()); info.has_value()) member = info.value();
-         else { m_compiler.error(node->field.fileId, node->field.line, node->field.col, "Unknown field '" + node->field.text() + "'."); return {}; }
-         m_compiler.error(-1, 0, 0, "MEMBER FIELD WIP");
-         return {};
+         auto base_t = type_of(node->base);
+         if (base_t.base != DataType::STRUCT) 
+            { m_compiler.error(node->field.fileId, node->field.line, node->field.col, "Type has no member fields."); return {}; }
+
+         if (!base_t.struct_layout) { return {}; } /** TODO: edit this */
+         const auto* layout = base_t.struct_layout;
+         auto field = layout->field(node->field.text());
+
+         if (!field) {
+            m_compiler.error(node->field.fileId, node->field.line, node->field.col, "Unknown field '" + node->field.text() + "'."); 
+            return {};
+         }
+
+         return field->type;  
       }
 
-      else if constexpr (std::is_same_v<T, NodeExprNew>) { m_compiler.error(-1, 0, 0, "NEW EXPR WIP"); return {}; }
+      else if constexpr (std::is_same_v<T, NodeExprNew>) { 
+         m_compiler.error(-1, 0, 0, "NEW EXPR WIP"); return {}; 
+      }
       else variant_get<T>(node, std::source_location::current());
    }, expr->variant);
 }

@@ -2,15 +2,16 @@
 #define ERRORHANDLER_H
 
 #include <cxxabi.h>
+#include <stddef.h>
 #include <cstdlib>
 #include <memory>
 #include <source_location>
-#include <stddef.h>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <variant>
 #include <vector>
+#include <typeinfo>
 
 #include "utils/phase.h"
 #include "debug/Logger.h"

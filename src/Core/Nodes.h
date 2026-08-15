@@ -6,7 +6,13 @@
 #include <unordered_map>
 #include <variant>
 #include <vector>
+
 #include "Tokens.h"
+
+enum class BinExprType;
+enum class ComparisonOp;
+enum class LogicOp;
+enum class UnaryExprType;
 
 enum class DataType { NONE, INT, CHAR, STR, BOOL, FLOAT, STRUCT, CLASS };
 

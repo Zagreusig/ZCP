@@ -12,8 +12,6 @@
 #include "TokenTable.h"
 #include "phase.h"
 
-#include <iostream>
-
 std::optional<NodeProg> Parser::parse_prog() {
    NodeProg prog;
    prog.declarations.reserve(100);
@@ -225,18 +223,16 @@ std::optional<NodeExpr*> Parser::parse_expr(int min_prec = 0) {
 
 std::optional<NodeExpr*> Parser::parse_unary() {
    UnaryExprType op = peek().has_value() ? Symbols::token_to_unop(peek().value().type) : UnaryExprType::NONE;
-   if (op != UnaryExprType::NONE) {
-      consume();
+   if (op == UnaryExprType::NONE) return parse_primary();
+   consume();
 
-      auto operand = parse_unary(); // right-assoc: !!x, -(-x) via nesting
-      if (!operand.has_value()) { fail("Expected expression after unary operator."); return {}; }
+   auto operand = parse_unary(); // right-assoc: !!x, -(-x) via nesting
+   if (!operand.has_value()) { fail("Expected expression after unary operator."); return {}; }
 
-      NodeExprUnary* u = m_compiler.allocator.alloc<NodeExprUnary>();
-      u->op = op;
-      u->operand = operand.value();
-      return wrap_expr(u);
-   }
-   return parse_primary();
+   NodeExprUnary* u = m_compiler.allocator.alloc<NodeExprUnary>();
+   u->op = op;
+   u->operand = operand.value();
+   return wrap_expr(u);
 }
 
 
@@ -908,6 +904,7 @@ NodeTypeDecl* Parser::wrap_type(auto* node) {
    return type;
 }
 
+// how do we know what 'x' 's type is ?
 // foo.x = 5;
 std::optional<NodeExpr*> Parser::parse_member_access(Token identifier) {
    NodeExprField* field = m_compiler.allocator.alloc<NodeExprField>();

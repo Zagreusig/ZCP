@@ -4,12 +4,12 @@
 #include <iostream>
 #include <optional>
 #include <sstream>
+#include <exception>
 
 #include "frontend/lexer/lexer.h"
 #include "frontend/preprocessor/preprocessor.h"
 #include "frontend/parser/parser.h"
 #include "frontend/analyzer/analyer.h"
-
 #include "backend/codegen/backend.h"
 #include "IR/Lowerer.h"
 #include "Core/IRDefs.h"
